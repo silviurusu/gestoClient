@@ -6,40 +6,11 @@ import json
 from django.core.mail import EmailMessage
 import os
 from unidecode import unidecode
+from util import *
 
 # from win32com.client import makepy
 # makepy.main ()
 # exit()
-
-
-def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGestoProblem=False):
-    email = EmailMessage(subject, msg, to=toEmails, bcc=bccEmails)
-    email.send()
-
-
-def printArray(array):
-    print ""
-    for item in array:
-        print item
-
-    print ""
-
-
-def defaultJSON(obj):
-    if isinstance(obj, Decimal):
-        return float(obj)
-    elif isinstance(obj, datetime.datetime):
-        return obj.strftime('%Y-%m-%d %H:%M:%S')
-
-
-def getTimestamp(date):
-    if isinstance(date, str):
-        date = datetime.datetime.strptime(date, '%Y-%m-%d %H:%M:%S')
-    elif not isinstance(date, datetime.datetime):
-        date = datetime.datetime.combine(date, datetime.datetime.min.time())
-
-    ret = int((date - datetime.datetime(1970, 1, 1)).total_seconds())
-    return ret
 
 
 # GESTO_IP="http://www.gesto.ro"
@@ -205,10 +176,10 @@ type = "reception"
 url = GESTO_IP+"/operations?"
 url += "&type="+type
 if startDate is not None:
-    startDate = getTimestamp(startDate)
+    startDate = util.getTimestamp(startDate)
     url += "&dateBegin="+str(startDate)
 if endDate is not None:
-    endDate = getTimestamp(endDate)
+    endDate = util.getTimestamp(endDate)
     url += "&dateEnd="+str(endDate)
 
 if idStart is not None:
@@ -227,7 +198,7 @@ if r.status_code != 200:
     print(r.text)
 else:
     retJSON = r.json()
-    # print(json.dumps(retJSON, sort_keys=True, indent=4, separators=(',', ': '), default=defaultJSON))
+    # print(json.dumps(retJSON, sort_keys=True, indent=4, separators=(',', ': '), default=util.defaultJSON))
 
 totalRecords = retJSON["range"]["totalRecords"]
 
@@ -284,7 +255,7 @@ for ctr in range(1, pagesCount + 1):
         facturaLines.append("ObservatiiNIR=")
 
 
-        # printArray(facturaLines)
+        # util.printArray(facturaLines)
         # 1/0
 
         # ret = downloads_stat.SetIDPartField('CODINTERN')
@@ -465,7 +436,7 @@ for ctr in range(1, pagesCount + 1):
             # IDArticol;DenUM;Cant;Pret;Simbol gestiune receptie;ProcentDiscount;SimbolCont(in caz ul cand articolul este un serviciu);Pret de inregistrare (in cazul cand se folosesc articole valorice)
             facturaLines.append("Item_1={};;{};{};;;;".format(productID, item["qty"], item["opPrice"]))
 
-        printArray(facturaLines)
+        util.printArray(facturaLines)
         downloads_stat.SetDocsData(facturaLines)
         if ret != 1:
             print  downloads_stat.GetListaErori()
