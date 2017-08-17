@@ -7,6 +7,7 @@ from django.core.mail import EmailMessage
 import os
 from unidecode import unidecode
 from util import *
+from settings import *
 
 # from win32com.client import makepy
 # makepy.main ()
@@ -191,8 +192,7 @@ urlCount = url + "&pageSize="+str(1)
 urlCount += "&page="+str(1)
 print (url)
 
-# Mag. Prezentare:POS
-r = requests.get(urlCount, headers={'GESTOTOKEN': '1969964'})
+r = requests.get(urlCount, headers={'GESTOTOKEN': settings.GESTOTOKEN})
 
 if r.status_code != 200:
     print(r.text)
@@ -211,7 +211,7 @@ for ctr in range(1, pagesCount + 1):
     urlPage += "&page="+str(ctr)
     print ctr, pagesCount, urlPage
 
-    r = requests.get(urlPage, headers={'GESTOTOKEN': '1969964'})
+    r = requests.get(urlPage, headers={'GESTOTOKEN': settings.GESTOTOKEN})
     retJSON = r.json()
 
     tot = len(retJSON["data"])

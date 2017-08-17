@@ -8,6 +8,8 @@ EMAIL_HOST = ""
 EMAIL_HOST_USER = ""
 EMAIL_HOST_PASSWORD = ""
 
+GESTOTOKEN = ""
+
 try:
     from local_settings import *
 except ImportError:
