@@ -1,2 +1,7 @@
 *.pyc
 /local_settings.py
+/config_local.ini
+/gestiuni.txt
+/products.txt
+/stoc.txt
+/test.txt

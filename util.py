@@ -1,3 +1,19 @@
+import datetime
+import collections
+from django.core.mail import EmailMessage
+
+def isArray(var):
+    return isinstance(var, collections.Iterable) and (not isinstance(var, basestring))
+
+def retToFileArray(ret, filename):
+    ret = ret[0]
+    retCnt = len(ret)
+
+    thefile = open(filename+".txt", 'w')
+    for ctr, r in enumerate(ret, start=1):
+        thefile.write("{}/{} - {}\n".format(ctr, retCnt, r))
+
+
 def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGestoProblem=False):
     email = EmailMessage(subject, msg, to=toEmails, bcc=bccEmails)
     email.send()

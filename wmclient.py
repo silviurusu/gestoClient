@@ -3,11 +3,10 @@ import win32api
 import pythoncom, win32com.client
 import requests
 import json
-from django.core.mail import EmailMessage
 import os
 from unidecode import unidecode
-from util import *
-from settings import *
+import util
+import settings
 
 # from win32com.client import makepy
 # makepy.main ()
@@ -21,97 +20,96 @@ fdm = pythoncom.LoadTypeLib('DocImpServer.tlb')
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "settingsWM")
 
-print(fdm)
-downloads_stat = None
+# print(fdm)
+
+DocImpServer = None
 
 for index in xrange(0, fdm.GetTypeInfoCount()):
     type_name = fdm.GetDocumentation(index)[0]
 
-    print type_name
+    # print type_name
 
     if type_name == 'DocImpObject':
         type_iid = fdm.GetTypeInfo(index).GetTypeAttr().iid
         print type_iid
-        downloads_stat = win32com.client.Dispatch(type_iid)
+        DocImpServer = win32com.client.Dispatch(type_iid)
 
-        # ret = downloads_stat.LogOn('Mircea', '2')
-        ret = downloads_stat.GetListaFirme()
+        # ret = DocImpServer.LogOn('Mircea', '2')
+        ret = DocImpServer.GetListaFirme()
         if ret != 0:
             print ret
-            print  downloads_stat.GetListaErori()
+            print  DocImpServer.GetListaErori()
 
-        ret = downloads_stat.SetNumeFirma(u'PAN2016')
+        ret = DocImpServer.SetNumeFirma(u'PAN2016')
         if ret != 1:
             print ret
-            print  downloads_stat.GetListaErori()
+            print  DocImpServer.GetListaErori()
 
-        ret = downloads_stat.GetListaLuni(u'PAN2016')
+        ret = DocImpServer.GetListaLuni(u'PAN2016')
         if ret != 1:
             print ret
-            print  downloads_stat.GetListaErori()
+            print  DocImpServer.GetListaErori()
 
-        ret = downloads_stat.SetLunaLucru(2017, 7)
+        ret = DocImpServer.SetLunaLucru(2017, 7)
         print ret
         if ret == 0:
-            print  downloads_stat.GetListaErori()
+            print  DocImpServer.GetListaErori()
 
-        ret = downloads_stat.SetIDPartField('CodFiscal')
+        ret = DocImpServer.SetIDPartField('CodFiscal')
 
-        # # ret = downloads_stat.GetReceptii()
-        # # ret = downloads_stat.GetNomenclatorArticole()
-        # # ret = downloads_stat.GetClaseArticole()
-        # # ret = downloads_stat.GetStocuriPeGestiuni()
+        # # ret = DocImpServer.GetReceptii()
+        # # ret = DocImpServer.GetNomenclatorArticole()
+        # # ret = DocImpServer.GetClaseArticole()
+        # # ret = DocImpServer.GetStocuriPeGestiuni()
 
-        # # ret = downloads_stat.GetIntrari()
+        # # ret = DocImpServer.GetIntrari()
 
-        # # ret = downloads_stat.SetIDPartField('CODINTERN')
-        # ret = downloads_stat.SetIDPartField('CodFiscal')
-        # ret = downloads_stat.SetIDArtField('CODINTERN')
-        # ret = downloads_stat.SetIDArtField('CodExtern')
-        # ret = downloads_stat.GetListaParteneri()
+        # # ret = DocImpServer.SetIDPartField('CODINTERN')
+        # ret = DocImpServer.SetIDPartField('CodFiscal')
+        ret = DocImpServer.SetIDArtField('CODINTERN')
+        # ret = DocImpServer.SetIDArtField('CodExtern')
+        # ret = DocImpServer.GetListaParteneri()
         # # print ret
         # if ret != 1:
-        #     print  downloads_stat.GetListaErori()
+        #     print  DocImpServer.GetListaErori()
 
-        # ret = downloads_stat.GetProducts('01.01.2017 00:00:00')
+        # ret = DocImpServer.GetProducts('01.01.2017 00:00:00')
         # # print ret
         # if ret != 1:
-        #     print  downloads_stat.GetListaErori()
+        #     print  DocImpServer.GetListaErori()
 
 
         # # with open('fi.txt') as f:
         # #     lines = [line.rstrip('\n') for line in f]
         # # print lines
 
-        # # downloads_stat.SetDocsData(lines)
+        # # DocImpServer.SetDocsData(lines)
         # # print ret
         # # if ret != 1:
-        # #     print  downloads_stat.GetListaErori()
+        # #     print  DocImpServer.GetListaErori()
 
-        # # downloads_stat.FactIntrareValida()
+        # # DocImpServer.FactIntrareValida()
         # # print ret
         # # if ret != 1:
-        # #     print  downloads_stat.GetListaErori()
+        # #     print  DocImpServer.GetListaErori()
 
-        # # downloads_stat.ImportaFactIntrare()
+        # # DocImpServer.ImportaFactIntrare()
         # # print ret
-        # # print  downloads_stat.GetListaErori()
+        # # print  DocImpServer.GetListaErori()
 
-# # downloads_stat.BuildListOfDownloads(True, True)
-# # print downloads_stat.Download(0).Url
-# # print downloads_stat
+# # DocImpServer.BuildListOfDownloads(True, True)
+# # print DocImpServer.Download(0).Url
+# # print DocImpServer
 
 
 # url = GESTO_IP+"/operations?type=type&dateBegin=dateBegin&dateEnd=dateEnd&idStart=idStart&idEnd=idEnd&idPOS=idPOS&listVal=listVal&page=page&pageSize=pageSize
 # startDate = datetime.datetime.now()  - datetime.timedelta(days=1)
 
-
-
-# ret = downloads_stat.GenCodArticole()
+# ret = DocImpServer.GenCodArticole()
 # if ret == -1:
-#     print  downloads_stat.GetListaErori()
+#     print  DocImpServer.GetListaErori()
 
-# ret = downloads_stat.GetProducts('01.01.2017 00:00:00')
+# ret = DocImpServer.GetProducts('01.01.2017 00:00:00')
 # productsWM = ret[0]
 # productsCnt = len(productsWM)
 
@@ -129,14 +127,14 @@ for index in xrange(0, fdm.GetTypeInfoCount()):
 # productStr = ';'.join([unicode(x) for x in productDetails])
 # print productStr
 
-# ret = downloads_stat.AddProduct(productStr)
+# ret = DocImpServer.AddProduct(productStr)
 # if ret == 1:
 #     subject = "Produs nou in WinMentor: {}, {}".format(productDetails[0],productDetails[1])
 #     msg = ""
 #     msg += "\nProdusul {}, {} a fost adaugat".format(productDetails[0], productDetails[1])
-#     send_email(subject, msg, toEmails=["silviu@vectron.ro", ])
+#     util.send_email(subject, msg, toEmails=["silviu@vectron.ro", ])
 # else:
-#     print  downloads_stat.GetListaErori()
+#     print  DocImpServer.GetListaErori()
 
 
 # productDetails = [""] * 11
@@ -150,18 +148,19 @@ for index in xrange(0, fdm.GetTypeInfoCount()):
 # productStr = ';'.join([unicode(x) for x in productDetails])
 # print productStr
 
-# ret = downloads_stat.ModiProduct(productStr)
+# ret = DocImpServer.ModiProduct(productStr)
 # if ret != 1:
-#     print  downloads_stat.GetListaErori()
+#     print  DocImpServer.GetListaErori()
 
-# ret = downloads_stat.GetProducts('01.01.2017 00:00:00')
-# productsWM = ret[0]
-# productsCnt = len(productsWM)
+ret = DocImpServer.GetProducts('01.01.2017 00:00:00')
+util.retToFileArray(ret, "products")
 
-# thefile = open('products.txt', 'w')
-# for ctr, product in enumerate(productsWM, start=1):
-#     thefile.write("{} {} {}\n".format(ctr, productsCnt, product))
+# ret = DocImpServer.GetStocArticole()
+ret = DocImpServer.GetListaGestiuni()
+if ret != 1:
+    print  DocImpServer.GetListaErori()
 
+util.retToFileArray(ret, "gestiuni")
 # exit()
 
 startDate = datetime.datetime.strptime("2017-07-19", "%Y-%m-%d")
@@ -172,10 +171,10 @@ endDate = startDate + datetime.timedelta(days=1)
 idStart=None
 idEnd=None
 
-type = "reception"
+opType = "reception"
 
 url = GESTO_IP+"/operations?"
-url += "&type="+type
+url += "&type="+opType
 if startDate is not None:
     startDate = util.getTimestamp(startDate)
     url += "&dateBegin="+str(startDate)
@@ -198,7 +197,7 @@ if r.status_code != 200:
     print(r.text)
 else:
     retJSON = r.json()
-    # print(json.dumps(retJSON, sort_keys=True, indent=4, separators=(',', ': '), default=util.defaultJSON))
+    print(json.dumps(retJSON, sort_keys=True, indent=4, separators=(',', ': '), default=util.defaultJSON))
 
 totalRecords = retJSON["range"]["totalRecords"]
 
@@ -217,9 +216,9 @@ for ctr in range(1, pagesCount + 1):
     tot = len(retJSON["data"])
     for ctr2, op in enumerate(retJSON["data"], start=1):
 
-        ret = downloads_stat.ExistaFactura(op["documentNo"])
+        ret = DocImpServer.ExistaFactura(op["documentNo"])
         if ret == -1:
-            print  downloads_stat.GetListaErori()
+            print  DocImpServer.GetListaErori()
         if ret != 0:
              # factura exista
              continue
@@ -241,6 +240,7 @@ for ctr in range(1, pagesCount + 1):
         facturaLines.append("TipDocument=FACTURA INTRARE")
         facturaLines.append("TotalFacturi=1")
         facturaLines.append("LogOn=Master")
+        facturaLines.append("")
         facturaLines.append("[Factura_1]")
         facturaLines.append("Operatie=A")
         facturaLines.append("SerieDoc=G")
@@ -249,21 +249,21 @@ for ctr in range(1, pagesCount + 1):
         facturaLines.append("Data={}".format(op["documentDate"].strftime("%d.%m.%Y")))
         facturaLines.append("SimbolCarnetNir=XL6")
         facturaLines.append("DataNir={}".format(op["documentDate"].strftime("%d.%m.%Y")))
-        facturaLines.append("Scadenta=")
+        facturaLines.append("Scadenta={}".format(op["documentDate"].strftime("%d.%m.%Y")))
         facturaLines.append("TotalArticole={}".format(len(op["items"])))
-        facturaLines.append("Observatii=")
-        facturaLines.append("ObservatiiNIR=")
+        facturaLines.append("Observatii=Obs")
+        facturaLines.append("ObservatiiNIR=ObsNIR")
 
 
         # util.printArray(facturaLines)
         # 1/0
 
-        # ret = downloads_stat.SetIDPartField('CODINTERN')
-        # ret = downloads_stat.SetIDPartField('CodExtern')
+        # ret = DocImpServer.SetIDPartField('CODINTERN')
+        # ret = DocImpServer.SetIDPartField('CodExtern')
 
         # look for a partner with same fiscal code
 
-        ret = downloads_stat.GetListaParteneri()
+        ret = DocImpServer.GetListaParteneri()
         # print ret
 
         partRet = ret[0]
@@ -284,30 +284,31 @@ for ctr in range(1, pagesCount + 1):
             # print "{} {} {}".format(ctr, partCnt, unidecode(partDetails[2]))
 
             if recFiscalCode in partDetails[2]:
-                partFound = part
+                partFound = partDetails
                 break
 
             # break
 
+        print "partFound={}".format(partFound)
+
         if partFound is None:
             # furnizor nou
-            print partDetails
-            partDetailsNew = [""] * 22
-            partDetailsNew[0] = op["source"]["code"]
-            partDetailsNew[1] = op["source"]["name"]
-            partDetailsNew[2] = op["source"]["code"]
+            partDetails = [""] * 22
+            partDetails[0] = op["source"]["code"]
+            partDetails[1] = op["source"]["name"]
+            partDetails[2] = op["source"]["code"]
 
-            partStr = ';'.join([unicode(x) for x in partDetailsNew])
+            partStr = ';'.join([unicode(x) for x in partDetails])
             print partStr
 
-            ret = downloads_stat.AdaugaPartener(partStr)
+            ret = DocImpServer.AdaugaPartener(partStr)
             if ret == 1:
                 subject = "Furnizor nou in WinMentor: {}, {}".format(op["source"]["code"], op["source"]["name"])
                 msg = ""
                 msg += "\nFurnizorul {}, {} a fost adaugat".format(op["source"]["code"], op["source"]["name"])
-                send_email(subject, msg, toEmails=["silviu@vectron.ro", ])
+                util.send_email(subject, msg, toEmails=["silviu@vectron.ro", ])
             else:
-                print  downloads_stat.GetListaErori()
+                print  DocImpServer.GetListaErori()
 
             # Structura unei linii InfoPart este:
             # ID Partener;
@@ -332,22 +333,21 @@ for ctr in range(1, pagesCount + 1):
             # Telefonul sediului secundar;// separate prin "~" daca sunt mai multe;
             # Localitatea sediului secundar;// separate prin "~" daca sunt mai multe;
             # ID Agent pentru sediului secundar; // separate prin "~" daca sunt mai multe;
-        facturaLines.append("CodFurnizor=")
+        facturaLines.append("CodFurnizor={}".format(partDetails[0]))
+        # facturaLines.append("CodFurnizor=aaaaaa")
 
         facturaLines.append("")
         facturaLines.append("[Items_1]")
-        ret = downloads_stat.GetProducts('01.01.2017 00:00:00')
 
+        ret = DocImpServer.GetProducts('01.01.2017 00:00:00')
         productsWM = ret[0]
         productsCnt = len(productsWM)
 
         thefile = open('products.txt', 'w')
         for ctr, product in enumerate(productsWM, start=1):
             thefile.write("{} {} {}\n".format(ctr, productsCnt, product))
-        productsWM = ret[0]
-        productFound = None
 
-        productsCnt = len(productsWM)
+        productFound = None
 
         for item in op["items"]:
             print item
@@ -372,11 +372,12 @@ for ctr in range(1, pagesCount + 1):
             for ctr, product in enumerate(productsWM, start=1):
                 # print part.encode('utf-8').strip()
 
-                print product
+                # print product
                 productDetails = product.split(";")
-                print "{} {} {}".format(ctr, productsCnt, ';'.join([unicode(x) for x in productDetails]))
+                # print "{} {} {}".format(ctr, productsCnt, ';'.join([unicode(x) for x in productDetails]))
+                # print "{} - {} - {} - {}".format(item["code"], productDetails[0], type(item["code"]), type(productDetails[0]))
 
-                if item["code"] == productDetails[1]:
+                if item["code"] == productDetails[0]:
                     productFound = product
                     productID = productDetails[0]
                     break
@@ -386,7 +387,7 @@ for ctr in range(1, pagesCount + 1):
                 # break
 
             if productFound is not None:
-                pass
+                print productFound
 
             elif productNameFound is not None:
                 # found same name but not the codintern
@@ -400,9 +401,14 @@ for ctr in range(1, pagesCount + 1):
 
                 productStr = ';'.join([unicode(x) for x in productDetailsUpdate])
                 print productStr
-                ret = downloads_stat.ModiProduct(productStr)
+                ret = DocImpServer.ModiProduct(productStr)
                 if ret != 1:
-                    print  downloads_stat.GetListaErori()
+                    print  DocImpServer.GetListaErori()
+
+                # reload products
+                ret = DocImpServer.GetProducts('01.01.2017 00:00:00')
+                productsWM = ret[0]
+                productsCnt = len(productsWM)
             else:
                 # create product
                 #   IDArticol;
@@ -418,36 +424,70 @@ for ctr in range(1, pagesCount + 1):
                 #   Simbol Clasa
 
                 productDetails = [""] * 11
-                productDetails[0] = item["code"]
+                productDetails[0] = "G_{}".format(item["code"])
                 productDetails[1] = item["name"]
+                productDetails[9] = item["code"]
 
                 productStr = ';'.join([unicode(x) for x in productDetails])
                 print productStr
 
-                ret = downloads_stat.AddProduct(productStr)
+                ret = DocImpServer.AddProduct(productStr)
                 if ret == 1:
                     subject = "Produs nou in WinMentor: {}, {}".format(item["code"], item["name"])
                     msg = ""
                     msg += "\nProdusul {}, {} a fost adaugat".format(item["code"], item["name"])
-                    send_email(subject, msg, toEmails=["silviu@vectron.ro", ])
+                    util.send_email(subject, msg, toEmails=["silviu@vectron.ro", ])
+
+                    # reload products
+                    ret = DocImpServer.GetProducts('01.01.2017 00:00:00')
+                    productsWM = ret[0]
+                    productsCnt = len(productsWM)
                 else:
-                    print  downloads_stat.GetListaErori()
+                    print  DocImpServer.GetListaErori()
 
-            # IDArticol;DenUM;Cant;Pret;Simbol gestiune receptie;ProcentDiscount;SimbolCont(in caz ul cand articolul este un serviciu);Pret de inregistrare (in cazul cand se folosesc articole valorice)
-            facturaLines.append("Item_1={};;{};{};;;;".format(productID, item["qty"], item["opPrice"]))
+            # IDArticol;DenUM;Cant;Pret;Simbol gestiune receptie;ProcentDocImpServercount;SimbolCont(in caz ul cand articolul este un serviciu);Pret de inregistrare (in cazul cand se folosesc articole valorice)
+            # facturaLines.append("Item_1={};kg;{};{};MAG;;;Magazin1".format(productID, item["qty"], item["opPrice"]))
+            facturaLines.append("Item_1={};kg;{};{};Magazin1;;;;".format(productID, item["qty"], item["opPrice"]))
 
-        util.printArray(facturaLines)
-        downloads_stat.SetDocsData(facturaLines)
-        if ret != 1:
-            print  downloads_stat.GetListaErori()
+        # facturaLines = []
+        # facturaLines.append("[InfoPachet]")
+        # facturaLines.append("AnLucru=2017")
+        # facturaLines.append("LunaLucru=7")
+        # facturaLines.append("TipDocument=FACTURA INTRARE")
+        # facturaLines.append("TotalFacturi=1")
+        # facturaLines.append("LogOn=Master")
+        # facturaLines.append("")
+        # facturaLines.append("[Factura_1]")
+        # facturaLines.append("Operatie=A")
+        # facturaLines.append("SerieDoc=ABC")
+        # facturaLines.append("NrDoc=123456789")
+        # facturaLines.append("NrNIR=987654321")
+        # facturaLines.append("Data=18.07.2017")
+        # facturaLines.append("SimbolCarnetNir=XL6")
+        # facturaLines.append("DataNir=18.07.2017")
+        # facturaLines.append("CodFurnizor=RO29963394")
+        # facturaLines.append("Scadenta=18.07.2017")
+        # facturaLines.append("TotalArticole=1")
+        # facturaLines.append("Observatii=Observatii FACTURA")
+        # facturaLines.append("ObservatiiNIR=Observatii NIR")
+        # facturaLines.append("")
+        # facturaLines.append("[Items_1]")
+        # facturaLines.append("Item_1=5101;Buc;2.00;4.47;MAG;;;101")
 
-        downloads_stat.FactIntrareValida()
-        if ret != 1:
-            print  downloads_stat.GetListaErori()
+        print(repr(facturaLines))
+        # util.printArray(facturaLines)
 
-        # downloads_stat.ImportaFactIntrare()
+        DocImpServer.SetDocsData(facturaLines)
         # if ret != 1:
-        #     print  downloads_stat.GetListaErori()
+        print  DocImpServer.GetListaErori()
+
+        DocImpServer.FactIntrareValida()
+        # if ret != 1:
+        print  DocImpServer.GetListaErori()
+
+        DocImpServer.ImportaFactIntrare()
+        # if ret != 1:
+        print  DocImpServer.GetListaErori()
 
         break
 
