@@ -13,8 +13,6 @@ EMAIL_HOST = ""
 EMAIL_HOST_USER = ""
 EMAIL_HOST_PASSWORD = ""
 
-GESTOTOKEN = ""
-
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',

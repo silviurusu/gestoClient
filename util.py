@@ -67,6 +67,15 @@ def retToFileArray(ret, filename):
     for ctr, r in enumerate(ret, start=1):
         thefile.write("{}/{} - {}\n".format(ctr, retCnt, r))
 
+def getCfgVal(varName):
+    cfg = SafeConfigParser()
+    with codecs.open('config_local.ini', 'r', encoding='utf-8') as f:
+        cfg.readfp(f)
+
+    if varName in ['bccEmails', 'notificationEmails', ]:
+        ret = [x.strip() for x in cfg.get("client", varName).split(",")]
+
+    return ret
 
 def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGestoProblem=False):
     logger.info(">>> {0}()".format(inspect.stack()[0][3]))
@@ -94,28 +103,21 @@ def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGes
         # this one goes last
         msg = msg.replace("\n", "<br/>")
 
-    if toEmails is None and bccEmails is None:
-        #     create new list, if I ever append to it the value for settings.BCC_EMAILS will change and I will
-        #     send emails to people I don't want'
+    if toEmails is None or bccEmails is None:
+        # create new list, if I ever append to it the value for settings.BCC_EMAILS will change and I will
+        # send emails to people I don't want'
+        bccEmailsCfg = getCfgVal("bccEmails")
 
-        # Get Script settings
-        cfg = SafeConfigParser()
-        with codecs.open('config_local.ini', 'r', encoding='utf-8') as f:
-            cfg.readfp(f)
-        toEmails = [x.strip() for x in cfg.get("client", "emails").split(",")]
+        if toEmails is None:
+            toEmails = bccEmailsCfg
+            logger.info("toEmails: {0}".format(toEmails))
+        elif bccEmails is None:
+            bccEmails = bccEmailsCfg
+            logger.info("bccEmails: {0}".format(bccEmails))
 
-        logger.info("toEmails: {0}".format(toEmails))
     try:
-        # util1.util.send_email("Test", "test2", toEmails=["rusu.silviu@gmail.com",])
-        # email = EmailMessage(subject, msg, to=toEmails, bcc=bccEmails)
-        # email.content_subtype = "html"
-
         email = EmailMessage(subject, msg, to=toEmails, bcc=bccEmails)
         email.content_subtype = "html"
-        # ret = email.send()
-        # email = EmailMessage("Test", "test2", to=["rusu.silviu@gmail.com",])
-        # email.content_subtype = "html"
-        # ret = email.send()
 
         if 1==1:
             email.send()

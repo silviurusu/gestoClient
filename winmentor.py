@@ -158,7 +158,7 @@ class WinMentor(object):
                 found = False
                 for mc in self.missingCodes:
                     # only add a code once
-                    self.logger.info("{} - {}, {} - {}".format(mc["code"], item["code"], type(mc["code"]), type(item["code"])))
+                    # self.logger.info("{} - {}, {} - {}".format(mc["code"], item["code"], type(mc["code"]), type(item["code"])))
 
                     if mc["code"] == item["code"]:
                         found = True
@@ -588,7 +588,7 @@ class WinMentor(object):
                 self.logger.debug("rc = {}".format(rc))
                 self.logger.error(repr(self.getListaErori()))
 
-        self.logger.info(self.gestiuni)
+        # self.logger.info(self.gestiuni)
         self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
         return self.gestiuni
@@ -625,7 +625,7 @@ class WinMentor(object):
                 "subject": subject,
                 "products": self.missingCodes
             })
-            send_email(subject, html_part)
+            send_email(subject, html_part, toEmails=getCfgVal("notificationEmails"))
 
 
     def sendNewPartnersMail(self):
@@ -637,7 +637,8 @@ class WinMentor(object):
                 txtMail += "-" * 20 + "\n"
             send_email(
                     subject = "Partener(i) noi in WinMentor",
-                    msg = txtMail
+                    msg = txtMail,
+                    toEmails=getCfgVal("notificationEmails")
                     )
 
 
@@ -977,9 +978,9 @@ class WinMentor(object):
 
         # self.logger.info(transferuri)
         for item in transferuri:
-            self.logger.info(item)
+            # self.logger.info(item)
             items = item.split(";")
-            self.logger.info(items)
+            # self.logger.info(items)
 
             date = items[3]
             if date not in deliveryNotes:
