@@ -67,7 +67,11 @@ def retToFileArray(ret, filename):
     for ctr, r in enumerate(ret, start=1):
         thefile.write("{}/{} - {}\n".format(ctr, retCnt, r))
 
+
 def getCfgVal(varName):
+    logger.info(">>> {0}()".format(inspect.stack()[0][3]))
+    start = datetime.datetime.now()
+
     cfg = SafeConfigParser()
     with codecs.open('config_local.ini', 'r', encoding='utf-8') as f:
         cfg.readfp(f)
@@ -75,7 +79,10 @@ def getCfgVal(varName):
     if varName in ['bccEmails', 'notificationEmails', ]:
         ret = [x.strip() for x in cfg.get("client", varName).split(",")]
 
+    logger.info("{}: {}".format(varName, ret))
+    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], datetime.datetime.now() - start))
     return ret
+
 
 def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGestoProblem=False):
     logger.info(">>> {0}()".format(inspect.stack()[0][3]))
