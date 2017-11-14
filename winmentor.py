@@ -625,7 +625,7 @@ class WinMentor(object):
                 "subject": subject,
                 "products": self.missingCodes
             })
-            send_email(subject, html_part, toEmails=getCfgVal("notificationEmails"))
+            send_email(subject, html_part, toEmails=util.getCfgVal("notificationEmails"))
 
 
     def sendNewPartnersMail(self):
@@ -638,7 +638,7 @@ class WinMentor(object):
             send_email(
                     subject = "Partener(i) noi in WinMentor",
                     msg = txtMail,
-                    toEmails=getCfgVal("notificationEmails")
+                    toEmails=util.getCfgVal("notificationEmails")
                     )
 
 
