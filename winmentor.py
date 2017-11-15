@@ -83,6 +83,7 @@ class WinMentor(object):
 
         return False
 
+
     def isSdwSalad(self, productCode):
         for p in self.productCodesSdwSalate:
             if productCode >= p[0] and productCode <= p[1]:
@@ -96,16 +97,19 @@ class WinMentor(object):
             return (u'Nu am comunicare cu obiectul COM', )
         return self._stat.GetListaErori()
 
+
     def getListaFirme(self):
         if self._stat is None:
             return None
         return self._stat.GetListaFirme()
+
 
     def setFirmaLucru(self, firma):
         self.firma = firma
         if self._stat is None:
             return
         self._stat.SetNumeFirma(firma)
+
 
     def setLunaLucru(self, luna, an):
         self.luna = luna
@@ -117,6 +121,7 @@ class WinMentor(object):
             self.logger.error(
                     repr(self.getListaErori())
                     )
+            1/0
         return (rc == 1)
 
 
@@ -209,8 +214,9 @@ class WinMentor(object):
         for idx, partenerStr in enumerate(lista):
             parteneri.append(self._colonListToDict(keys, partenerStr))
 
-        ret = { util.fixupCUI(p["idPartener"])[1]: p for p in parteneri}
+        ret = { util.fixupCUI(p["idPartener"])[1]: p for p in parteneri }
         self.logger.debug("partners count: {}".format(len(ret)))
+        # self.logger.debug("partners : {}".format(ret))
 
         return ret
 
@@ -274,10 +280,35 @@ class WinMentor(object):
 
 
     def partenerExists(self, partenerID):
+        self.logger.info(">>> {}()".format(inspect.stack()[0][3]))
+        start = dt.now()
+
+        self.logger.info("partenerID: {}".format(partenerID))
+
         if partenerID not in self.parteneri:
-            return False
+            ret = False
         else:
-            return True
+            ret = True
+
+        self.logger.info("ret: {}".format(ret))
+        self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+        return ret
+
+
+    def getPartener(self, partenerID):
+        self.logger.info(">>> {}()".format(inspect.stack()[0][3]))
+        start = dt.now()
+
+        self.logger.info("partenerID: {}".format(partenerID))
+
+        if partenerID not in self.parteneri:
+            ret = None
+        else:
+            ret = self.parteneri[partenerID]
+
+        self.logger.info("ret: {}".format(ret))
+        self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+        return ret
 
 
     def productExists(self, code):
@@ -440,6 +471,9 @@ class WinMentor(object):
         return (rc == 1)
 
     def addPartener(self, **kwargs):
+        self.logger.info(">>> {}()".format(inspect.stack()[0][3]))
+        start = dt.now()
+
         keys = (
                 "codFiscal",
                 "denumirePartener",
@@ -492,6 +526,7 @@ class WinMentor(object):
             self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
             1/0
 
+        self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
         return None
 
 
@@ -667,6 +702,7 @@ class WinMentor(object):
 
         # Get gestiuni
         gestiuni = self.getGestiuni()
+        # self.logger.debug("gestiuni: {}".format(gestiuni))
 
         matchStr = '^\s*([0-9]{1,4})\s*' #+"{}".format(tipGestiune)
         x = re.match(matchStr, name)
@@ -678,12 +714,13 @@ class WinMentor(object):
             simbolGestiuneSearch = "Magazin {:d}P".format(int(no))
             self.logger.debug("simbolGestiuneSearch: {}".format(simbolGestiuneSearch))
 
-            for gestiune in self.gestiuni:
+            for gestiune in gestiuni:
                 # regex = r"^\s*" + re.escape(no) + "\s*Magazin"
                 # found = re.match(regex, gestiune["simbol"], re.IGNORECASE)
                 # if found:
                 #     result.append(gestiune)
-                if simbolGestiuneSearch == gestiune["simbol"]:
+                self.logger.debug("gestiune: {}".format(gestiune))
+                if simbolGestiuneSearch == gestiune:
                     ret = gestiune
                     break
 
@@ -726,6 +763,8 @@ class WinMentor(object):
         self.logger.info("destination: {}".format(gestoData["destination"]["name"]))
         self.logger.info("simbolWinMentor: {}".format(gestoData["simbolWinMentor"]))
 
+        gestoData["relatedDocumentNo"] = gestoData["relatedDocumentNo"][-9:]
+
         self.logger.info("CUI Panemar: {}".format(self.panemarCUI))
 
         # verify I have all gesto codes in WinMentor
@@ -761,19 +800,20 @@ class WinMentor(object):
         opDate = dt.fromtimestamp(gestoData["operationDate"])
         self.setLunaLucru(opDate.month, opDate.year)
 
-        wmPartenerID = gestoPartener
-
         # Cod partener exact ca in Winmentor
-        if not self.partenerExists(wmPartenerID):
+        if not self.partenerExists(gestoPartener):
             self.addPartener(
-                    codFiscal = wmPartenerID,
+                    codFiscal = gestoPartener,
                     denumirePartener = gestoData["source"]["name"]
                     )
 
-        if not self.partenerExists(wmPartenerID):
-            self.logger.error("Failed to add new partener correcly.")
-            self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
-            return
+            if not self.partenerExists(gestoPartener):
+                self.logger.error("Failed to add new partener correcly.")
+                self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+                return
+
+        wmPartenerID = self.getPartener(gestoPartener)["idPartener"]
+        self.logger.info("wmPartenerID: {}".format(wmPartenerID))
 
         # Cauta daca exista deja o factura in Winmentor cu intrarea din gesto
         alreadyAdded = False
@@ -849,7 +889,7 @@ class WinMentor(object):
             #         return
 
             wmArticol = self.getProduct(item["winMentorCode"])
-            self.logger.info("wmArticol: {}".format(wmArticol))
+            # self.logger.info("wmArticol: {}".format(wmArticol))
 
             # Adauga produs la lista produse factura
             articoleFactura.append(
@@ -883,6 +923,221 @@ class WinMentor(object):
             1/0
 
         self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+
+    def importaMonetare(self, **kwargs):
+        '''
+        @param items: array produse; fiecare produs e un dict cu urmatoarele posibile chei:
+            - codExternArticol
+            - nrDoc
+            - nrNir
+            - um: unitate masura
+            - cant
+            - pret
+            - data
+            - dataNir
+            - simbGest: simbol gestiune receptie
+            - discount: discount linie
+            - simbServ: simbol cont pt. articole de tip serviciu
+            - pretInreg: pret inregistrare pentru articole ce au tip contabil implicit cu adaos
+            - termenGarantie
+            - logOn
+            - simbolCarnet
+        '''
+
+        items = kwargs.get("items", [])
+
+        # Header transfer
+        txtTransfer = (
+            "[InfoPachet]\n"
+            "AnLucru={}\n"
+            "LunaLucru={}\n"
+            "Tipdocument={}\n"
+            "TotalMonetare={}\n"
+            "LogOn={}\n"
+            "\n"
+            ).format(
+                self.an,
+                self.luna,
+                "MONETAR",
+                1,
+                kwargs.get("logOn", "")
+                )
+
+        # Transfer
+        txtTransfer += "[Monetar_{}]\n".format(1)
+        txtTransfer += "SimbolCarnet={}\n".format("MONG")
+        txtTransfer += "NrDoc={}\n".format(kwargs.get("nrDoc", ""))
+        txtTransfer += "Data={:%d.%m.%Y}\n".format(kwargs.get("data"))
+        txtTransfer += "GestDest={}\n".format(kwargs.get("gestiune"))
+        txtTransfer += "Operatie={}\n".format("A")
+        txtTransfer += "Operat={}\n".format("T")
+        txtTransfer += "TotalArticole={}\n".format(len(items))
+        txtTransfer += "Observatii={}\n\n".format("Gesto")
+        txtTransfer += "CasaDeMarcat={}\n\n".format("N")
+        txtTransfer += "NumarBonuri={}\n\n".format("Gesto")
+        txtTransfer += "Data={}\n\n".format("20.05.2011")
+        txtTransfer += "Casa={}\n\n".format("CasaLei")
+        txtTransfer += "CEC={}\n\n".format(0)
+        txtTransfer += "CARD={}\n\n".format(0)
+        txtTransfer += "BONVALORIC={}\n\n".format(0)
+        txtTransfer += "Observatii=hgagfsfkhfff"
+        txtTransfer += "Discount={}\n\n".format(0)
+        txtTransfer += "TVADiscount={}\n\n".format(0)
+
+        # Adauga items in factura
+        txtTransfer += "\n[Items_{}]\n".format(1)
+        keys = (
+                "codExternArticol",
+                "um",
+                "cant",
+                "pret",
+                "simbGest",
+                )
+
+        itemStr = ""
+        for idx, item in enumerate(items):
+            txtProd = self._dictToColonList(keys, item)
+            txtTransfer += "Item_{}={}\n".format(idx + 1, txtProd) # articolele incep de la 1
+
+        self.logger.debug("txtTransfer: \n{}".format(txtTransfer))
+
+        fact = txtTransfer.split("\n")
+
+        self._stat.SetDocsData(fact)
+
+        rc = self._stat.TransferuriValide()
+        if rc != 1:
+            return False
+
+        rc = self._stat.ImportaTransferuri()
+        return (rc == 1)
+
+
+    def addMonetare(self, gestoData):
+        self.logger.info(">>> {}()".format(inspect.stack()[0][3]))
+        start = dt.now()
+
+        self.logger.debug("\n%s",
+                        json.dumps(
+                            gestoData,
+                            sort_keys=True,
+                            indent=4,
+                            separators=(',', ': '),
+                            default=util.defaultJSON
+                            )
+                        )
+
+        # Get gestiune in WinMentor
+        wmGestiune = self.matchGestiune(gestoData["branch"], "PRODUSE")
+
+        # Seteaza luna si anul in WinMentor
+        opDate = dt.fromtimestamp(gestoData["dateBegin"])
+        self.setLunaLucru(opDate.month, opDate.year)
+
+        # # Cauta daca exista deja o factura in Winmentor cu intrarea din gesto
+        # alreadyAdded = False
+        # lstArt = self._stat.GetTransferuri()
+
+        # self.logger.info(lstArt)
+        # 1/0
+
+        # if lstArt and (len(lstArt) != 0):
+        #     self.logger.info("Gasit intrare in winmentor.")
+        #     if len(lstArt) != len(gestoData["items"]):
+        #         self.logger.error("Product list from gesto is different than product list from winmentor")
+        #     else:
+        #         # Verifica toate produsele din factura daca corespund cu cele din gesto
+        #         alreadyAdded = True
+
+        #         for artWm in lstArt:
+        #             wmCode = artWm["idArticol"]
+        #             # Remove "G_" prefix, if any
+        #             wmCode = wmCode[len("G_"):] if wmCode.startswith("G_") else wmCode
+
+        #             # Search for article from winmentor in gesto array
+        #             artGesto = None
+        #             for a in gestoData["items"]:
+        #                 if wmCode == a["code"]:
+        #                     artGesto = a["code"]
+        #                     break
+
+        #             if artGesto is None:
+        #                 self.logger.error("Product [%s] from winmentor not found gesto", wmCode)
+        #                 alreadyAdded = False
+        #                 break
+
+        # if alreadyAdded:
+        #     self.logger.info("Factura e deja adaugata")
+        #     self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+        #     return
+
+        # Get lista articole from gesto, create array of articole pentru factura
+        articoleTransfer = []
+        for articol in gestoData["items"]:
+            # Remove "." from all articol strings
+            articol = { key: val.replace(".", "") if isinstance(val, basestring) else val for key, val in articol.iteritems() }
+            gestoId = articol["code"]
+            # Check if articol is in WinMentor
+            haveArticol = self.getProducts().get(gestoId)
+            if not haveArticol:
+                if not gestoId.startswith("G_"):
+                    gestoId = "G_" + gestoId
+                    haveArticol = self.getProducts().get(gestoId)
+            if not haveArticol:
+                # Adauga produs in winmentor, cu prefixul G_
+                self.logger.info("Need to add product {} to winmentor".format(articol["name"]))
+                rc = self.addProduct(
+                        idArticol = gestoId,
+                        denumire = articol["name"],
+                        codIntern = "G_{}".format(articol["id"]),
+                        um = articol["um"],
+                        pret = articol["listVal"]/articol["qty"],
+                        cotaTVA = articol["vat"]
+                        )
+                if not rc:
+                    self.logger.error(repr(self.getListaErori()))
+                    self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+                    return
+
+                if self.getProducts().get(gestoId) is None:
+                    self.logger.error("Failed to add articol to Winmentor")
+                    self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+                    return
+
+            # Adauga produs la lista produse factura
+            if self.isDrink(int(articol["code"])):
+                simbGest = "PF-Bauturi"
+            elif self.isSdwSalad(int(articol["code"])):
+                simbGest = "PF Sandwich"
+            else:
+                # I need to have a gestiune for these articles too
+                continue
+
+            articoleTransfer.append({
+                        "codExternArticol": gestoId,
+                        "um": articol["um"],
+                        "cant": articol["qty"],
+                        "pret": articol["listVal"]/articol["qty"],
+                        "simbGest": simbGest
+                    })
+
+        # Creaza transferul
+        rc = self.importaMonetare(
+                logOn = "Master", # TODO what's this?
+                # nrDoc = gestoData["documentNo"],
+                nrDoc = util.getNextDocumentNumber("MON"),
+                data = opDate,
+                gestiune = wmGestiune,
+                items = articoleTransfer
+                )
+
+        if rc:
+            self.logger.info("SUCCESS: Adaugare transfer")
+        else:
+            self.logger.error(repr(self.getListaErori()))
+
+        self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+
 
     def importaTransfer(self, **kwargs):
         '''
@@ -961,6 +1216,7 @@ class WinMentor(object):
 
         rc = self._stat.ImportaTransferuri()
         return (rc == 1)
+
 
     def getTransferuri (self, opDate):
         self.logger.info(">>> {}()".format(inspect.stack()[0][3]))

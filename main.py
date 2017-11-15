@@ -51,6 +51,37 @@ def generateWorkOrders(baseURL, token, date):
     logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
 
+def generateMonetare(baseURL, token, date):
+    logger.info(">>> {}()".format(inspect.stack()[0][3]))
+    start = dt.now()
+
+    url = baseURL + "/products/summary/?"
+    url += "type=workOrder"
+    url += "&verify=1"
+    url += "&dateBegin={}".format(util.getTimestamp(date))
+    url += "&dateEnd={}".format(util.getTimestamp(date + timedelta(days = 1)))
+
+    logger.debug(url)
+    logger.debug("dateBegin: {}".format(date.strftime("%Y-%m-%d %H:%M:%S")))
+
+    retJSON = None
+    r = requests.get(url, headers={'GESTOTOKEN': token})
+
+    if r.status_code != 200:
+        logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
+        logger.error("Gesto request url: {}", url)
+        logger.error("Gesto request token: {}", token)
+        1/0
+    else:
+        retJSON = r.json()
+
+        if retJSON["verify"] == "success":
+            # email is sent from Gesto if there is any problem
+            winmentor.addMonetare(retJSON)
+
+    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+
+
 def importAvize(baseURL, date):
     logger.info(">>> {}()".format(inspect.stack()[0][3]))
     start = dt.now()
@@ -349,6 +380,15 @@ if __name__ == "__main__":
                         excludeCUI=cfg.get("winmentor", "cui"),
                         startDate = startDate,
                         daysDelta = cfg.getint("gesto", "daysDelta"),
+                        )
+
+        if cfg.getboolean("gesto", "generateMonetare"):
+            for token in tokens:
+                logger.info("Using Gesto token: {}".format(token))
+                gestoData = generateMonetare(
+                        baseURL = cfg.get("gesto", "url"),
+                        token = token,
+                        date = startDate,
                         )
 
         if cfg.getboolean("gesto", "generateWorkOrders"):
