@@ -74,6 +74,7 @@ class WinMentor(object):
         self.missingPartners = {}
         self.missingCodes = {}
         self.missingDefaultGest = {}
+        self.allowMissingDefaultGest = util.getCfgVal("products", "allowMissingDefaultGest")
 
         self.parteneri = self.getListaParteneri()
         self.products = self.getNomenclatorArticole()
@@ -165,7 +166,8 @@ class WinMentor(object):
                 if item["code"] not in self.missingCodes:
                     # only add a code once
                     self.missingCodes[item["code"]] = item
-            elif self.getProduct(item["winMentorCode"])["GestImplicita"] == "":
+            elif self.getProduct(item["winMentorCode"])["GestImplicita"] == "" \
+            and item["winMentorCode"] not in self.allowMissingDefaultGest:
                 ret = False
                 if item["code"] not in self.missingDefaultGest:
                     # only add a code once
@@ -689,24 +691,24 @@ class WinMentor(object):
     def sendIncorrectWinMentorProductsMail(self):
         if len(self.missingCodes) or len(self.missingDefaultGest):
             template = loader.get_template("mail/admin/incorrectWinMentorProducts.html")
-            subject = "{} produse cu cod WinMentor incorect in Gesto".format(len(self.missingCodes))
+            subject = "{} produse cu probleme in WinMentor".format(len(self.missingCodes) + len(self.missingDefaultGest))
             html_part = template.render({
                 "subject": subject,
                 "missingCodes": self.missingCodes,
                 "missingDefaultGest": self.missingDefaultGest
             })
-            send_email(subject, html_part, toEmails=util.getCfgVal("notificationEmails"))
+            send_email(subject, html_part, toEmails=util.getCfgVal("client", "notificationEmails"))
 
 
     def sendMissingPartnersMail(self):
         if len(self.missingPartners) != 0:
             template = loader.get_template("mail/admin/missingWinMentorParteners.html")
-            subject = "{} Partener(i) lipsa in WinMentor".format(len(self.missingPartners))
+            subject = "{} partener(i) lipsa in WinMentor".format(len(self.missingPartners))
             html_part = template.render({
                 "subject": subject,
                 "missingPartners": self.missingPartners,
             })
-            send_email(subject, html_part, toEmails=util.getCfgVal("notificationEmails"))
+            send_email(subject, html_part, toEmails=util.getCfgVal("client", "notificationEmails"))
 
 
     def genNrNir(self):

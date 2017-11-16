@@ -68,7 +68,7 @@ def retToFileArray(ret, filename):
         thefile.write("{}/{} - {}\n".format(ctr, retCnt, r))
 
 
-def getCfgVal(varName):
+def getCfgVal(section, varName):
     logger.info(">>> {0}()".format(inspect.stack()[0][3]))
     start = datetime.datetime.now()
 
@@ -76,8 +76,9 @@ def getCfgVal(varName):
     with codecs.open('config_local.ini', 'r', encoding='utf-8') as f:
         cfg.readfp(f)
 
-    if varName in ['bccEmails', 'notificationEmails', ]:
-        ret = [x.strip() for x in cfg.get("client", varName).split(",")]
+    if section == "client" and varName in ['bccEmails', 'notificationEmails', ] \
+    or section == "products" and varName in ['allowMissingDefaultGest', ]:
+        ret = [x.strip() for x in cfg.get(section, varName).split(",")]
 
     logger.info("{}: {}".format(varName, ret))
     logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], datetime.datetime.now() - start))
@@ -113,7 +114,7 @@ def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGes
     if toEmails is None or bccEmails is None:
         # create new list, if I ever append to it the value for settings.BCC_EMAILS will change and I will
         # send emails to people I don't want'
-        bccEmailsCfg = getCfgVal("bccEmails")
+        bccEmailsCfg = getCfgVal("client", "bccEmails")
 
         if toEmails is None:
             toEmails = bccEmailsCfg
