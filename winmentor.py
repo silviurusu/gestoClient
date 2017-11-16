@@ -32,7 +32,8 @@ class WinMentor(object):
     productCodesBauturi = [[1005, 1006], [700, 728], [731, 798],]
     productCodesSdwSalate = [[799, 882], [1100, 1150],]
 
-    missingCodes = []
+    missingCodes = {}
+    missingDefaultGest = {}
 
 
     def __init__(self, **kwargs):
@@ -70,8 +71,9 @@ class WinMentor(object):
         self._stat.SetIDArtField('CodExtern')
 
         self._newProducts = []
-        self._newPartners = []
-        self.missingCodes = []
+        self.missingPartners = {}
+        self.missingCodes = {}
+        self.missingDefaultGest = {}
 
         self.parteneri = self.getListaParteneri()
         self.products = self.getNomenclatorArticole()
@@ -151,29 +153,25 @@ class WinMentor(object):
         return myDict
 
 
-    def verifyWinMentorCodes(self, items):
+    def productsAreOK(self, items):
         self.logger.info(">>> {}()".format(inspect.stack()[0][3]))
         start = dt.now()
 
-        ret = False
+        ret = True
 
         for item in items:
             if item["winMentorCode"] == "nil" or not self.productExists(item["winMentorCode"]):
-                ret = True
-
-                found = False
-                for mc in self.missingCodes:
+                ret = False
+                if item["code"] not in self.missingCodes:
                     # only add a code once
-                    # self.logger.info("{} - {}, {} - {}".format(mc["code"], item["code"], type(mc["code"]), type(item["code"])))
+                    self.missingCodes[item["code"]] = item
+            elif self.getProduct(item["winMentorCode"])["GestImplicita"] == "":
+                ret = False
+                if item["code"] not in self.missingDefaultGest:
+                    # only add a code once
+                    self.missingDefaultGest[item["code"]] = item
 
-                    if mc["code"] == item["code"]:
-                        found = True
-                        break
-
-                if not found:
-                    # add code if it was not found
-                    self.missingCodes.append(item)
-
+        self.logger.info("ret: {}".format(ret))
         self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
         return ret
 
@@ -516,7 +514,7 @@ class WinMentor(object):
         rc = self._stat.AdaugaPartener(partenerTxt)
         if rc:
             # Add to new partners array:
-            self._newPartners.append(
+            self.missingPartners.append(
                     { key: kwargs.get(key, "-") for key in keys if key != "_" }
                     )
 
@@ -688,29 +686,27 @@ class WinMentor(object):
                     msg = txtMail
                     )
 
-    def sendMissingProductCodesMail(self):
-        if len(self.missingCodes) != 0:
-            template = loader.get_template("mail/admin/productsWithoutCode.html")
+    def sendIncorrectWinMentorProductsMail(self):
+        if len(self.missingCodes) or len(self.missingDefaultGest):
+            template = loader.get_template("mail/admin/incorrectWinMentorProducts.html")
             subject = "{} produse cu cod WinMentor incorect in Gesto".format(len(self.missingCodes))
             html_part = template.render({
                 "subject": subject,
-                "products": self.missingCodes
+                "missingCodes": self.missingCodes,
+                "missingDefaultGest": self.missingDefaultGest
             })
             send_email(subject, html_part, toEmails=util.getCfgVal("notificationEmails"))
 
 
-    def sendNewPartnersMail(self):
-        if len(self._newPartners) != 0:
-            txtMail = ""
-            for partner in self._newPartners:
-                for tag, val in partner.iteritems():
-                    txtMail += "{}: {}\n".format(tag, val)
-                txtMail += "-" * 20 + "\n"
-            send_email(
-                    subject = "Partener(i) noi in WinMentor",
-                    msg = txtMail,
-                    toEmails=util.getCfgVal("notificationEmails")
-                    )
+    def sendMissingPartnersMail(self):
+        if len(self.missingPartners) != 0:
+            template = loader.get_template("mail/admin/missingWinMentorParteners.html")
+            subject = "{} Partener(i) lipsa in WinMentor".format(len(self.missingPartners))
+            html_part = template.render({
+                "subject": subject,
+                "missingPartners": self.missingPartners,
+            })
+            send_email(subject, html_part, toEmails=util.getCfgVal("notificationEmails"))
 
 
     def genNrNir(self):
@@ -802,10 +798,9 @@ class WinMentor(object):
 
         self.logger.info("CUI Panemar: {}".format(self.panemarCUI))
 
-        # verify I have all gesto codes in WinMentor
-        missingCodes = self.verifyWinMentorCodes(gestoData["items"])
-        if missingCodes:
-            self.logger.info("Factura are articole cu coduri nesetate, nu adaug")
+        # verify I have all gesto codes and defalut gestiuni in WinMentor
+        if not self.productsAreOK(gestoData["items"]):
+            self.logger.info("Factura are articole cu coduri nesetate sau gestiuni lipsa, nu adaug")
             self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
             return
 
@@ -837,15 +832,23 @@ class WinMentor(object):
 
         # Cod partener exact ca in Winmentor
         if not self.partenerExists(gestoPartener):
-            self.addPartener(
-                    codFiscal = gestoPartener,
-                    denumirePartener = gestoData["source"]["name"]
-                    )
+            if gestoData["source"]["code"] not in self.missingPartners:
+                # only add a missing partener once
+                self.missingPartners[gestoData["source"]["code"]] = gestoData["source"]
 
-            if not self.partenerExists(gestoPartener):
-                self.logger.error("Failed to add new partener correcly.")
-                self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
-                return
+            self.logger.info("Partenerul {} de pe receptia gesto nu exista, nu adaug".format(gestoPartener))
+            self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+            return
+
+            # self.addPartener(
+            #         codFiscal = gestoPartener,
+            #         denumirePartener = gestoData["source"]["name"]
+            #         )
+
+            # if not self.partenerExists(gestoPartener):
+            #     self.logger.error("Failed to add new partener correcly.")
+            #     self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+            #     return
 
         wmPartenerID = self.getPartener(gestoPartener)["idPartener"]
         self.logger.info("wmPartenerID: {}".format(wmPartenerID))
@@ -925,6 +928,8 @@ class WinMentor(object):
 
             wmArticol = self.getProduct(item["winMentorCode"])
             # self.logger.info("wmArticol: {}".format(wmArticol))
+
+            self.logger.info(self.getProduct(item["winMentorCode"]))
 
             # Adauga produs la lista produse factura
             articoleFactura.append(
@@ -1266,7 +1271,6 @@ class WinMentor(object):
             self.logger.error(repr(self.getListaErori()))
 
         deliveryNotes = {}
-        productsWithoutCode = []
 
         # self.logger.info(transferuri)
         for item in transferuri:

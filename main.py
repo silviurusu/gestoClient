@@ -411,8 +411,8 @@ if __name__ == "__main__":
 
         # Send mail with new products and partners
         winmentor.sendNewProductsMail()
-        winmentor.sendNewPartnersMail()
-        winmentor.sendMissingProductCodesMail()
+        winmentor.sendMissingPartnersMail()
+        winmentor.sendIncorrectWinMentorProductsMail()
 
     except Exception as e:
         print repr(e)
@@ -420,4 +420,4 @@ if __name__ == "__main__":
         util.newException(e)
 
     logger.info("END")
-    self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
