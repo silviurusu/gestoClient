@@ -317,12 +317,15 @@ if __name__ == "__main__":
         setup_logging()
         logger = logging.getLogger(name = __name__)
 
-
         # Get Script settings
         cfg = SafeConfigParser()
         cfg.optionxform = str
         with codecs.open('config_local.ini', 'r', encoding='utf-8') as f:
             cfg.readfp(f)
+
+        logger.info(">>> {}()".format(inspect.stack()[0][3]))
+        start = dt.now()
+
 
         # Connect to winmentor
         winmentor = WinMentor(firma = cfg.get("winmentor", "firma"))
@@ -417,3 +420,4 @@ if __name__ == "__main__":
         util.newException(e)
 
     logger.info("END")
+    self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))

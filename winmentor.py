@@ -934,7 +934,8 @@ class WinMentor(object):
                         "cant": item["qty"],
                         "listPrice": item["listPrice"],
                         "opPrice": item["opPrice"],
-                        "simbGest": gestoData["simbolWinMentor"]
+                        # "simbGest": gestoData["simbolWinMentor"]
+                        "simbGest": self.getProduct(item["winMentorCode"])["GestImplicita"]
                         }
                     )
 
