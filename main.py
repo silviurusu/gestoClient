@@ -295,7 +295,7 @@ def setup_logging(
                 if folder:
                     path = os.path.join(
                             folder,
-                            dt.strftime(dt.now(), "%Y_%m_%d.log")
+                            dt.strftime(dt.now(), "%Y_%m_%d__%H_%M.log")
                             )
                     if not os.path.exists(folder):
                         os.mkdir(folder)
