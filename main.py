@@ -412,6 +412,7 @@ if __name__ == "__main__":
         winmentor.sendMissingProductCodesMail()
 
     except Exception as e:
+        print repr(e)
         logger.exception(repr(e))
         util.newException(e)
 

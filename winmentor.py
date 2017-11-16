@@ -27,6 +27,7 @@ class WinMentor(object):
     products = None
     gestiuni = None
     panemarCUI = None
+    intrari = {}
 
     productCodesBauturi = [[1005, 1006], [700, 728], [731, 798],]
     productCodesSdwSalate = [[799, 882], [1100, 1150],]
@@ -536,7 +537,14 @@ class WinMentor(object):
 
         self.logger.info("{} - {} - {}".format(partenerId, serie, nr))
 
-        ret = self._stat.ExistaFacturaIntrare(partenerId, serie, nr)
+        serii = [serie, '', ]
+        for s in serii:
+            self.logger.info("testing {} {} {}".format(partenerId, s, nr))
+
+            ret = self._stat.ExistaFacturaIntrare(partenerId, s, nr)
+            if ret == 1:
+                break
+
         if ret == 1:
             self.logger.info("Factura exista")
         else:
@@ -563,42 +571,22 @@ class WinMentor(object):
             self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
             return None
 
-        result = None
+        # make sure we have loaded the existing intrari
+        month = data.strftime("%m")
+        self.getIntrari(month)
 
         # Format parameters to string
         data = data.strftime("%d.%m.%Y")
-        serie = str(serie)
         nr = str(nr)
         partenerId = str(partenerId)
 
-        # Salveaza toate intrarile pentru factura respectiva
-        keys = (
-               "partenerId",
-               "data",
-               "nrDoc",
-               "idArticol",
-               "cant", # cantitate
-               "um",
-               "pret",
-               "simbGest",
-               "_"
-                )
-        intrari, rc = self._stat.GetIntrari()
-        result = []
-        if (rc == 0) and util.isArray(intrari):
-            for intrare in intrari:
-                val = self._colonListToDict(keys, intrare)
-                isForFactura = (val["partenerId"] == partenerId) and \
-                        (val["nrDoc"] == nr) and \
-                        (val["data"] == data)
-                if isForFactura:
-                    result.append(self._colonListToDict(keys, intrare))
-        else:
-            self.logger.debug("rc = {}".format(rc))
-            self.logger.error(repr(self.getListaErori()))
+        ret = self.intrari[month][partenerId][data][nr]
+        self.logger.info(json.dumps(
+                            ret,
+                            sort_keys=True, indent=4, separators=(',', ': '), default=util.defaultJSON))
 
         self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
-        return result
+        return ret
 
 
     def getGestiuni(self):
@@ -627,6 +615,54 @@ class WinMentor(object):
         self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
         return self.gestiuni
+
+
+    def getIntrari(self, month):
+        self.logger.info(">>> {}()".format(inspect.stack()[0][3]))
+        start = dt.now()
+
+        if month not in self.intrari:
+            self.intrari[month]={}
+            # Salveaza toate intrarile pentru factura respectiva
+            keys = (
+                   "partenerId",
+                   "data",
+                   "nrDoc",
+                   "idArticol",
+                   "cant", # cantitate
+                   "um",
+                   "pret",
+                   "simbGest",
+                   "_"
+                    )
+
+            intrariItems, rc = self._stat.GetIntrari()
+
+            if (rc == 0) and util.isArray(intrariItems):
+                # self.logger.info(intrariItems)
+                # 1/0
+
+                for item in intrariItems:
+                    val = self._colonListToDict(keys, item)
+                    # self.logger.info(val)
+                    # 1/0
+                    if val["partenerId"] not in self.intrari[month]:
+                        self.intrari[month][val["partenerId"]]={}
+                    if val["data"] not in self.intrari[month][val["partenerId"]]:
+                        self.intrari[month][val["partenerId"]][val["data"]]={}
+                    if val["nrDoc"] not in self.intrari[month][val["partenerId"]][val["data"]]:
+                        self.intrari[month][val["partenerId"]][val["data"]][val["nrDoc"]]=[]
+
+                    self.intrari[month][val["partenerId"]][val["data"]][val["nrDoc"]].append(val)
+                    # self.logger.info(self.intrari)
+                    # 1/0
+            else:
+                self.logger.debug("rc = {}".format(rc))
+                self.logger.error(repr(self.getListaErori()))
+
+        # self.logger.info(self.intrari)
+        # 1/0
+        self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
 
     def getGestiuneName(self, simbol):
@@ -747,8 +783,7 @@ class WinMentor(object):
         # TODO comment me
         # TODO rename me
 
-        self.logger.debug("\n%s",
-                        json.dumps(
+        self.logger.debug(json.dumps(
                             gestoData,
                             sort_keys=True,
                             indent=4,
@@ -830,7 +865,7 @@ class WinMentor(object):
             self.logger.info("Gasit intrare in winmentor.")
             if len(lstArt) != len(gestoData["items"]):
                 self.logger.error("Product list from gesto is different than product list from winmentor")
-                subject = "Factura {} importata incomplet in Winmentor".format(gestoData["documentNo"])
+                subject = "Factura {} importata incorect in Winmentor".format(gestoData["documentNo"])
 
                 msg = "wmPartenerID:{}, documentNo:{}, relatedDocumentNo:{}".format(wmPartenerID, gestoData["documentNo"], gestoData["relatedDocumentNo"])
                 send_email(subject, msg)
@@ -845,17 +880,17 @@ class WinMentor(object):
                 for artWm in lstArt:
                     wmCode = artWm["idArticol"]
                     # Remove "G_" prefix, if any
-                    wmCode = wmCode[len("G_"):] if wmCode.startswith("G_") else wmCode
+                    # wmCode = wmCode[len("G_"):] if wmCode.startswith("G_") else wmCode
 
                     # Search for article from winmentor in gesto array
                     artGesto = None
                     for a in gestoData["items"]:
-                        if wmCode == a["code"]:
-                            artGesto = a["code"]
+                        if wmCode == a["winMentorCode"]:
+                            artGesto = a["winMentorCode"]
                             break
 
                     if artGesto is None:
-                        self.logger.error("Product [%s] from winmentor not found gesto", wmCode)
+                        self.logger.error("Product [%s] from winmentor reception not found in gesto reception", wmCode)
                         alreadyAdded = False
                         break
 
