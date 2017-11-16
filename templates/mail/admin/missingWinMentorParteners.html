@@ -1,0 +1,6 @@
+{%if missingPartners|length != 0%}
+Urmatoarii {{missingPartners|length}} parteneri nu exista in WinMentor:<br/>
+{% for key,p in missingPartners.items  %}
+    {{p.name}}, {{p.code}}
+{% endfor %}
+{%endif%}
