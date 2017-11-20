@@ -1,0 +1,13 @@
+{%if missingPartners|length != 0%}
+Urmatorii {{missingPartners|length}} parteneri nu exista in WinMentor:<br/>
+{% for key,p in missingPartners.items  %}
+    {{p.name}}, {{p.code}}
+{% endfor %}
+{%endif%}
+
+{%if multiplePartenerIDsForEmail|length != 0%}
+Urmatoarele {{multiplePartenerIDsForEmail|length}} coduri fiscale apar de mai multe ori la parteneri in WinMentor:<br/>
+{% for p in multiplePartenerIDsForEmail  %}
+    {{p}}
+{% endfor %}
+{%endif%}

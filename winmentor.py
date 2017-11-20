@@ -24,6 +24,8 @@ class WinMentor(object):
     '''
 
     parteneri = None
+    multiplePartenerIDs = {}
+    multiplePartenerIDsForEmail = []
     products = None
     gestiuni = None
     panemarCUI = None
@@ -130,7 +132,7 @@ class WinMentor(object):
 
 
     def setPanemarCUI(self, CUI):
-        _, self.panemarCUI = util.fixupCUI(CUI)
+        self.panemarCUI = util.fixupCUI(CUI)
 
 
     def getPanemarCUI(self):
@@ -215,11 +217,21 @@ class WinMentor(object):
         for idx, partenerStr in enumerate(lista):
             parteneri.append(self._colonListToDict(keys, partenerStr))
 
-        ret = { util.fixupCUI(p["idPartener"])[1]: p for p in parteneri }
-        self.logger.debug("partners count: {}".format(len(ret)))
-        # self.logger.debug("partners : {}".format(ret))
+        self.multiplePartenerIDs = {}
+        retParteneri = {}
+        for p in parteneri:
+            id = util.fixupCUI(p["idPartener"])
+            # self.logger.debug("{} - {} ".format(p["idPartener"], id))
+            if id in retParteneri:
+                if id not in self.multiplePartenerIDs:
+                    self.multiplePartenerIDs[id] = p
+            else:
+                retParteneri[id] = p
 
-        return ret
+        self.logger.debug("partners count: {}".format(len(retParteneri)))
+        # self.logger.debug("partners : {}".format(retParteneri))
+
+        return retParteneri
 
 
     def getNomenclatorArticole(self):
@@ -700,13 +712,14 @@ class WinMentor(object):
             send_email(subject, html_part, toEmails=util.getCfgVal("client", "notificationEmails"))
 
 
-    def sendMissingPartnersMail(self):
-        if len(self.missingPartners) != 0:
-            template = loader.get_template("mail/admin/missingWinMentorParteners.html")
-            subject = "{} partener(i) lipsa in WinMentor".format(len(self.missingPartners))
+    def sendPartnersMail(self):
+        if len(self.missingPartners) != 0 or len(self.multiplePartenerIDsForEmail)!=0:
+            template = loader.get_template("mail/admin/WinMentorPartenersProblems.html")
+            subject = "Probleme la parteneri in WinMentor"
             html_part = template.render({
                 "subject": subject,
                 "missingPartners": self.missingPartners,
+                "multiplePartenerIDsForEmail": self.multiplePartenerIDsForEmail,
             })
             send_email(subject, html_part, toEmails=util.getCfgVal("client", "notificationEmails"))
 
@@ -810,8 +823,15 @@ class WinMentor(object):
         # gestiune = self.getGestiune(gestoData["simbolWinMentor"])
 
         # Get partener from gesto
-        _, gestoPartener = util.fixupCUI(gestoData["source"]["code"])
+        gestoPartener = util.fixupCUI(gestoData["source"]["code"])
         self.logger.info("gestoPartener = {}".format(gestoPartener))
+
+        if gestoPartener in self.multiplePartenerIDs:
+            self.multiplePartenerIDsForEmail.append(gestoPartener)
+
+            self.logger.info("Codul fiscal: {} apare de mai multe la parteneri, nu adaug")
+            self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+            return
 
         # # Get gestiune in WinMentor
         # magazine = self.matchGestiune(gestoData["simbolWinMentor"], gestiuni)

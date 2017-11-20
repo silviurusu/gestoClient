@@ -180,7 +180,7 @@ def disable_logging(lvl = logging.DEBUG):
 
 
 @disable_logging(logging.DEBUG)
-def fixupCUI(cui):
+def fixupCUI2(cui):
     """ Return a CUI or CNP or Serie/Nr CI in format fix, daca sirul de intrare
         corepunde:
         CUI: XXddddddd[d][d]
@@ -220,3 +220,15 @@ def fixupCUI(cui):
             return (True, serie + nr)
 
     return (False, cui)
+
+
+@disable_logging(logging.DEBUG)
+def fixupCUI(cui):
+    """ Return a unique simbol that can identify the partener
+        @return: (str): simbol that can identify the partener
+    """
+
+    ret = cui.replace(" ", "").lower()
+    ret = ret.replace("ro", "")
+
+    return ret

@@ -247,7 +247,7 @@ def getGestoDocuments(baseURL, token, operationType, excludeCUI=None, startDate 
                 # if util.isArray(gestoData) and len(gestoData) >= 1:
                 if operationType == "reception":
                     # Get partener from gesto
-                    _, gestoPartener = util.fixupCUI(op["source"]["code"])
+                    gestoPartener = util.fixupCUI(op["source"]["code"])
                     logger.info("gestoPartener = {}".format(gestoPartener))
                     winmentor.addReception(op)
 
@@ -411,7 +411,7 @@ if __name__ == "__main__":
 
         # Send mail with new products and partners
         winmentor.sendNewProductsMail()
-        winmentor.sendMissingPartnersMail()
+        winmentor.sendPartnersMail()
         winmentor.sendIncorrectWinMentorProductsMail()
 
     except Exception as e:
