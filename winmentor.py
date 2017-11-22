@@ -163,7 +163,9 @@ class WinMentor(object):
         ret = True
 
         for item in items:
-            if item["winMentorCode"] == "nil" or not self.productExists(item["winMentorCode"]):
+            if item["winMentorCode"] == "nil" \
+            or item["winMentorCode"] == ""  \
+            or not self.productExists(item["winMentorCode"]):
                 ret = False
                 if item["code"] not in self.missingCodes:
                     # only add a code once
@@ -342,7 +344,7 @@ class WinMentor(object):
             if isinstance(val, dt):
                 val = "{:%d.%m.%Y}".format(val)
             elif isinstance(val, float):
-                val = "{:.2f}".format(val)
+                val = "{:f}".format(val)
             else:
                 val = str(val)
             pd.append(val)
@@ -407,6 +409,8 @@ class WinMentor(object):
         # txtFactura += "Majorari={}\n".format(kwargs.get("majorari", ""))
         if kwargs.get("Discount") is True:
             txtFactura += "Discount={:.4f}\n".format(kwargs.get("discount"))
+        txtFactura += "Observatii={}\n".format(kwargs.get("observatii", ""))
+        txtFactura += "ObservatiiNIR={}\n".format(kwargs.get("observatiiNIR", ""))
 
         # Adauga items in factura
         txtFactura += "\n[Items_{}]\n".format(1)
@@ -589,7 +593,7 @@ class WinMentor(object):
 
         # Format parameters to string
         data = data.strftime("%d.%m.%Y")
-        nr = str(nr)
+        nr = str(int(nr)) # if I have doc nrs that start with 0
         partenerId = str(partenerId)
 
         ret = self.intrari[month][partenerId][data][nr]
@@ -766,7 +770,7 @@ class WinMentor(object):
                 # found = re.match(regex, gestiune["simbol"], re.IGNORECASE)
                 # if found:
                 #     result.append(gestiune)
-                self.logger.debug("gestiune: {}".format(gestiune))
+                # self.logger.debug("gestiune: {}".format(gestiune))
                 if simbolGestiuneSearch == gestiune:
                     ret = gestiune
                     break
@@ -926,6 +930,7 @@ class WinMentor(object):
 
         # Get lista articole from gesto, create array of articole pentru factura
         articoleFactura = []
+        observatii = ""
         for item in gestoData["items"]:
             # if not haveArticol:
             #     # Adauga produs in winmentor, cu prefixul G_
@@ -966,6 +971,8 @@ class WinMentor(object):
                         }
                     )
 
+            observatii += item["name"]+"; "
+
         # Creaza factura import
         rc = self.importaFactIntrare(
                 logOn = "Master",
@@ -977,6 +984,8 @@ class WinMentor(object):
                 dataNir = dt.fromtimestamp(gestoData["relatedDocumentDate"]) if gestoData["relatedDocumentDate"] not in ("nil", None) else opDate,
                 scadenta = opDate + timedelta(days = 1),
                 codFurnizor = wmPartenerID,
+                observatii= observatii,
+                observatiiNIR=gestoData["destination"]["name"],
                 items = articoleFactura
                 )
         if rc:
@@ -986,6 +995,7 @@ class WinMentor(object):
             1/0
 
         self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+
 
     def importaMonetare(self, **kwargs):
         '''

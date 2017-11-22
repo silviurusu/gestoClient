@@ -163,6 +163,10 @@ def getGestoDocuments(baseURL, token, operationType, excludeCUI=None, startDate 
     if startDate is None:
         startDate = dt.today()
     startDate, endDate = startDate - timedelta(days = daysDelta), startDate
+
+    if token == "2043451": # "34 Fabricii"
+        startDate = max([startDate, datetime.datetime(2017, 11, 21)])
+
     logger.debug("startDate: {}".format(startDate))
     logger.debug("endDate: {}".format(endDate))
 
