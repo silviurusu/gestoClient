@@ -369,7 +369,8 @@ if __name__ == "__main__":
 
         logger.info("Using utDate: {}".format(utDate))
 
-        startDate = utDate.replace(hour=0, minute=0, second=0, microsecond=0)
+        # end of day
+        startDate = utDate.replace(hour=23, minute=59, second=59)
         logger.info("Using start date: {}".format(startDate))
 
         if cfg.getboolean("gesto", "exportReceptions"):
