@@ -1108,7 +1108,7 @@ class WinMentor(object):
             if item["winMentorCode"].startswith("G_MARF"):
                 codExternArticol = item["winMentorCode"]
             else:
-                codExternArticol = "G_PROD_9_{}".format(item["vat"])
+                codExternArticol = "G_PROD_{}".format(item["vat"])
 
             # Adauga produs la lista produse factura
             articoleTransfer.append(
