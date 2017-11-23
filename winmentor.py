@@ -940,8 +940,6 @@ class WinMentor(object):
             wmArticol = self.getProduct(item["winMentorCode"])
             # self.logger.info("wmArticol: {}".format(wmArticol))
 
-            self.logger.info(self.getProduct(item["winMentorCode"]))
-
             # Adauga produs la lista produse factura
             articoleWMDoc.append(
                     {
@@ -951,7 +949,7 @@ class WinMentor(object):
                         "listPrice": item["listPrice"],
                         "opPrice": item["opPrice"],
                         # "simbGest": gestoData["simbolWinMentor"]
-                        "simbGest": self.getProduct(item["winMentorCode"])["GestImplicita"]
+                        "simbGest": wmArticol["GestImplicita"]
                         }
                     )
 
@@ -1198,7 +1196,7 @@ class WinMentor(object):
         txtWMDoc += "SimbolCarnet={}\n".format("NT_G")
         txtWMDoc += "NrDoc={}\n".format(kwargs.get("nrDoc", ""))
         txtWMDoc += "Data={:%d.%m.%Y}\n".format(kwargs.get("data"))
-        txtWMDoc += "GestDest={}\n".format(kwargs.get("gestiune")["simbol"])
+        txtWMDoc += "GestDest={}\n".format(kwargs.get("gestiune"))
         txtWMDoc += "Operatie={}\n".format("A")
         txtWMDoc += "Operat={}\n".format("T")
         txtWMDoc += "TotalArticole={}\n".format(len(items))
@@ -1314,96 +1312,38 @@ class WinMentor(object):
         opDate = dt.fromtimestamp(gestoData["dateBegin"])
         self.setLunaLucru(opDate.month, opDate.year)
 
-        # # Cauta daca exista deja o factura in Winmentor cu intrarea din gesto
-        # alreadyAdded = False
-        # lstArt = self._stat.GetTransferuri()
+        # verify I have all gesto codes and defalut gestiuni in WinMentor
+        if not self.productsAreOK(gestoData["items"]):
+            self.logger.info("Factura are articole cu coduri nesetate sau gestiuni lipsa, nu adaug")
+            self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+            return
 
-        # self.logger.info(lstArt)
-        # 1/0
-
-        # if lstArt and (len(lstArt) != 0):
-        #     self.logger.info("Gasit intrare in winmentor.")
-        #     if len(lstArt) != len(gestoData["items"]):
-        #         self.logger.error("Product list from gesto is different than product list from winmentor")
-        #     else:
-        #         # Verifica toate produsele din factura daca corespund cu cele din gesto
-        #         alreadyAdded = True
-
-        #         for artWm in lstArt:
-        #             wmCode = artWm["idArticol"]
-        #             # Remove "G_" prefix, if any
-        #             wmCode = wmCode[len("G_"):] if wmCode.startswith("G_") else wmCode
-
-        #             # Search for article from winmentor in gesto array
-        #             artGesto = None
-        #             for a in gestoData["items"]:
-        #                 if wmCode == a["code"]:
-        #                     artGesto = a["code"]
-        #                     break
-
-        #             if artGesto is None:
-        #                 self.logger.error("Product [%s] from winmentor not found gesto", wmCode)
-        #                 alreadyAdded = False
-        #                 break
-
-        # if alreadyAdded:
-        #     self.logger.info("Factura e deja adaugata")
-        #     self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
-        #     return
-
-        # Get lista articole from gesto, create array of articole pentru factura
+            # Get lista articole from gesto, create array of articole pentru workOrders
         articoleWMDoc = []
-        for articol in gestoData["items"]:
-            # Remove "." from all articol strings
-            articol = { key: val.replace(".", "") if isinstance(val, basestring) else val for key, val in articol.iteritems() }
-            gestoId = articol["code"]
-            # Check if articol is in WinMentor
-            haveArticol = self.getProducts().get(gestoId)
-            if not haveArticol:
-                if not gestoId.startswith("G_"):
-                    gestoId = "G_" + gestoId
-                    haveArticol = self.getProducts().get(gestoId)
-            if not haveArticol:
-                # Adauga produs in winmentor, cu prefixul G_
-                self.logger.info("Need to add product {} to winmentor".format(articol["name"]))
-                rc = self.addProduct(
-                        idArticol = gestoId,
-                        denumire = articol["name"],
-                        codIntern = "G_{}".format(articol["id"]),
-                        um = articol["um"],
-                        pret = articol["listVal"]/articol["qty"],
-                        cotaTVA = articol["vat"]
-                        )
-                if not rc:
-                    self.logger.error(repr(self.getListaErori()))
-                    self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
-                    return
+        for item in gestoData["items"]:
 
-                if self.getProducts().get(gestoId) is None:
-                    self.logger.error("Failed to add articol to Winmentor")
-                    self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
-                    return
-
-            # Adauga produs la lista produse factura
-            if self.isDrink(int(articol["code"])):
+            # Adauga produs la lista produse
+            if self.isDrink(int(item["code"])):
                 simbGest = "PF-Bauturi"
-            elif self.isSdwSalad(int(articol["code"])):
+            elif self.isSdwSalad(int(item["code"])):
                 simbGest = "PF Sandwich"
             else:
                 # I need to have a gestiune for these articles too
                 continue
 
+            wmArticol = self.getProduct(item["winMentorCode"])
+
             articoleWMDoc.append({
-                        "codExternArticol": gestoId,
-                        "um": articol["um"],
-                        "cant": articol["qty"],
-                        "pret": articol["listVal"]/articol["qty"],
+                        "codExternArticol": item["winMentorCode"],
+                        "um": wmArticol["DenUM"],
+                        "cant": item["qty"],
+                        "pret": item["listVal"]/item["qty"],
                         "simbGest": simbGest
                     })
 
         # Creaza transferul
         rc = self.importaTransfer(
-                logOn = "Master", # TODO what's this?
+                logOn = "Master",
                 # nrDoc = gestoData["documentNo"],
                 nrDoc = util.getNextDocumentNumber("NT"),
                 data = opDate,

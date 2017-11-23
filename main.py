@@ -26,12 +26,21 @@ def generateWorkOrders(baseURL, token, date):
 
     url = baseURL + "/products/summary/?"
     url += "type=workOrder"
-    url += "&verify=1"
-    url += "&dateBegin={}".format(util.getTimestamp(date))
-    url += "&dateEnd={}".format(util.getTimestamp(date + timedelta(days = 1)))
+    verify=True # only for workOrders
+    if verify:
+        url += "&verify=1"
+    url += "&winMentor=1"
+
+    # add workOrders for the previous day
+    dateEnd = date - timedelta(days = 1)
+    dateBegin = dateEnd.replace(hour=0, minute=0, second=0)
+
+    url += "&dateBegin={}".format(util.getTimestamp(dateBegin))
+    url += "&dateEnd={}".format(util.getTimestamp(dateEnd))
 
     logger.debug(url)
-    logger.debug("dateBegin: {}".format(date.strftime("%Y-%m-%d %H:%M:%S")))
+    logger.debug("dateBegin: {}".format(dateBegin.strftime("%Y-%m-%d %H:%M:%S")))
+    logger.debug("dateEnd: {}".format(dateEnd.strftime("%Y-%m-%d %H:%M:%S")))
 
     retJSON = None
     r = requests.get(url, headers={'GESTOTOKEN': token})
@@ -454,7 +463,7 @@ if __name__ == "__main__":
                 gestoData = generateWorkOrders(
                         baseURL = cfg.get("gesto", "url"),
                         token = token,
-                        date = startDate,
+                        date = endDate,
                         )
 
         if doImportAvize:
