@@ -1,7 +1,7 @@
 import requests
 import json
 import os
-import sys
+import sys, getopt
 import datetime
 import util
 # from myConfigParser import *
@@ -56,13 +56,24 @@ def generateMonetare(baseURL, token, date):
     start = dt.now()
 
     url = baseURL + "/products/summary/?"
-    url += "type=workOrder"
-    url += "&verify=1"
-    url += "&dateBegin={}".format(util.getTimestamp(date))
-    url += "&dateEnd={}".format(util.getTimestamp(date + timedelta(days = 1)))
+    url += "type=sale"
+
+    verify=False # only for workOrders
+    if verify:
+        url += "&verify=1"
+
+    url += "&winMentor="+str(1)
+
+    # add monetare for the previous day
+    dateEnd = date - timedelta(days = 1)
+    dateBegin = dateEnd.replace(hour=0, minute=0, second=0)
+
+    url += "&dateBegin={}".format(util.getTimestamp(date - timedelta(days = 1)))
+    url += "&dateEnd={}".format(util.getTimestamp(date - timedelta(seconds=1)))
 
     logger.debug(url)
-    logger.debug("dateBegin: {}".format(date.strftime("%Y-%m-%d %H:%M:%S")))
+    logger.debug("dateBegin: {}".format(dateBegin.strftime("%Y-%m-%d %H:%M:%S")))
+    logger.debug("dateEnd: {}".format(dateEnd.strftime("%Y-%m-%d %H:%M:%S")))
 
     retJSON = None
     r = requests.get(url, headers={'GESTOTOKEN': token})
@@ -75,7 +86,10 @@ def generateMonetare(baseURL, token, date):
     else:
         retJSON = r.json()
 
-        if retJSON["verify"] == "success":
+        # logger.debug(retJSON)
+        if not verify or retJSON["verify"] == "success":
+            pass
+
             # email is sent from Gesto if there is any problem
             winmentor.addMonetare(retJSON)
 
@@ -143,12 +157,10 @@ def importAvize(baseURL, date):
             opStr.pop('documentNo', None)
         opStr.pop('documentDate', None)
 
-
-
     logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
 
-def getGestoDocuments(baseURL, token, operationType, excludeCUI=None, startDate = None, daysDelta = 7):
+def getGestoDocuments(baseURL, token, operationType, excludeCUI=None, endDate = None, daysDelta = 7):
     """
     @param token: Gesto token used for request
     @tparam [datetime] startDate: first day of request, defaults to today
@@ -160,16 +172,16 @@ def getGestoDocuments(baseURL, token, operationType, excludeCUI=None, startDate 
     start = dt.now()
 
     logger.info("Getting receptie from Gesto.")
-    if startDate is None:
-        startDate = dt.today()
-    startDate, endDate = startDate - timedelta(days = daysDelta), startDate
+    if endDate is None:
+        endDate = dt.today()
+        endDate = endDate.replace(hour=23, minute=59, second=59)
 
+    startDate = (endDate - timedelta(days = daysDelta)).replace(hour=0, minute=0, second=0)
     if token == "2043451": # "34 Fabricii"
         startDate = max([startDate, datetime.datetime(2017, 11, 21)])
 
     logger.debug("startDate: {}".format(startDate))
     logger.debug("endDate: {}".format(endDate))
-
 
     url = baseURL + "/operations?"
     url += "&type="+operationType
@@ -374,10 +386,46 @@ if __name__ == "__main__":
         logger.info("Using utDate: {}".format(utDate))
 
         # end of day
-        startDate = utDate.replace(hour=23, minute=59, second=59)
-        logger.info("Using start date: {}".format(startDate))
+        endDate = utDate.replace(hour=23, minute=59, second=59)
+        logger.info("Using end date: {}".format(endDate))
 
-        if cfg.getboolean("gesto", "exportReceptions"):
+        doExportReceptions = cfg.getboolean("gesto", "exportReceptions")
+        doGenerateWorkOrders = cfg.getboolean("gesto", "generateWorkOrders")
+        doGenerateMonetare = cfg.getboolean("gesto", "generateMonetare")
+        doImportAvize = cfg.getboolean("gesto", "importAvize")
+
+        try:
+            opts, args = getopt.getopt(sys.argv[1:],"h",["exportReceptions=",
+                                     "generateWorkOrders=",
+                                     "generateMonetare=",
+                                     "importAvize="
+                                    ])
+
+            logger.info(opts)
+            logger.info(args)
+
+        except getopt.GetoptError:
+            print '{} --exportReceptions=<> --generateWorkOrders=<> --generateMonetare=<> --importAvize=<>'.format(sys.argv[0])
+            sys.exit(2)
+        for opt, arg in opts:
+            if opt == '-h':
+                print '{} --exportReceptions=<> --generateWorkOrders=<> --generateMonetare=<> --importAvize=<>'.format(sys.argv[0])
+                sys.exit()
+            elif opt in ("--exportReceptions"):
+                doExportReceptions = bool(int(arg))
+            elif opt in ("--generateWorkOrders"):
+                doGenerateWorkOrders = bool(int(arg))
+            elif opt in ("--generateMonetare"):
+                doGenerateMonetare = bool(int(arg))
+            elif opt in ("--importAvize"):
+                doImportAvize = bool(int(arg))
+
+        logger.info( 'exportReceptions {}'.format(doExportReceptions))
+        logger.info( 'generateWorkOrders {}'.format(doGenerateWorkOrders))
+        logger.info( 'generateMonetare {}'.format(doGenerateMonetare))
+        logger.info( 'importAvize {}'.format(doImportAvize))
+
+        if doExportReceptions:
             for token in tokens:
                 logger.info("Using Gesto token: {}".format(token))
 
@@ -386,20 +434,20 @@ if __name__ == "__main__":
                         token = token,
                         operationType="reception",
                         excludeCUI=cfg.get("winmentor", "cui"),
-                        startDate = startDate,
+                        endDate = endDate,
                         daysDelta = cfg.getint("gesto", "daysDelta"),
                         )
 
-        if cfg.getboolean("gesto", "generateMonetare"):
+        if doGenerateMonetare:
             for token in tokens:
                 logger.info("Using Gesto token: {}".format(token))
                 gestoData = generateMonetare(
                         baseURL = cfg.get("gesto", "url"),
                         token = token,
-                        date = startDate,
+                        date = endDate,
                         )
 
-        if cfg.getboolean("gesto", "generateWorkOrders"):
+        if doGenerateWorkOrders:
             for token in tokens:
                 logger.info("Using Gesto token: {}".format(token))
                 gestoData = generateWorkOrders(
@@ -408,7 +456,7 @@ if __name__ == "__main__":
                         date = startDate,
                         )
 
-        if cfg.getboolean("gesto", "importAvize"):
+        if doImportAvize:
             gestoData = importAvize(
                     baseURL = cfg.get("gesto", "url"),
                     date = startDate,
