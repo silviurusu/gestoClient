@@ -813,7 +813,12 @@ class WinMentor(object):
         self.logger.info("destination: {}".format(gestoData["destination"]["name"]))
         self.logger.info("simbolWinMentor: {}".format(gestoData["simbolWinMentor"]))
 
+        # eliminate strings at begin end end of relatedDocumentNo, fvz123, FCT-312
+        matchStr = '^([^0-9]*)([0-9]*)([^0-9]*)$'
+        gestoData["relatedDocumentNo"] = re.match(matchStr, gestoData["relatedDocumentNo"]).groups()[1]
         gestoData["relatedDocumentNo"] = gestoData["relatedDocumentNo"][-9:]
+
+        self.logger.info("relatedDocumentNo: {}".format(gestoData["relatedDocumentNo"]))
 
         self.logger.info("CUI Panemar: {}".format(self.panemarCUI))
 
@@ -950,7 +955,8 @@ class WinMentor(object):
                         }
                     )
 
-            observatii += item["name"]+"; "
+            if item["name"].startswith("G_MARF_"):
+                observatii += item["name"]+"; "
 
         # Creaza factura import
         rc = self.importaFactIntrare(
