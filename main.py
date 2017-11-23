@@ -62,7 +62,8 @@ def generateMonetare(baseURL, token, date):
     if verify:
         url += "&verify=1"
 
-    url += "&winMentor="+str(1)
+    url += "&winMentor=1"
+    url += "&excludeOpVal=0"
 
     # add monetare for the previous day
     dateEnd = date - timedelta(days = 1)
