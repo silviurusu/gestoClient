@@ -375,7 +375,7 @@ class WinMentor(object):
         items = kwargs.get("items", [])
 
         # Header factura
-        txtFactura = (
+        txtWMDoc = (
             "[InfoPachet]\n"
             "AnLucru={}\n"
             "LunaLucru={}\n"
@@ -391,29 +391,29 @@ class WinMentor(object):
                 )
 
         # Factura
-        txtFactura += "[Factura_{}]\n".format(1)
-        txtFactura += "Operatie=A\n"
-        txtFactura += "SerieDoc={}\n".format(kwargs.get("serieDoc", ""))
-        txtFactura += "NrDoc={}\n".format(kwargs.get("nrDoc", ""))
+        txtWMDoc += "[Factura_{}]\n".format(1)
+        txtWMDoc += "Operatie=A\n"
+        txtWMDoc += "SerieDoc={}\n".format(kwargs.get("serieDoc", ""))
+        txtWMDoc += "NrDoc={}\n".format(kwargs.get("nrDoc", ""))
         if kwargs.get("nrNir"):
-            txtFactura += "NrNIR={}\n".format(kwargs.get("nrNir"))
+            txtWMDoc += "NrNIR={}\n".format(kwargs.get("nrNir"))
         if kwargs.get("simbolCarnet"):
-            txtFactura += "SimbolCarnetNir={}\n".format(kwargs.get("simbolCarnet"))
-        txtFactura += "Data={:%d.%m.%Y}\n".format(kwargs.get("data", dt.now()))
-        txtFactura += "DataNir={:%d.%m.%Y}\n".format(kwargs.get("dataNir", None))
-        txtFactura += "Scadenta={:%d.%m.%Y}\n".format(kwargs.get("scadenta", dt.now()))
-        txtFactura += "TotalArticole={}\n".format(len(items))
-        txtFactura += "CodFurnizor={}\n".format(kwargs.get("codFurnizor", ""))
+            txtWMDoc += "SimbolCarnetNir={}\n".format(kwargs.get("simbolCarnet"))
+        txtWMDoc += "Data={:%d.%m.%Y}\n".format(kwargs.get("data", dt.now()))
+        txtWMDoc += "DataNir={:%d.%m.%Y}\n".format(kwargs.get("dataNir", None))
+        txtWMDoc += "Scadenta={:%d.%m.%Y}\n".format(kwargs.get("scadenta", dt.now()))
+        txtWMDoc += "TotalArticole={}\n".format(len(items))
+        txtWMDoc += "CodFurnizor={}\n".format(kwargs.get("codFurnizor", ""))
         if kwargs.get("TVAINCASARE") is True:
-            txtFactura += "TVAINCASARE={}\n".format("D")
-        # txtFactura += "Majorari={}\n".format(kwargs.get("majorari", ""))
+            txtWMDoc += "TVAINCASARE={}\n".format("D")
+        # txtWMDoc += "Majorari={}\n".format(kwargs.get("majorari", ""))
         if kwargs.get("Discount") is True:
-            txtFactura += "Discount={:.4f}\n".format(kwargs.get("discount"))
-        txtFactura += "Observatii={}\n".format(kwargs.get("observatii", ""))
-        txtFactura += "ObservatiiNIR={}\n".format(kwargs.get("observatiiNIR", ""))
+            txtWMDoc += "Discount={:.4f}\n".format(kwargs.get("discount"))
+        txtWMDoc += "Observatii={}\n".format(kwargs.get("observatii", ""))
+        txtWMDoc += "ObservatiiNIR={}\n".format(kwargs.get("observatiiNIR", ""))
 
         # Adauga items in factura
-        txtFactura += "\n[Items_{}]\n".format(1)
+        txtWMDoc += "\n[Items_{}]\n".format(1)
         keys = (
                 "codExternArticol",
                 "um",
@@ -429,11 +429,11 @@ class WinMentor(object):
         itemStr = ""
         for idx, item in enumerate(items):
             txtProd = self._dictToColonList(keys, item)
-            txtFactura += "Item_{}={}\n".format(idx + 1, txtProd) # articolele incep de la 1
+            txtWMDoc += "Item_{}={}\n".format(idx + 1, txtProd) # articolele incep de la 1
 
-        self.logger.debug("txtFactura: \n{}".format(txtFactura))
+        self.logger.debug("txtWMDoc: \n{}".format(txtWMDoc))
 
-        fact = txtFactura.split("\n")
+        fact = txtWMDoc.split("\n")
 
         self._stat.SetDocsData(fact)
 
@@ -934,7 +934,7 @@ class WinMentor(object):
             return
 
         # Get lista articole from gesto, create array of articole pentru factura
-        articoleFactura = []
+        articoleWMDoc = []
         observatii = ""
         for item in gestoData["items"]:
             wmArticol = self.getProduct(item["winMentorCode"])
@@ -943,7 +943,7 @@ class WinMentor(object):
             self.logger.info(self.getProduct(item["winMentorCode"]))
 
             # Adauga produs la lista produse factura
-            articoleFactura.append(
+            articoleWMDoc.append(
                     {
                         "codExternArticol": item["winMentorCode"],
                         "um": wmArticol["DenUM"],
@@ -971,7 +971,7 @@ class WinMentor(object):
                 codFurnizor = wmPartenerID,
                 observatii= observatii,
                 observatiiNIR=gestoData["destination"]["name"],
-                items = articoleFactura
+                items = articoleWMDoc
                 )
         if rc:
             self.logger.info("SUCCESS: Adaugare factura")
@@ -1005,7 +1005,7 @@ class WinMentor(object):
         items = kwargs.get("items", [])
 
         # Header transfer
-        txtTransfer = (
+        txtWMDoc = (
             "[InfoPachet]\n"
             "AnLucru={}\n"
             "LunaLucru={}\n"
@@ -1022,26 +1022,26 @@ class WinMentor(object):
                 )
 
         # Transfer
-        txtTransfer += "[Monetar_{}]\n".format(1)
-        txtTransfer += "Operat={}\n".format("N")
-        txtTransfer += "NrDoc={}\n".format(kwargs.get("nrDoc", ""))
-        txtTransfer += "SimbolCarnet={}\n".format("M_G")
-        txtTransfer += "Operatie={}\n".format("A")
-        txtTransfer += "CasaDeMarcat={}\n".format("N")
-        txtTransfer += "NumarBonuri={}\n".format(kwargs.get("clientsNo", ""))
-        txtTransfer += "Data={:%d.%m.%Y}\n".format(kwargs.get("data"))
-        txtTransfer += "Casa={}\n".format("Casa lei")
-        txtTransfer += "TotalArticole={}\n".format(len(items))
+        txtWMDoc += "[Monetar_{}]\n".format(1)
+        txtWMDoc += "Operat={}\n".format("N")
+        txtWMDoc += "NrDoc={}\n".format(kwargs.get("nrDoc", ""))
+        txtWMDoc += "SimbolCarnet={}\n".format("M_G")
+        txtWMDoc += "Operatie={}\n".format("A")
+        txtWMDoc += "CasaDeMarcat={}\n".format("D")
+        txtWMDoc += "NumarBonuri={}\n".format(kwargs.get("clientsNo", ""))
+        txtWMDoc += "Data={:%d.%m.%Y}\n".format(kwargs.get("data"))
+        txtWMDoc += "Casa={}\n".format("Casa lei")
+        txtWMDoc += "TotalArticole={}\n".format(len(items))
         payment = kwargs.get("payment")
-        txtTransfer += "CEC={}\n".format(payment["bank transfer"] if "bank transfer" in payment else 0)
-        txtTransfer += "CARD={}\n".format(payment["card"] if "card" in payment else 0)
-        txtTransfer += "BONVALORIC={}\n".format(payment["food vouchers"] if "food vouchers" in payment else 0)
-        txtTransfer += "Observatii={}\n".format("Gesto")
-        txtTransfer += "Discount={}\n".format(0)
-        txtTransfer += "TVADiscount={}\n".format(0)
+        txtWMDoc += "CEC={}\n".format(payment["bank transfer"] if "bank transfer" in payment else 0)
+        txtWMDoc += "CARD={}\n".format(payment["card"] if "card" in payment else 0)
+        txtWMDoc += "BONVALORIC={}\n".format(payment["food vouchers"] if "food vouchers" in payment else 0)
+        txtWMDoc += "Observatii={}\n".format("Gesto")
+        txtWMDoc += "Discount={}\n".format(0)
+        txtWMDoc += "TVADiscount={}\n".format(0)
 
-        # Adauga items in factura
-        txtTransfer += "\n[Items_{}]\n".format(1)
+        # Adauga items in monetar
+        txtWMDoc += "\n[Items_{}]\n".format(1)
         keys = (
                 "codExternArticol",
                 "um",
@@ -1053,11 +1053,11 @@ class WinMentor(object):
         itemStr = ""
         for idx, item in enumerate(items):
             txtProd = self._dictToColonList(keys, item)
-            txtTransfer += "Item_{}={}\n".format(idx + 1, txtProd) # articolele incep de la 1
+            txtWMDoc += "Item_{}={}\n".format(idx + 1, txtProd) # articolele incep de la 1
 
-        self.logger.debug("txtTransfer: \n{}".format(txtTransfer))
+        self.logger.debug("txtWMDoc: \n{}".format(txtWMDoc))
 
-        fact = txtTransfer.split("\n")
+        fact = txtWMDoc.split("\n")
 
         self._stat.SetDocsData(fact)
 
@@ -1096,9 +1096,9 @@ class WinMentor(object):
             self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
             return
 
-        # Get lista articole from gesto, create array of articole pentru factura
-        # Get lista articole from gesto, create array of articole pentru factura
-        articoleTransfer = []
+       #  Get lista articole from gesto, create array of articole pentru factura
+
+        newItems = {}
         for item in gestoData["items"]:
             wmArticol = self.getProduct(item["winMentorCode"])
             # self.logger.info("wmArticol: {}".format(wmArticol))
@@ -1110,17 +1110,28 @@ class WinMentor(object):
             else:
                 codExternArticol = "G_PROD_{}_{}".format(item["vat"], gestoData["branch"][:2])
 
-            # Adauga produs la lista produse factura
-            articoleTransfer.append(
-                    {
+            # Adauga produs la lista produse transfer
+
+            if codExternArticol not in newItems:
+                newItems["codExternArticol"] = {
                         "codExternArticol": codExternArticol,
                         "um": wmArticol["DenUM"],
-                        # "codExternArticol": 123350,
-                        # "um": "Buc",
                         "cant": 1,
-                        "pret": item["opVal"],
-                        # "simbGest": gestoData["simbolWinMentor"]
+                        "pret": 0,
                         "simbGest": self.getProduct(item["winMentorCode"])["GestImplicita"]
+                        }
+
+            newItems["codExternArticol"]["pret"] += item["opVal"]
+
+        articoleWMDoc = []
+        for item in newItems:
+            articoleWMDoc.append(
+                    {
+                        "codExternArticol": item["codExternArticol"],
+                        "um": item["um"],
+                        "cant": item["cant"],
+                        "pret": item["pret"],
+                        "simbGest": sitem["simbGest"]
                         }
                     )
 
@@ -1130,7 +1141,7 @@ class WinMentor(object):
                 # nrDoc = gestoData["documentNo"],
                 nrDoc = util.getNextDocumentNumber("MON"),
                 data = opDate,
-                items = articoleTransfer,
+                items = articoleWMDoc,
                 payment = gestoData["payment"],
                 clientsNo = gestoData["clientsNo"] if gestoData["clientsNo"] not in ("nil", None) else 0,
                 )
@@ -1166,7 +1177,7 @@ class WinMentor(object):
         items = kwargs.get("items", [])
 
         # Header transfer
-        txtTransfer = (
+        txtWMDoc = (
             "[InfoPachet]\n"
             "AnLucru={}\n"
             "LunaLucru={}\n"
@@ -1183,18 +1194,18 @@ class WinMentor(object):
                 )
 
         # Transfer
-        txtTransfer += "[Transfer_{}]\n".format(1)
-        txtTransfer += "SimbolCarnet={}\n".format("NT_G")
-        txtTransfer += "NrDoc={}\n".format(kwargs.get("nrDoc", ""))
-        txtTransfer += "Data={:%d.%m.%Y}\n".format(kwargs.get("data"))
-        txtTransfer += "GestDest={}\n".format(kwargs.get("gestiune")["simbol"])
-        txtTransfer += "Operatie={}\n".format("A")
-        txtTransfer += "Operat={}\n".format("T")
-        txtTransfer += "TotalArticole={}\n".format(len(items))
-        txtTransfer += "Observatii={}\n\n".format("Gesto")
+        txtWMDoc += "[Transfer_{}]\n".format(1)
+        txtWMDoc += "SimbolCarnet={}\n".format("NT_G")
+        txtWMDoc += "NrDoc={}\n".format(kwargs.get("nrDoc", ""))
+        txtWMDoc += "Data={:%d.%m.%Y}\n".format(kwargs.get("data"))
+        txtWMDoc += "GestDest={}\n".format(kwargs.get("gestiune")["simbol"])
+        txtWMDoc += "Operatie={}\n".format("A")
+        txtWMDoc += "Operat={}\n".format("T")
+        txtWMDoc += "TotalArticole={}\n".format(len(items))
+        txtWMDoc += "Observatii={}\n\n".format("Gesto")
 
         # Adauga items in factura
-        txtTransfer += "\n[Items_{}]\n".format(1)
+        txtWMDoc += "\n[Items_{}]\n".format(1)
         keys = (
                 "codExternArticol",
                 "um",
@@ -1206,11 +1217,11 @@ class WinMentor(object):
         itemStr = ""
         for idx, item in enumerate(items):
             txtProd = self._dictToColonList(keys, item)
-            txtTransfer += "Item_{}={}\n".format(idx + 1, txtProd) # articolele incep de la 1
+            txtWMDoc += "Item_{}={}\n".format(idx + 1, txtProd) # articolele incep de la 1
 
-        self.logger.debug("txtTransfer: \n{}".format(txtTransfer))
+        self.logger.debug("txtWMDoc: \n{}".format(txtWMDoc))
 
-        fact = txtTransfer.split("\n")
+        fact = txtWMDoc.split("\n")
 
         self._stat.SetDocsData(fact)
 
@@ -1341,7 +1352,7 @@ class WinMentor(object):
         #     return
 
         # Get lista articole from gesto, create array of articole pentru factura
-        articoleTransfer = []
+        articoleWMDoc = []
         for articol in gestoData["items"]:
             # Remove "." from all articol strings
             articol = { key: val.replace(".", "") if isinstance(val, basestring) else val for key, val in articol.iteritems() }
@@ -1382,7 +1393,7 @@ class WinMentor(object):
                 # I need to have a gestiune for these articles too
                 continue
 
-            articoleTransfer.append({
+            articoleWMDoc.append({
                         "codExternArticol": gestoId,
                         "um": articol["um"],
                         "cant": articol["qty"],
@@ -1397,7 +1408,7 @@ class WinMentor(object):
                 nrDoc = util.getNextDocumentNumber("NT"),
                 data = opDate,
                 gestiune = wmGestiune,
-                items = articoleTransfer
+                items = articoleWMDoc
                 )
 
         if rc:
