@@ -955,7 +955,7 @@ class WinMentor(object):
                         }
                     )
 
-            if item["name"].startswith("G_MARF_"):
+            if item["winMentorCode"].startswith("G_MARF"):
                 observatii += item["name"]+"; "
 
         # Creaza factura import
