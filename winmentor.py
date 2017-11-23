@@ -1021,8 +1021,6 @@ class WinMentor(object):
                 kwargs.get("logOn", "")
                 )
 
-
-
         # Transfer
         txtTransfer += "[Monetar_{}]\n".format(1)
         txtTransfer += "Operat={}\n".format("N")
@@ -1030,7 +1028,7 @@ class WinMentor(object):
         txtTransfer += "SimbolCarnet={}\n".format("M_G")
         txtTransfer += "Operatie={}\n".format("A")
         txtTransfer += "CasaDeMarcat={}\n".format("N")
-        txtTransfer += "NumarBonuri={}\n".format("0")
+        txtTransfer += "NumarBonuri={}\n".format(kwargs.get("clientsNo", ""))
         txtTransfer += "Data={:%d.%m.%Y}\n".format(kwargs.get("data"))
         txtTransfer += "Casa={}\n".format("Casa lei")
         txtTransfer += "TotalArticole={}\n".format(len(items))
@@ -1134,6 +1132,7 @@ class WinMentor(object):
                 data = opDate,
                 items = articoleTransfer,
                 payment = gestoData["payment"],
+                clientsNo = gestoData["clientsNo"] if gestoData["clientsNo"] not in ("nil", None) else 0,
                 )
 
         if rc:
