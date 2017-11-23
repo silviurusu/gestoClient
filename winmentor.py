@@ -1091,47 +1091,47 @@ class WinMentor(object):
         self.setLunaLucru(opDate.month, opDate.year)
 
         # verify I have all gesto codes and defalut gestiuni in WinMentor
-        if not self.productsAreOK(gestoData["items"]):
-            self.logger.info("Monetarul are articole cu coduri nesetate sau gestiuni lipsa, nu adaug")
-            self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
-            return
+        # if not self.productsAreOK(gestoData["items"]):
+        #     self.logger.info("Monetarul are articole cu coduri nesetate sau gestiuni lipsa, nu adaug")
+        #     self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+        #     return
 
        #  Get lista articole from gesto, create array of articole pentru factura
 
         newItems = {}
         for item in gestoData["items"]:
-            wmArticol = self.getProduct(item["winMentorCode"])
-            # self.logger.info("wmArticol: {}".format(wmArticol))
-
-            self.logger.info(self.getProduct(item["winMentorCode"]))
-
             if item["winMentorCode"].startswith("G_MARF"):
                 codExternArticol = item["winMentorCode"]
             else:
                 codExternArticol = "G_PROD_{}_{}".format(item["vat"], gestoData["branch"][:2])
 
+            wmArticol = self.getProduct(codExternArticol)
+            # self.logger.info("wmArticol: {}".format(wmArticol))
+
             # Adauga produs la lista produse transfer
 
             if codExternArticol not in newItems:
-                newItems["codExternArticol"] = {
-                        "codExternArticol": codExternArticol,
-                        "um": wmArticol["DenUM"],
-                        "cant": 1,
-                        "pret": 0,
-                        "simbGest": self.getProduct(item["winMentorCode"])["GestImplicita"]
+                newItems[codExternArticol] = {
+                            "codExternArticol": codExternArticol,
+                            "um": wmArticol["DenUM"],
+                            "cant": 1,
+                            "pret": 0,
+                            "simbGest": wmArticol["GestImplicita"]
                         }
 
-            newItems["codExternArticol"]["pret"] += item["opVal"]
+            newItems[codExternArticol]["pret"] += item["opVal"]
+
+        self.logger.info("newItems: {}".format(newItems))
 
         articoleWMDoc = []
-        for item in newItems:
+        for (key, item) in newItems.items():
             articoleWMDoc.append(
                     {
                         "codExternArticol": item["codExternArticol"],
                         "um": item["um"],
                         "cant": item["cant"],
                         "pret": item["pret"],
-                        "simbGest": sitem["simbGest"]
+                        "simbGest": item["simbGest"]
                         }
                     )
 
@@ -1202,7 +1202,7 @@ class WinMentor(object):
         txtWMDoc += "Operatie={}\n".format("A")
         txtWMDoc += "Operat={}\n".format("T")
         txtWMDoc += "TotalArticole={}\n".format(len(items))
-        txtWMDoc += "Observatii={}\n\n".format("Gesto")
+        txtWMDoc += "Observatii={}\n\n".format("")
 
         # Adauga items in factura
         txtWMDoc += "\n[Items_{}]\n".format(1)

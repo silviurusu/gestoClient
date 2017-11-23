@@ -69,8 +69,8 @@ def generateMonetare(baseURL, token, date):
     dateEnd = date - timedelta(days = 1)
     dateBegin = dateEnd.replace(hour=0, minute=0, second=0)
 
-    url += "&dateBegin={}".format(util.getTimestamp(date - timedelta(days = 1)))
-    url += "&dateEnd={}".format(util.getTimestamp(date - timedelta(seconds=1)))
+    url += "&dateBegin={}".format(util.getTimestamp(dateBegin))
+    url += "&dateEnd={}".format(util.getTimestamp(dateEnd))
 
     logger.debug(url)
     logger.debug("dateBegin: {}".format(dateBegin.strftime("%Y-%m-%d %H:%M:%S")))
