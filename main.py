@@ -29,7 +29,9 @@ def generateWorkOrders(baseURL, token, date):
     verify=True # only for workOrders
     if verify:
         url += "&verify=1"
+
     url += "&winMentor=1"
+    url += "&excludeListVal=0"
 
     # add workOrders for the previous day
     dateEnd = date - timedelta(days = 1)
