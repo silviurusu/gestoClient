@@ -1321,7 +1321,6 @@ class WinMentor(object):
             # Get lista articole from gesto, create array of articole pentru workOrders
         articoleWMDoc = []
         for item in gestoData["items"]:
-
             # Adauga produs la lista produse
             if self.isDrink(int(item["code"])):
                 simbGest = "PF-Bauturi"
@@ -1337,7 +1336,8 @@ class WinMentor(object):
                         "codExternArticol": item["winMentorCode"],
                         "um": wmArticol["DenUM"],
                         "cant": item["qty"],
-                        "pret": item["listVal"]/item["qty"],
+                        # "pret": item["listVal"]/item["qty"],
+                        "pret": wmArticol["PretVCuTVA"],
                         "simbGest": simbGest
                     })
 
