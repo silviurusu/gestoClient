@@ -354,9 +354,8 @@ if __name__ == "__main__":
         logger.info(">>> {}()".format(inspect.stack()[0][3]))
         start = dt.now()
 
-
         # Connect to winmentor
-        winmentor = WinMentor(firma = cfg.get("winmentor", "firma"))
+        winmentor = WinMentor(firma = cfg.get("winmentor", "firma"), an=start.year, luna=start.month)
         if not winmentor:
             logger.error("Failed to get winmentor object")
             1/0
@@ -471,7 +470,7 @@ if __name__ == "__main__":
         if doImportAvize:
             gestoData = importAvize(
                     baseURL = cfg.get("gesto", "url"),
-                    date = startDate,
+                    date = endDate,
                     )
 
         # Send mail with new products and partners

@@ -59,14 +59,27 @@ class WinMentor(object):
 
         # seteaza firma de lucru
         self.firma = kwargs.get("firma")
+        self.logger.info("firma: {}".format(self.firma))
+
         if self.firma is not None:
-            self._stat.SetNumeFirma(self.firma)
+            rc = self._stat.SetNumeFirma(self.firma)
+            self.logger.info("SetNumeFirma rc = {}".format(rc))
+            if rc != 1:
+                self.logger.error(repr(self.getListaErori()))
+                1/0
 
         # Seteaza luna lucru
         self.an = kwargs.get("an")
+        self.logger.info("an: {}".format(self.an))
         self.luna = kwargs.get("luna")
+        self.logger.info("luna: {}".format(self.luna))
+
         if self.an and self.luna:
-            self._stat.SetLunaLucru(self.an, self.luna)
+            rc = self._stat.SetLunaLucru(self.an, self.luna)
+            self.logger.info("SetLunaLucru rc = {}".format(rc))
+            if rc != 1:
+                self.logger.error(repr(self.getListaErori()))
+                1/0
 
         # TODO check this values ...
         self._stat.SetIDPartField('CodFiscal')
@@ -267,9 +280,10 @@ class WinMentor(object):
         lista, rc = self._stat.GetNomenclatorArticole()
         if rc != 0:
             msg = self.getListaErori()
-            self.logger.error(repr(msg))
+            msg = repr(msg)
+            self.logger.info(msg)
             send_email(
-                    subject = "WinMentor - GetNomenclatorArticole eroare >{}<".format(name),
+                    subject = "WinMentor - GetNomenclatorArticole eroare",
                     msg = msg
                     )
             1/0
