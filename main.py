@@ -120,11 +120,13 @@ def importAvize(baseURL, date):
         "company": cfg.get("winmentor", "companyName"),
     }
 
+    hour = int(cfg.get("deliveryNote", "hour"))
+
     for (date, val1) in deliveryNotes.items():
         date = [int(x) for x in date.split(".")]
-        date = datetime.datetime(date[2], date[1], date[0], int(cfg.get("deliveryNote", "hour")))
-        logger.info(date)
-        logger.info(type(date))
+        date = datetime.datetime(date[2], date[1], date[0], hour)
+        # logger.info(date)
+        # logger.info(type(date))
 
         opStr["documentDate"] = util.getTimestamp(date)
         opStr["documentDateHuman"] = date.strftime("%d/%m/%Y %H:%M:%S")
@@ -133,7 +135,7 @@ def importAvize(baseURL, date):
         opStr["operationDateHuman"] = operationDate.strftime("%d/%m/%Y %H:%M:%S")
 
         for (documentNo, val2) in val1.items():
-            opStr["documentNo"] = documentNo
+            opStr["relatedDocumentNo"] = documentNo
 
             for (destination, val3) in val2.items():
                 opStr["destination"] = {
