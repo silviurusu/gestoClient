@@ -1282,9 +1282,12 @@ class WinMentor(object):
 
             productCode = items[4]
 
-            deliveryNotes[date][transferNo][destination][source].append({
+            if items[6] != "":
+                deliveryNotes[date][transferNo][destination][source].append({
                                 "winMentorCode": items[4],
                                 "name": items[5],
+                                "opPrice": items[7],
+                                "listPrice": items[8],
                                 "qty": float(items[6].replace(",","."))
                         })
 
