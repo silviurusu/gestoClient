@@ -234,7 +234,7 @@ def getGestoDocuments(baseURL, token, operationType, excludeCUI=None, endDate = 
         #             )
         #         )
 
-        if retJSON["data"][0]["simbolWinMentor"] in [None, "nil",]:
+        if retJSON["data"][0]["simbolWinMentorReception"] in [None, "nil",]:
             txtMail = "Locatia {} nu are setat un simbol pentru WinMentor".format(retJSON["data"][0]["destination"]["name"])
 
             send_email(

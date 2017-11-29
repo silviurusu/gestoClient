@@ -825,7 +825,7 @@ class WinMentor(object):
         self.logger.info("operationID: {}".format(gestoData["id"]))
         self.logger.info("source: {}".format(gestoData["source"]["name"]))
         self.logger.info("destination: {}".format(gestoData["destination"]["name"]))
-        self.logger.info("simbolWinMentor: {}".format(gestoData["simbolWinMentor"]))
+        self.logger.info("simbolWinMentorReception: {}".format(gestoData["simbolWinMentorReception"]))
 
         # eliminate strings at begin end end of relatedDocumentNo, fvz123, FCT-312
         matchStr = '^([^0-9]*)([0-9]*)([^0-9]*)$'
