@@ -19,8 +19,13 @@ import inspect
 from django.template import loader, Context
 import django
 
+tokens = {
+    "34 Fabricii": "2043451",
+    "38 C.Turzii": "2167403",
+    }
 
-def generateWorkOrders(baseURL, token, date):
+
+def generateWorkOrders(baseURL, branch, date):
     logger.info(">>> {}()".format(inspect.stack()[0][3]))
     start = dt.now()
 
@@ -45,6 +50,7 @@ def generateWorkOrders(baseURL, token, date):
     logger.debug("dateEnd: {}".format(dateEnd.strftime("%Y-%m-%d %H:%M:%S")))
 
     retJSON = None
+    token = tokens[branch]
     r = requests.get(url, headers={'GESTOTOKEN': token})
 
     if r.status_code != 200:
@@ -62,7 +68,7 @@ def generateWorkOrders(baseURL, token, date):
     logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
 
-def generateMonetare(baseURL, token, date):
+def generateMonetare(baseURL, branch, date):
     logger.info(">>> {}()".format(inspect.stack()[0][3]))
     start = dt.now()
 
@@ -88,6 +94,7 @@ def generateMonetare(baseURL, token, date):
     logger.debug("dateEnd: {}".format(dateEnd.strftime("%Y-%m-%d %H:%M:%S")))
 
     retJSON = None
+    token = tokens[branch]
     r = requests.get(url, headers={'GESTOTOKEN': token})
 
     if r.status_code != 200:
@@ -182,9 +189,9 @@ def importAvize(baseURL, date):
     logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
 
-def getGestoDocuments(baseURL, token, operationType, excludeCUI=None, endDate = None, daysDelta = 7):
+def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate = None, daysDelta = 7):
     """
-    @param token: Gesto token used for request
+    @param branch: Gesto branch used for request
     @tparam [datetime] startDate: first day of request, defaults to today
     @tparam [numeric] daysDelta: request for how many days, defaults to 7
     @return processed json if successfull, None otherwise
@@ -199,7 +206,7 @@ def getGestoDocuments(baseURL, token, operationType, excludeCUI=None, endDate = 
         endDate = endDate.replace(hour=23, minute=59, second=59)
 
     startDate = (endDate - timedelta(days = daysDelta)).replace(hour=0, minute=0, second=0)
-    if token == "2043451": # "34 Fabricii"
+    if branch == "34 Fabricii":
         startDate = max([startDate, datetime.datetime(2017, 11, 21)])
 
     logger.debug("startDate: {}".format(startDate))
@@ -226,6 +233,7 @@ def getGestoDocuments(baseURL, token, operationType, excludeCUI=None, endDate = 
     logger.debug("endDate: {}".format(dt.utcfromtimestamp(endDate)))
 
     retJSON = None
+    token = tokens[branch]
     r = requests.get(urlCount, headers={'GESTOTOKEN': token})
 
     if r.status_code != 200:
@@ -396,7 +404,7 @@ if __name__ == "__main__":
 
         logger.info("START")
 
-        tokens = [x.strip() for x in cfg.get("gesto", "tokens").split(",")]
+        branches = util.getCfgVal("gesto", "branches")
 
         # Get date to use for Unit Test
         try:
@@ -447,12 +455,10 @@ if __name__ == "__main__":
         logger.info( 'importAvize {}'.format(doImportAvize))
 
         if doExportReceptions:
-            for token in tokens:
-                logger.info("Using Gesto token: {}".format(token))
-
+            for branch in branches:
                 gestoData = getGestoDocuments(
                         baseURL = cfg.get("gesto", "url"),
-                        token = token,
+                        branch = branch,
                         operationType="reception",
                         excludeCUI=cfg.get("winmentor", "cui"),
                         endDate = endDate,
@@ -460,20 +466,18 @@ if __name__ == "__main__":
                         )
 
         if doGenerateMonetare:
-            for token in tokens:
-                logger.info("Using Gesto token: {}".format(token))
+            for branch in branches:
                 gestoData = generateMonetare(
                         baseURL = cfg.get("gesto", "url"),
-                        token = token,
+                        branch = branch,
                         date = endDate,
                         )
 
         if doGenerateWorkOrders:
-            for token in tokens:
-                logger.info("Using Gesto token: {}".format(token))
+            for branch in branches:
                 gestoData = generateWorkOrders(
                         baseURL = cfg.get("gesto", "url"),
-                        token = token,
+                        branch = branch,
                         date = endDate,
                         )
 
