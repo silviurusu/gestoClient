@@ -28,7 +28,6 @@ class WinMentor(object):
     multiplePartenerIDsForEmail = []
     products = None
     gestiuni = None
-    panemarCUI = None
     intrari = {}
 
     productCodesBauturi = [[1005, 1006], [700, 728], [731, 798],]
@@ -143,14 +142,6 @@ class WinMentor(object):
                     )
             1/0
         return (rc == 1)
-
-
-    def setPanemarCUI(self, CUI):
-        self.panemarCUI = util.fixupCUI(CUI)
-
-
-    def getPanemarCUI(self):
-        return self.panemarCUI
 
 
     def _colonListToDict(self, keys, myStr):
@@ -838,8 +829,6 @@ class WinMentor(object):
 
         self.logger.info("relatedDocumentNo: {}".format(gestoData["relatedDocumentNo"]))
 
-        self.logger.info("CUI Panemar: {}".format(self.panemarCUI))
-
         # verify I have all gesto codes and defalut gestiuni in WinMentor
         if not self.productsAreOK(gestoData["items"]):
             self.logger.info("Factura are articole cu coduri nesetate sau gestiuni lipsa, nu adaug")
@@ -859,21 +848,6 @@ class WinMentor(object):
             self.logger.info("Codul fiscal: {} apare de mai multe la parteneri, nu adaug")
             self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
             return
-
-        # # Get gestiune in WinMentor
-        # magazine = self.matchGestiune(gestoData["simbolWinMentor"], gestiuni)
-        # self.logger.info("magazine: {}".format(magazine))
-
-        # wmGestiune = None
-        # fromPanemar = (self.panemarCUI == gestoPartener)
-        # for magazin in magazine:
-        #     self.logger.info("magazin: {}".format(magazin))
-        #     den = magazin["denumire"]
-        #     if (fromPanemar and re.search("PRODUSE", den, re.IGNORECASE)) or \
-        #             re.search("marfa", den, re.IGNORECASE):
-        #         wmGestiune = magazin["simbol"]
-        #         break
-        # self.logger.info("gestiune in WinMentor: {}".format(wmGestiune))
 
         # Seteaza luna si anul in WinMentor
         opDate = dt.fromtimestamp(gestoData["operationDate"])

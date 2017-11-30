@@ -41,7 +41,7 @@ def getNextDocumentNumber(type):
     cfg = SafeConfigParser()
     cfg.optionxform = str
     try:
-        with codecs.open('config_documentNo.ini', 'r', encoding='utf-8') as f:
+        with codecs.open('config_documentNo_local.ini', 'r', encoding='utf-8') as f:
             cfg.readfp(f)
     except:
         logger.exception("Failed to read .ini file")
@@ -49,7 +49,7 @@ def getNextDocumentNumber(type):
 
     docNo = cfg.getint("documentNumbers", type)
     cfg.set("documentNumbers", type, str(docNo+1))
-    with open('config_documentNo.ini', 'wb') as configfile:
+    with open('config_documentNo_local.ini', 'wb') as configfile:
         cfg.write(configfile)
 
     return docNo

@@ -297,12 +297,6 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
                     logger.info("gestoPartener = {}".format(gestoPartener))
                     winmentor.addReception(op)
 
-                    # if winmentor.getPanemarCUI() != gestoPartener:
-                    #     # not from Panemar
-                    #     winmentor.addReception(op)
-                    # else:
-                    #     logger.info("Reception from Panemar, don't import")
-
                 # if ctr2==2:
                 #     1/0
 
@@ -377,8 +371,6 @@ if __name__ == "__main__":
         if not winmentor:
             logger.error("Failed to get winmentor object")
             1/0
-
-        winmentor.setPanemarCUI(cfg.get("winmentor", "cui"))
 
         # # TODO here for testing
         # intrari, rc = winmentor._stat.GetIntrari()
@@ -460,7 +452,7 @@ if __name__ == "__main__":
                         baseURL = cfg.get("gesto", "url"),
                         branch = branch,
                         operationType="reception",
-                        excludeCUI=cfg.get("winmentor", "cui"),
+                        excludeCUI=cfg.get("receptions", "excludeCUI"),
                         endDate = endDate,
                         daysDelta = cfg.getint("gesto", "daysDelta"),
                         )
