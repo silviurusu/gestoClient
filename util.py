@@ -76,9 +76,11 @@ def getCfgVal(section, varName):
     with codecs.open('config_local.ini', 'r', encoding='utf-8') as f:
         cfg.readfp(f)
 
+    ret = cfg.get(section, varName)
     if section == "client" and varName in ['bccEmails', 'notificationEmails', ] \
+    or section == "deliveryNote" and varName in ['sources', 'destinations'] \
     or section == "products" and varName in ['allowMissingDefaultGest', ]:
-        ret = [x.strip() for x in cfg.get(section, varName).split(",")]
+        ret = [x.strip() for x in ret.split(",")]
 
     logger.info("{}: {}".format(varName, ret))
     logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], datetime.datetime.now() - start))

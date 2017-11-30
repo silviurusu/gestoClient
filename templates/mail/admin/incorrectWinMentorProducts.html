@@ -12,3 +12,10 @@ Urmatoarele {{missingDefaultGest|length}} produse nu au gestiuni default in WinM
     {{p.name}}, {{p.winMentorCode}}
 {% endfor %}
 {%endif%}
+
+{%if missingWMCodes|length != 0%}
+Urmatoarele {{missingWMCodes|length}} produse nu au coduri in WinMentor:<br/>
+{% for p in missingWMCodes  %}
+    {{p}}
+{% endfor %}
+{%endif%}
