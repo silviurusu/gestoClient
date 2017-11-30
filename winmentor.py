@@ -36,6 +36,7 @@ class WinMentor(object):
 
     missingCodes = {}
     missingDefaultGest = {}
+    missingWMCodes =[]
 
 
     def __init__(self, **kwargs):
@@ -719,13 +720,16 @@ class WinMentor(object):
                     )
 
     def sendIncorrectWinMentorProductsMail(self):
-        if len(self.missingCodes) or len(self.missingDefaultGest):
+        if len(self.missingCodes) or len(self.missingDefaultGest) or len(self.missingWMCodes):
             template = loader.get_template("mail/admin/incorrectWinMentorProducts.html")
-            subject = "{} produse cu probleme in WinMentor".format(len(self.missingCodes) + len(self.missingDefaultGest))
+            subject = "{} produse cu probleme in WinMentor".format(len(self.missingCodes)
+                                                                     + len(self.missingDefaultGest)
+                                                                     + len(self.missingWMCodes))
             html_part = template.render({
                 "subject": subject,
                 "missingCodes": self.missingCodes,
-                "missingDefaultGest": self.missingDefaultGest
+                "missingDefaultGest": self.missingDefaultGest,
+                "missingWMCodes": self.missingWMCodes,
             })
             send_email(subject, html_part, toEmails=util.getCfgVal("client", "notificationEmails"))
 
@@ -1256,6 +1260,11 @@ class WinMentor(object):
         if rc != 0:
             self.logger.error(repr(self.getListaErori()))
 
+        sources = util.getCfgVal("deliveryNote", "sources")
+        destinations = util.getCfgVal("deliveryNote", "destinations")
+        dnDate = "{}.{}.{}".format(opDate.day, opDate.month, opDate.year)
+
+        missingWMCodes = []
         deliveryNotes = {}
 
         # self.logger.info(transferuri)
@@ -1264,32 +1273,48 @@ class WinMentor(object):
             items = item.split(";")
             # self.logger.info(items)
 
-            date = items[3]
-            if date not in deliveryNotes:
-                deliveryNotes[date] = {}
-
-            transferNo = items[2]
-            if transferNo not in deliveryNotes[date]:
-                deliveryNotes[date][transferNo] = {}
-
-            destination = items[1]
-            if destination not in deliveryNotes[date][transferNo]:
-                deliveryNotes[date][transferNo][destination] = {}
-
             source = items[0]
-            if source not in deliveryNotes[date][transferNo][destination]:
-                deliveryNotes[date][transferNo][destination][source] = []
+            date = items[3]
+            destination = items[1]
+            transferNo = items[2]
+
+            if source not in sources:
+                continue
+            if destination not in destinations:
+                continue
+            if date != dnDate:
+                continue
+
+            if source not in deliveryNotes:
+                deliveryNotes[source] = {}
+
+            if date not in deliveryNotes[source]:
+                deliveryNotes[source][date] = {}
+
+            if destination not in deliveryNotes[source][date]:
+                deliveryNotes[source][date][destination] = {}
+
+            if transferNo not in deliveryNotes[source][date][destination]:
+                deliveryNotes[source][date][destination][transferNo] = []
 
             productCode = items[4]
 
+            if items[4] == "":
+                if items[5] not in self.missingWMCodes:
+                    # only add a code once
+                    self.missingWMCodes.append(items[5])
+
             if items[6] != "":
-                deliveryNotes[date][transferNo][destination][source].append({
+                deliveryNotes[source][date][destination][transferNo].append({
                                 "winMentorCode": items[4],
                                 "name": items[5],
-                                "opPrice": items[7],
-                                "listPrice": items[8],
+                                "opPrice": float(items[7].replace(",", ".")),
+                                "listPrice": float(items[8].replace(",", ".")),
                                 "qty": float(items[6].replace(",","."))
                         })
+
+        if len(self.missingWMCodes) != 0:
+            deliveryNotes = {}
 
         self.logger.info(
                 json.dumps(

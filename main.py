@@ -122,20 +122,32 @@ def importAvize(baseURL, date):
 
     hour = int(cfg.get("deliveryNote", "hour"))
 
-    for (date, val1) in deliveryNotes.items():
-        date = [int(x) for x in date.split(".")]
-        date = datetime.datetime(date[2], date[1], date[0], hour)
-        # logger.info(date)
-        # logger.info(type(date))
+    for (source, val1) in deliveryNotes.items():
+        opStr["source"] = {
+                            "name": winmentor.getGestiuneName(source),
+                            "type": "company",
+                            "winMentorcode": source,
+                        }
 
-        opStr["documentDate"] = util.getTimestamp(date)
-        opStr["documentDateHuman"] = date.strftime("%d/%m/%Y %H:%M:%S")
-        operationDate = datetime.datetime.now()
-        opStr["operationDate"] = util.getTimestamp(operationDate)
-        opStr["operationDateHuman"] = operationDate.strftime("%d/%m/%Y %H:%M:%S")
+        for (date, val2) in val1.items():
+            date = [int(x) for x in date.split(".")]
+            date = datetime.datetime(date[2], date[1], date[0])
+            # logger.info(date)
+            # logger.info(type(date))
 
-        for (documentNo, val2) in val1.items():
-            opStr["relatedDocumentNo"] = documentNo
+            operationDate = datetime.datetime.now()
+            opStr["operationDate"] = util.getTimestamp(operationDate)
+            opStr["operationDateHuman"] = operationDate.strftime("%d/%m/%Y %H:%M:%S")
+
+            if operationDate.day == date.day \
+            and operationDate.month == date.month \
+            and operationDate.year == date.year:
+                documentDate = operationDate
+            else:
+                documentDate = date.replace(hour=hour)
+
+            opStr["documentDate"] = util.getTimestamp(documentDate)
+            opStr["documentDateHuman"] = documentDate.strftime("%d/%m/%Y %H:%M:%S")
 
             for (destination, val3) in val2.items():
                 opStr["destination"] = {
@@ -144,12 +156,8 @@ def importAvize(baseURL, date):
                             "winMentorcode": destination,
                         }
 
-                for (source, val4) in val3.items():
-                    opStr["source"] = {
-                            "name": winmentor.getGestiuneName(source),
-                            "type": "company",
-                            "winMentorcode": source,
-                        }
+                for (documentNo, val4) in val3.items():
+                    opStr["relatedDocumentNo"] = documentNo
 
                     opStr["items"] = []
 
@@ -165,11 +173,11 @@ def importAvize(baseURL, date):
                             )
                         )
 
-                    opStr.pop('source', None)
+                    opStr.pop('documentNo', None)
                     opStr.pop('items', None)
                 opStr.pop('destination', None)
-            opStr.pop('documentNo', None)
-        opStr.pop('documentDate', None)
+            opStr.pop('date', None)
+        opStr.pop('source', None)
 
     logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
