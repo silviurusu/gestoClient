@@ -19,11 +19,6 @@ import inspect
 from django.template import loader, Context
 import django
 
-tokens = {
-    "34 Fabricii": "2043451",
-    "38 C.Turzii": "2167403",
-    }
-
 
 def generateWorkOrders(baseURL, branch, date):
     logger.info(">>> {}()".format(inspect.stack()[0][3]))
@@ -365,6 +360,10 @@ if __name__ == "__main__":
 
         logger.info(">>> {}()".format(inspect.stack()[0][3]))
         start = dt.now()
+
+        tokens={}
+        for opt in cfg.options("tokens"):
+            tokens[opt] = str(cfg.get("tokens", opt))
 
         # Connect to winmentor
         winmentor = WinMentor(firma = cfg.get("winmentor", "firma"), an=start.year, luna=start.month)
