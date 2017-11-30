@@ -165,15 +165,24 @@ def importAvize(baseURL, date):
 
                     for item in val4:
                         opStr["items"].append(item)
-                    logger.info(
-                        json.dumps(
-                            opStr,
-                            sort_keys=True,
-                            indent=4,
-                            separators=(',', ': '),
-                            default=util.defaultJSON
-                            )
+
+                    opStrText = json.dumps(
+                        opStr,
+                        sort_keys=True,
+                        indent=4,
+                        separators=(',', ': '),
+                        default=util.defaultJSON
                         )
+                    logger.info(opStrText)
+                    opStrText = json.dumps(
+                        opStr,
+                        default=util.defaultJSON
+                        )
+
+                    r = requests.post(baseURL+"/importOperation/", data = opStrText)
+                    if r.status_code != 200:
+                        logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
+                        1/0
 
                     opStr.pop('documentNo', None)
                     opStr.pop('items', None)
