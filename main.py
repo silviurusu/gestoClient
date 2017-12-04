@@ -204,14 +204,16 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
     logger.info(">>> {}()".format(inspect.stack()[0][3]))
     start = dt.now()
 
-    logger.info("Getting receptie from Gesto.")
+    logger.info("Getting receptie from Gesto for {}, {}".format(branch, tokens[branch]))
     if endDate is None:
         endDate = dt.today()
         endDate = endDate.replace(hour=23, minute=59, second=59)
 
     startDate = (endDate - timedelta(days = daysDelta)).replace(hour=0, minute=0, second=0)
-    if branch == "34 Fabricii":
+    if branch in ["34 Fabricii", "38 C.Turzii", ]:
         startDate = max([startDate, datetime.datetime(2017, 11, 21)])
+    else:
+        startDate = max([startDate, datetime.datetime(2017, 12, 1)])
 
     logger.debug("startDate: {}".format(startDate))
     logger.debug("endDate: {}".format(endDate))
@@ -253,6 +255,12 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
         #             default=util.defaultJSON
         #             )
         #         )
+
+        totalRecords = retJSON["range"]["totalRecords"]
+        if totalRecords == 0:
+            logger.info("{} {}".format(totalRecords, operationType))
+            logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+            return
 
         if retJSON["data"][0]["simbolWinMentorReception"] in [None, "nil",]:
             txtMail = "Locatia {} nu are setat un simbol pentru WinMentor".format(retJSON["data"][0]["destination"]["name"])
