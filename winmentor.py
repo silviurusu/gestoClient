@@ -731,7 +731,7 @@ class WinMentor(object):
                 "missingDefaultGest": self.missingDefaultGest,
                 "missingWMCodes": self.missingWMCodes,
             })
-            send_email(subject, html_part, toEmails=util.getCfgVal("client", "notificationEmails"))
+            send_email(subject, html_part, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
 
 
     def sendPartnersMail(self):
@@ -743,7 +743,7 @@ class WinMentor(object):
                 "missingPartners": self.missingPartners,
                 "multiplePartenerIDsForEmail": self.multiplePartenerIDsForEmail,
             })
-            send_email(subject, html_part, toEmails=util.getCfgVal("client", "notificationEmails"))
+            send_email(subject, html_part, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
 
 
     def genNrNir(self):
@@ -1246,6 +1246,8 @@ class WinMentor(object):
         sources = util.getCfgVal("deliveryNote", "sources")
         destinations = util.getCfgVal("deliveryNote", "destinations")
         dnDate = "{}.{}.{}".format(opDate.day, opDate.month, opDate.year)
+
+        self.logger.info("dnDate: {}".format(dnDate))
 
         missingWMCodes = []
         deliveryNotes = {}
