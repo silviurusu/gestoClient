@@ -131,16 +131,25 @@ class WinMentor(object):
 
 
     def setLunaLucru(self, luna, an):
+        self.logger.info(">>> {}()".format(inspect.stack()[0][3]))
+        start = dt.now()
+
         self.luna = luna
         self.an = an
+        self.logger.info("luna: {}".format(self.luna))
+        self.logger.info("an: {}".format(self.an))
+
         if self._stat is None:
             return False
-        rc = self._stat.SetLunaLucru(an, luna)
+
+        rc = self._stat.SetLunaLucru(self.an, self.luna)
         if (rc != 1):
             self.logger.error(
                     repr(self.getListaErori())
                     )
             1/0
+
+        self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
         return (rc == 1)
 
 
@@ -1241,15 +1250,17 @@ class WinMentor(object):
         missingWMCodes = []
         deliveryNotes = {}
 
+        self.logger.info("{} transferuri".format(len(transferuri)))
         # self.logger.info(transferuri)
+        # 1/0
         for item in transferuri:
             # self.logger.info(item)
             items = item.split(";")
             # self.logger.info(items)
 
-            source = items[0]
+            source = str(items[0])
             date = items[3]
-            destination = items[1]
+            destination = str(items[1])
             transferNo = items[2]
 
             if source not in sources:
@@ -1286,6 +1297,16 @@ class WinMentor(object):
                                 "listPrice": float(items[8].replace(",", ".")),
                                 "qty": float(items[6].replace(",","."))
                         })
+
+        self.logger.info(
+                json.dumps(
+                    deliveryNotes,
+                    sort_keys=True,
+                    indent=4,
+                    separators=(',', ': '),
+                    default=util.defaultJSON
+                    )
+                )
 
         if len(self.missingWMCodes) != 0:
             deliveryNotes = {}
