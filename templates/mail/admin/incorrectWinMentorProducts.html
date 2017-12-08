@@ -13,8 +13,15 @@ Urmatoarele {{missingDefaultGest|length}} produse nu au gestiuni default in WinM
 {% endfor %}
 {%endif%}
 
+{%if productsMissingWMCodes|length != 0%}
+Urmatoarele {{productsMissingWMCodes|length}} produse nu au coduri in WinMentor:<br/>
+{% for p in productsMissingWMCodes  %}
+    {{p}}
+{% endfor %}
+{%endif%}
+
 {%if missingWMCodes|length != 0%}
-Urmatoarele {{missingWMCodes|length}} produse nu au coduri in WinMentor:<br/>
+Urmatoarele {{missingWMCodes|length}} coduri nu apar in WinMentor:<br/>
 {% for p in missingWMCodes  %}
     {{p}}
 {% endfor %}

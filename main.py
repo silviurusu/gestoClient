@@ -67,6 +67,8 @@ def generateMonetare(baseURL, branch, date):
     logger.info(">>> {}()".format(inspect.stack()[0][3]))
     start = dt.now()
 
+    logger.info("Generate monetare for {}, {}".format(branch, tokens[branch]))
+
     url = baseURL + "/products/summary/?"
     url += "type=sale"
 
@@ -184,6 +186,7 @@ def importAvize(baseURL, date):
                         logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
                         1/0
 
+                    # 1/0
                     opStr.pop('documentNo', None)
                     opStr.pop('items', None)
                 opStr.pop('destination', None)
@@ -204,6 +207,7 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
     logger.info(">>> {}()".format(inspect.stack()[0][3]))
     start = dt.now()
 
+    logger.info("Getting receptie from Gesto for {}".format(branch))
     logger.info("Getting receptie from Gesto for {}, {}".format(branch, tokens[branch]))
     if endDate is None:
         endDate = dt.today()
@@ -463,6 +467,8 @@ if __name__ == "__main__":
         logger.info( 'importAvize {}'.format(doImportAvize))
 
         if doExportReceptions:
+            branches = util.getCfgVal("receptions", "branches")
+
             for branch in branches:
                 gestoData = getGestoDocuments(
                         baseURL = cfg.get("gesto", "url"),
@@ -482,6 +488,7 @@ if __name__ == "__main__":
                         )
 
         if doGenerateWorkOrders:
+            branches = util.getCfgVal("receptions", "branches")
             for branch in branches:
                 gestoData = generateWorkOrders(
                         baseURL = cfg.get("gesto", "url"),

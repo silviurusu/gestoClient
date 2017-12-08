@@ -35,7 +35,8 @@ class WinMentor(object):
 
     missingCodes = {}
     missingDefaultGest = {}
-    missingWMCodes =[]
+    productsMissingWMCodes =[]
+    missingWMCodes = {}
 
 
     def __init__(self, **kwargs):
@@ -89,6 +90,8 @@ class WinMentor(object):
         self.missingPartners = {}
         self.missingCodes = {}
         self.missingDefaultGest = {}
+        self.productsMissingWMCodes =[]
+        self.missingWMCodes = {}
         self.allowMissingDefaultGest = util.getCfgVal("products", "allowMissingDefaultGest")
 
         self.parteneri = self.getListaParteneri()
@@ -720,15 +723,21 @@ class WinMentor(object):
                     )
 
     def sendIncorrectWinMentorProductsMail(self):
-        if len(self.missingCodes) or len(self.missingDefaultGest) or len(self.missingWMCodes):
+        if len(self.missingCodes) \
+        or len(self.missingDefaultGest) \
+        or len(self.missingWMCodes) \
+        or len(self.productsMissingWMCodes):
             template = loader.get_template("mail/admin/incorrectWinMentorProducts.html")
             subject = "{} produse cu probleme in WinMentor".format(len(self.missingCodes)
                                                                      + len(self.missingDefaultGest)
-                                                                     + len(self.missingWMCodes))
+                                                                     + len(self.productsMissingWMCodes)
+                                                                     + len(self.missingWMCodes)
+                                                                     )
             html_part = template.render({
                 "subject": subject,
                 "missingCodes": self.missingCodes,
                 "missingDefaultGest": self.missingDefaultGest,
+                "productsMissingWMCodes": self.productsMissingWMCodes,
                 "missingWMCodes": self.missingWMCodes,
             })
             send_email(subject, html_part, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
@@ -798,7 +807,7 @@ class WinMentor(object):
             txtMail += repr(self.gestiuni)
 
             send_email(
-                    subject = "WinMentor - nu am gasit gestiunea >{}<".format(name),
+                    subject = "WinMentor - nu am gasit gestiunea >{}< - >{}<".format(simbolGestiuneSearch, name),
                     msg = txtMail
                     )
 
@@ -832,9 +841,31 @@ class WinMentor(object):
         self.logger.info("simbolWinMentorReception: {}".format(gestoData["simbolWinMentorReception"]))
 
         # eliminate strings at begin end end of relatedDocumentNo, fvz123, FCT-312
-        matchStr = '^([^0-9]*)([0-9]*)([^0-9]*)$'
-        gestoData["relatedDocumentNo"] = re.match(matchStr, gestoData["relatedDocumentNo"]).groups()[1]
-        gestoData["relatedDocumentNo"] = gestoData["relatedDocumentNo"][-9:]
+        rdnFormats = [
+                {"f":'^([^0-9]*)([0-9]*)([^0-9]*)$', "i":1},
+                {"f":'^([^-]*)(-)(.*)$', "i":2},
+            ]
+
+        found = False
+        for rdnf in rdnFormats:
+            try:
+                gestoData["relatedDocumentNo"] = re.match(rdnf["f"], gestoData["relatedDocumentNo"]).groups()
+                gestoData["relatedDocumentNo"] = gestoData["relatedDocumentNo"][rdnf["i"]]
+                gestoData["relatedDocumentNo"] = gestoData["relatedDocumentNo"][-9:]
+                found = True
+                break
+            except AttributeError:
+                pass
+
+        if not found:
+            msg = "Nu pot determina numarul facturii din: {}, {}".format(gestoData["relatedDocumentNo"], gestoData["destination"]["name"])
+            subject = msg
+
+            send_email(subject, msg, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
+
+            self.logger.error(msg)
+            self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+            return
 
         self.logger.info("relatedDocumentNo: {}".format(gestoData["relatedDocumentNo"]))
 
@@ -1082,6 +1113,11 @@ class WinMentor(object):
                             )
                         )
 
+        if len(gestoData["items"]) == 0:
+            self.logger.info("Nu am nici un produs pe monetar")
+            self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+            return
+
         # Get gestiune in WinMentor
         # wmGestiune = self.matchGestiune(gestoData["branch"], "PRODUSE")
 
@@ -1098,57 +1134,66 @@ class WinMentor(object):
        #  Get lista articole from gesto, create array of articole pentru factura
 
         newItems = {}
+        ret = True
+
         for item in gestoData["items"]:
             if item["winMentorCode"].startswith("G_MARF"):
                 codExternArticol = item["winMentorCode"]
             else:
                 codExternArticol = "G_PROD_{}_{}".format(item["vat"], gestoData["branch"][:2])
 
-            wmArticol = self.getProduct(codExternArticol)
-            # self.logger.info("wmArticol: {}".format(wmArticol))
+            if not self.productExists(codExternArticol):
+                ret = False
+                if codExternArticol not in self.missingWMCodes:
+                    # only add a code once
+                    self.missingWMCodes[codExternArticol] = item
+            else:
+                # Adauga produs la lista produse transfer
+                wmArticol = self.getProduct(codExternArticol)
+                # self.logger.info("wmArticol: {}".format(wmArticol))
 
-            # Adauga produs la lista produse transfer
+                if codExternArticol not in newItems:
+                    newItems[codExternArticol] = {
+                                "codExternArticol": codExternArticol,
+                                "um": wmArticol["DenUM"],
+                                "cant": 1,
+                                "pret": 0,
+                                "simbGest": wmArticol["GestImplicita"]
+                            }
 
-            if codExternArticol not in newItems:
-                newItems[codExternArticol] = {
-                            "codExternArticol": codExternArticol,
-                            "um": wmArticol["DenUM"],
-                            "cant": 1,
-                            "pret": 0,
-                            "simbGest": wmArticol["GestImplicita"]
-                        }
-
-            newItems[codExternArticol]["pret"] += item["opVal"]
+                newItems[codExternArticol]["pret"] += item["opVal"]
 
         self.logger.info("newItems: {}".format(newItems))
 
-        articoleWMDoc = []
-        for (key, item) in newItems.items():
-            articoleWMDoc.append(
-                    {
-                        "codExternArticol": item["codExternArticol"],
-                        "um": item["um"],
-                        "cant": item["cant"],
-                        "pret": item["pret"],
-                        "simbGest": item["simbGest"]
-                        }
+        if ret == True:
+            # Creaza transferul doar daca am coduri pentru toate produsele
+
+            articoleWMDoc = []
+            for (key, item) in newItems.items():
+                articoleWMDoc.append(
+                        {
+                            "codExternArticol": item["codExternArticol"],
+                            "um": item["um"],
+                            "cant": item["cant"],
+                            "pret": item["pret"],
+                            "simbGest": item["simbGest"]
+                            }
+                        )
+
+            rc = self.importaMonetare(
+                    logOn = "Master", # TODO what's this?
+                    # nrDoc = gestoData["documentNo"],
+                    nrDoc = util.getNextDocumentNumber("MON"),
+                    data = opDate,
+                    items = articoleWMDoc,
+                    payment = gestoData["payment"],
+                    clientsNo = gestoData["clientsNo"] if gestoData["clientsNo"] not in ("nil", None) else 0,
                     )
 
-        # Creaza transferul
-        rc = self.importaMonetare(
-                logOn = "Master", # TODO what's this?
-                # nrDoc = gestoData["documentNo"],
-                nrDoc = util.getNextDocumentNumber("MON"),
-                data = opDate,
-                items = articoleWMDoc,
-                payment = gestoData["payment"],
-                clientsNo = gestoData["clientsNo"] if gestoData["clientsNo"] not in ("nil", None) else 0,
-                )
-
-        if rc:
-            self.logger.info("SUCCESS: Adaugare monetar")
-        else:
-            self.logger.error(repr(self.getListaErori()))
+            if rc:
+                self.logger.info("SUCCESS: Adaugare monetar")
+            else:
+                self.logger.error(repr(self.getListaErori()))
 
         self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
@@ -1249,12 +1294,14 @@ class WinMentor(object):
 
         self.logger.info("dnDate: {}".format(dnDate))
 
-        missingWMCodes = []
         deliveryNotes = {}
 
         self.logger.info("{} transferuri".format(len(transferuri)))
         # self.logger.info(transferuri)
         # 1/0
+
+        ret = True
+
         for item in transferuri:
             # self.logger.info(item)
             items = item.split(";")
@@ -1287,9 +1334,10 @@ class WinMentor(object):
             productCode = items[4]
 
             if items[4] == "":
-                if items[5] not in self.missingWMCodes:
+                if items[5] not in self.productsMissingWMCodes:
+                    ret = False
                     # only add a code once
-                    self.missingWMCodes.append(items[5])
+                    self.productsMissingWMCodes.append(items[5])
 
             if items[6] != "":
                 deliveryNotes[source][date][destination][transferNo].append({
@@ -1310,7 +1358,7 @@ class WinMentor(object):
                     )
                 )
 
-        if len(self.missingWMCodes) != 0:
+        if ret == False:
             deliveryNotes = {}
 
         self.logger.info(
