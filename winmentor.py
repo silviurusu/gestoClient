@@ -875,8 +875,10 @@ class WinMentor(object):
                 pass
 
         if not found:
-            msg = "Nu pot determina numarul facturii din: {}, {}".format(gestoData["relatedDocumentNo"], gestoData["destination"]["name"])
-            subject = msg
+            subject = "Nu pot determina numarul facturii din: {}, {}".format(gestoData["relatedDocumentNo"], gestoData["destination"]["name"])
+            msg = "Data: {}".format(gestoData["documentDateHuman"])
+            msg += "\nLocatie: {}".format(gestoData["destination"]["name"])
+            msg += "\nNumarul: {}".format(gestoData["relatedDocumentNo"])
 
             send_email(subject, msg, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
 
