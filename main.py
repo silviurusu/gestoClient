@@ -432,6 +432,7 @@ if __name__ == "__main__":
                                      "generateWorkOrders=",
                                      "generateMonetare=",
                                      "importAvize=",
+                                     "branches=",
                                      "workDate="
                                     ])
 
@@ -439,11 +440,11 @@ if __name__ == "__main__":
             logger.info(args)
 
         except getopt.GetoptError:
-            print '{} --exportReceptions=<> --generateWorkOrders=<> --generateMonetare=<> --importAvize=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0])
+            print '{} --exportReceptions=<> --generateWorkOrders=<> --generateMonetare=<> --importAvize=<> --branches=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0])
             sys.exit(2)
         for opt, arg in opts:
             if opt == '-h':
-                print '{} --exportReceptions=<> --generateWorkOrders=<> --generateMonetare=<> --importAvize=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0])
+                print '{} --exportReceptions=<> --generateWorkOrders=<> --generateMonetare=<> --importAvize=<> --branches=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0])
                 sys.exit()
             elif opt in ("--exportReceptions"):
                 doExportReceptions = bool(int(arg))
@@ -453,6 +454,8 @@ if __name__ == "__main__":
                 doGenerateMonetare = bool(int(arg))
             elif opt in ("--importAvize"):
                 doImportAvize = bool(int(arg))
+            elif opt in ("--branches"):
+                branches = [x.strip() for x in arg.split(",")]
             elif opt in ("--workDate"):
                 try:
                     workdate = dt.strptime(arg, "%Y-%m-%d")
@@ -463,6 +466,8 @@ if __name__ == "__main__":
         logger.info( 'generateWorkOrders {}'.format(doGenerateWorkOrders))
         logger.info( 'generateMonetare {}'.format(doGenerateMonetare))
         logger.info( 'importAvize {}'.format(doImportAvize))
+        logger.info( 'branches: {}'.format(branches))
+
 
         daysDelta = util.getCfgVal("gesto", "daysDelta", "int")
         baseURL = util.getCfgVal("gesto", "url")
