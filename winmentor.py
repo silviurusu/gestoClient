@@ -614,8 +614,13 @@ class WinMentor(object):
         nr = str(int(nr)) # if I have doc nrs that start with 0
         partenerId = str(partenerId)
 
-        ret = self.intrari[month][partenerId][data][nr]
-        self.logger.info(json.dumps(
+        if data not in self.intrari[month][partenerId]:
+            ret = -1
+        elif nr not in self.intrari[month][partenerId][data]:
+            ret = -1
+        else:
+            ret = self.intrari[month][partenerId][data][nr]
+            self.logger.info(json.dumps(
                             ret,
                             sort_keys=True, indent=4, separators=(',', ': '), default=util.defaultJSON))
 
@@ -839,8 +844,20 @@ class WinMentor(object):
         self.logger.info("source: {}".format(gestoData["source"]["name"]))
         self.logger.info("destination: {}".format(gestoData["destination"]["name"]))
         self.logger.info("simbolWinMentorReception: {}".format(gestoData["simbolWinMentorReception"]))
+        self.logger.info("relatedDocumentNo: {}".format(gestoData["relatedDocumentNo"]))
 
-        # eliminate strings at begin end end of relatedDocumentNo, fvz123, FCT-312
+        if gestoData["relatedDocumentNo"] == "nil":
+            msg = "Factura {}, {} nu are document de legatura.".format(gestoData["documentNo"], gestoData["destination"]["name"])
+            subject = msg
+
+            send_email(subject, msg, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
+
+            self.logger.error(msg)
+            self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+            return
+
+
+        # eliminate strings at begin and end of relatedDocumentNo, fvz123, FCT-312
         rdnFormats = [
                 {"f":'^([^0-9]*)([0-9]*)([^0-9]*)$', "i":1},
                 {"f":'^([^-]*)(-)(.*)$', "i":2},
@@ -924,6 +941,11 @@ class WinMentor(object):
                 nr = gestoData["relatedDocumentNo"],
                 data = opDate
                 )
+
+        if lstArt == -1:
+            self.logger.info("Factura are data modificata")
+            self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+            return
 
         self.logger.info(lstArt)
 

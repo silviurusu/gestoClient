@@ -68,7 +68,7 @@ def retToFileArray(ret, filename):
         thefile.write("{}/{} - {}\n".format(ctr, retCnt, r))
 
 
-def getCfgVal(section, varName):
+def getCfgVal(section, varName, retType=None):
     logger.info(">>> {0}()".format(inspect.stack()[0][3]))
     start = datetime.datetime.now()
 
@@ -76,7 +76,13 @@ def getCfgVal(section, varName):
     with codecs.open('config_local.ini', 'r', encoding='utf-8') as f:
         cfg.readfp(f)
 
-    ret = cfg.get(section, varName)
+    if retType == "int":
+        ret = cfg.getint(section, varName)
+    elif retType == "bool":
+        ret = cfg.getboolean(section, varName)
+    else:
+        ret = cfg.get(section, varName)
+
     if section == "client" and varName in ['bccEmails', 'notificationEmails', ] \
     or section == "deliveryNote" and varName in ['sources', 'destinations'] \
     or section == "gesto" and varName in ['branches', ] \

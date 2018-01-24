@@ -121,10 +121,10 @@ def importAvize(baseURL, date):
     opStr = {
         "version": "1.0",
         "type": "reception",
-        "company": cfg.get("winmentor", "companyName"),
+        "company": util.getCfgVal("winmentor", "companyName"),
     }
 
-    hour = int(cfg.get("deliveryNote", "hour"))
+    hour = util.getCfgVal("deliveryNote", "hour", "int")
 
     for (source, val1) in deliveryNotes.items():
         opStr["source"] = {
@@ -207,17 +207,15 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
     logger.info(">>> {}()".format(inspect.stack()[0][3]))
     start = dt.now()
 
-    logger.info("Getting receptie from Gesto for {}".format(branch))
     logger.info("Getting receptie from Gesto for {}, {}".format(branch, tokens[branch]))
     if endDate is None:
         endDate = dt.today()
         endDate = endDate.replace(hour=23, minute=59, second=59)
 
     startDate = (endDate - timedelta(days = daysDelta)).replace(hour=0, minute=0, second=0)
-    if branch in ["34 Fabricii", "38 C.Turzii", ]:
-        startDate = max([startDate, datetime.datetime(2017, 11, 21)])
-    else:
-        startDate = max([startDate, datetime.datetime(2017, 12, 1)])
+    branchStartDate = dt.strptime(util.getCfgVal("receptionsStartDate", branch), "%Y-%m-%d")
+    logger.debug("startDate: {}".format(branchStartDate))
+    startDate = max([startDate, branchStartDate])
 
     logger.debug("startDate: {}".format(startDate))
     logger.debug("endDate: {}".format(endDate))
@@ -384,10 +382,10 @@ if __name__ == "__main__":
 
         tokens={}
         for opt in cfg.options("tokens"):
-            tokens[opt] = str(cfg.get("tokens", opt))
+            tokens[opt] = str(util.getCfgVal("tokens", opt))
 
         # Connect to winmentor
-        winmentor = WinMentor(firma = cfg.get("winmentor", "firma"), an=start.year, luna=start.month)
+        winmentor = WinMentor(firma = util.getCfgVal("winmentor", "firma"), an=start.year, luna=start.month)
         if not winmentor:
             logger.error("Failed to get winmentor object")
             1/0
@@ -420,37 +418,32 @@ if __name__ == "__main__":
 
         # Get date to use for Unit Test
         try:
-            utDate = dt.strptime(cfg.get("_UT_", "workdate"), "%Y-%m-%d")
+            workdate = dt.strptime(util.getCfgVal("_UT_", "workdate"), "%Y-%m-%d")
         except NoOptionError as e:
-            utDate = dt.today()
+            workdate = dt.today()
 
-        logger.info("Using utDate: {}".format(utDate))
-
-        # end of day
-        endDate = utDate.replace(hour=23, minute=59, second=59)
-        logger.info("Using end date: {}".format(endDate))
-
-        doExportReceptions = cfg.getboolean("gesto", "exportReceptions")
-        doGenerateWorkOrders = cfg.getboolean("gesto", "generateWorkOrders")
-        doGenerateMonetare = cfg.getboolean("gesto", "generateMonetare")
-        doImportAvize = cfg.getboolean("gesto", "importAvize")
+        doExportReceptions = util.getCfgVal("gesto", "exportReceptions", "bool")
+        doGenerateWorkOrders = util.getCfgVal("gesto", "generateWorkOrders", "bool")
+        doGenerateMonetare = util.getCfgVal("gesto", "generateMonetare", "bool")
+        doImportAvize = util.getCfgVal("gesto", "importAvize", "bool")
 
         try:
             opts, args = getopt.getopt(sys.argv[1:],"h",["exportReceptions=",
                                      "generateWorkOrders=",
                                      "generateMonetare=",
-                                     "importAvize="
+                                     "importAvize=",
+                                     "workDate="
                                     ])
 
             logger.info(opts)
             logger.info(args)
 
         except getopt.GetoptError:
-            print '{} --exportReceptions=<> --generateWorkOrders=<> --generateMonetare=<> --importAvize=<>'.format(sys.argv[0])
+            print '{} --exportReceptions=<> --generateWorkOrders=<> --generateMonetare=<> --importAvize=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0])
             sys.exit(2)
         for opt, arg in opts:
             if opt == '-h':
-                print '{} --exportReceptions=<> --generateWorkOrders=<> --generateMonetare=<> --importAvize=<>'.format(sys.argv[0])
+                print '{} --exportReceptions=<> --generateWorkOrders=<> --generateMonetare=<> --importAvize=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0])
                 sys.exit()
             elif opt in ("--exportReceptions"):
                 doExportReceptions = bool(int(arg))
@@ -460,45 +453,64 @@ if __name__ == "__main__":
                 doGenerateMonetare = bool(int(arg))
             elif opt in ("--importAvize"):
                 doImportAvize = bool(int(arg))
+            elif opt in ("--workDate"):
+                try:
+                    workdate = dt.strptime(arg, "%Y-%m-%d")
+                except NoOptionError as e:
+                    pass
 
         logger.info( 'exportReceptions {}'.format(doExportReceptions))
         logger.info( 'generateWorkOrders {}'.format(doGenerateWorkOrders))
         logger.info( 'generateMonetare {}'.format(doGenerateMonetare))
         logger.info( 'importAvize {}'.format(doImportAvize))
 
+        daysDelta = util.getCfgVal("gesto", "daysDelta", "int")
+        baseURL = util.getCfgVal("gesto", "url")
+
+        logger.info("Using workdate: {}".format(workdate))
+
+        # end of day
+        endDate = workdate.replace(hour=23, minute=59, second=59)
+        logger.info("Using end date: {}".format(endDate))
+
         if doExportReceptions:
-            branches = util.getCfgVal("receptions", "branches")
+            branches = cfg.options("receptionsStartDate")
+            logger.info( 'branches: {}'.format(branches))
+
+            excludeCUI = util.getCfgVal("receptions", "excludeCUI")
 
             for branch in branches:
                 gestoData = getGestoDocuments(
-                        baseURL = cfg.get("gesto", "url"),
+                        baseURL = baseURL,
                         branch = branch,
                         operationType="reception",
-                        excludeCUI=cfg.get("receptions", "excludeCUI"),
+                        excludeCUI=excludeCUI,
                         endDate = endDate,
-                        daysDelta = cfg.getint("gesto", "daysDelta"),
+                        daysDelta = daysDelta,
                         )
 
         if doGenerateMonetare:
             for branch in branches:
                 gestoData = generateMonetare(
-                        baseURL = cfg.get("gesto", "url"),
+                        baseURL = baseURL,
                         branch = branch,
                         date = endDate,
                         )
 
         if doGenerateWorkOrders:
-            branches = util.getCfgVal("receptions", "branches")
+            # branches = util.getCfgVal("receptions", "branches")
+            logger.info( 'branches {}'.format(branches))
+
             for branch in branches:
                 gestoData = generateWorkOrders(
-                        baseURL = cfg.get("gesto", "url"),
+                        baseURL = baseURL,
                         branch = branch,
                         date = endDate,
                         )
 
         if doImportAvize:
             gestoData = importAvize(
-                    baseURL = cfg.get("gesto", "url"),
+                    baseURL = baseURL,
                     date = endDate,
                     )
 
