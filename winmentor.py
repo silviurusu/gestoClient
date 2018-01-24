@@ -909,7 +909,7 @@ class WinMentor(object):
             return
 
         # Seteaza luna si anul in WinMentor
-        opDate = dt.fromtimestamp(gestoData["operationDate"])
+        opDate = dt.fromtimestamp(gestoData["documentDate"])
         self.setLunaLucru(opDate.month, opDate.year)
 
         # Cod partener exact ca in Winmentor
@@ -1104,10 +1104,19 @@ class WinMentor(object):
                 "simbGest",
                 )
 
+        prodIdx = {}
+        prodIdx["G_PROD_9"] = 1
+        prodIdx["G_MARF_9"] = 2
+        prodIdx["G_MARF_19"] = 3
+        prodIdx["G_PROD_19"] = 4
+
         itemStr = ""
-        for idx, item in enumerate(items):
+        for item in items:
             txtProd = self._dictToColonList(keys, item)
-            txtWMDoc += "Item_{}={}\n".format(idx + 1, txtProd) # articolele incep de la 1
+            key = item["codExternArticol"][:item["codExternArticol"].rfind("_")]
+            self.logger.debug("key: {}".format(key))
+            self.logger.debug("idx: {}".format(prodIdx[key]))
+            txtWMDoc += "Item_{}={}\n".format(prodIdx[key], txtProd) # articolele incep de la 1
 
         self.logger.debug("txtWMDoc: \n{}".format(txtWMDoc))
 
