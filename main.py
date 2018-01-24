@@ -498,9 +498,6 @@ if __name__ == "__main__":
                         )
 
         if doGenerateWorkOrders:
-            # branches = util.getCfgVal("receptions", "branches")
-            logger.info( 'branches {}'.format(branches))
-
             for branch in branches:
                 gestoData = generateWorkOrders(
                         baseURL = baseURL,
