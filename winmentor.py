@@ -1327,6 +1327,7 @@ class WinMentor(object):
 
         self.logger.info("dnDate: {}".format(dnDate))
 
+        company = util.getCfgVal("winmentor", "companyName")
         deliveryNotes = {}
 
         self.logger.info("{} transferuri".format(len(transferuri)))
@@ -1373,10 +1374,15 @@ class WinMentor(object):
                     self.productsMissingWMCodes.append(items[5])
 
             if items[6] != "":
+                if company == "Andalusia":
+                    opPrice = float(items[8].replace(",", "."))
+                else:
+                    opPrice = float(items[7].replace(",", "."))
+
                 deliveryNotes[source][date][destination][transferNo].append({
                                 "winMentorCode": items[4],
                                 "name": items[5],
-                                "opPrice": float(items[7].replace(",", ".")),
+                                "opPrice": opPrice,
                                 "listPrice": float(items[8].replace(",", ".")),
                                 "qty": float(items[6].replace(",","."))
                         })
