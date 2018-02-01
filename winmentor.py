@@ -1014,7 +1014,7 @@ class WinMentor(object):
 
         # Creaza factura import
         rc = self.importaFactIntrare(
-                logOn = "Master",
+                logOn = util.getCfgVal("winmentor", "userName"),
                 serieDoc="G",
                 nrDoc = gestoData["relatedDocumentNo"],
                 nrNir = util.getNextDocumentNumber("NIR"),
@@ -1214,7 +1214,7 @@ class WinMentor(object):
                         )
 
             rc = self.importaMonetare(
-                    logOn = "Master", # TODO what's this?
+                    logOn = util.getCfgVal("winmentor", "userName"),
                     # nrDoc = gestoData["documentNo"],
                     nrDoc = util.getNextDocumentNumber("MON"),
                     data = opDate,
@@ -1469,7 +1469,7 @@ class WinMentor(object):
 
         # Creaza transferul
         rc = self.importaTransfer(
-                logOn = "Master",
+                logOn = util.getCfgVal("winmentor", "userName"),
                 # nrDoc = gestoData["documentNo"],
                 nrDoc = util.getNextDocumentNumber("NT"),
                 data = opDate,
@@ -1553,7 +1553,7 @@ if __name__ == "__main__":
     #     print(repr(partener))
     # print("-- Start factura")
     # rc = winmentor.importaFactIntrare(
-    #         logOn = "Master",
+    #         logOn = util.getCfgVal("winmentor", "userName"),
     #         nrDoc = "7123",
     #         nrNir = "672267",
     #         data = dt(2017, 07, 21),
