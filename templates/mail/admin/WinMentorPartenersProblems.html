@@ -1,7 +1,7 @@
 {%if missingPartners|length != 0%}
 Urmatorii {{missingPartners|length}} parteneri nu exista in WinMentor:<br/>
 {% for key,p in missingPartners.items  %}
-    {{p.name}}, {{p.code}}
+    {{p.company.name}}, {{p.company.code}} --- {{p.details}}
 {% endfor %}
 {%endif%}
 

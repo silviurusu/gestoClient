@@ -9,6 +9,7 @@ from ConfigParser import SafeConfigParser, NoOptionError, NoSectionError
 import codecs
 from django.template import loader, Context
 import traceback
+import json
 
 
 logger = logging.getLogger(__name__)
@@ -91,6 +92,28 @@ def getCfgVal(section, varName, retType=None):
         ret = [x.strip() for x in ret.split(",")]
 
     logger.info("{}: {}".format(varName, ret))
+    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], datetime.datetime.now() - start))
+    return ret
+
+
+def getCfgOptsDict(section):
+    logger.info(">>> {}()".format(inspect.stack()[0][3]))
+    start = datetime.datetime.now()
+
+    logger.info("section: {}".format(section))
+
+    cfg = SafeConfigParser()
+    cfg.optionxform = str
+
+    with codecs.open('config_local.ini', 'r', encoding='utf-8') as f:
+        cfg.readfp(f)
+
+    ret={}
+    for opt in cfg.options(section):
+        ret[opt] = cfg.get(section, opt)
+
+    logger.info(json.dumps(ret, sort_keys=True, indent=4, separators=(',', ': '), default=defaultJSON)
+                     )
     logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], datetime.datetime.now() - start))
     return ret
 

@@ -20,16 +20,135 @@ from django.template import loader, Context
 import django
 
 
-def generateWorkOrders(baseURL, branch, date):
+def generateWorkOrders(baseURL, branch, date, doVerify):
+    # ajung in mentor in NT_G
+    logger.info(">>> {}()".format(inspect.stack()[0][3]))
+    start = dt.now()
+
+    if branch != "Sediu":
+        logger.info("Only generate transfers for Sediu, not for {}".format(branch))
+        logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+        return True
+
+    url = baseURL + "/products/summary/?"
+    companyName = util.getCfgVal("winmentor", "companyName")
+    if companyName == "Panemar morarit si panificatie SRL":
+        url += "type=workOrder"
+    else:
+        url += "type=sale"
+        url += "&excludeCodes=1,2"
+
+    if branch == "29 Memo":
+        doVerify = False
+
+    if doVerify:
+        url += "&verify=1"
+    url += "&winMentor=1"
+    url += "&excludeListVal=0"
+    url += "&showInactivePoses=0"
+
+    # add workOrders for the previous day
+    dateEnd = date - timedelta(days = 1)
+    dateBegin = dateEnd.replace(hour=0, minute=0, second=0)
+
+    url += "&dateBegin={}".format(util.getTimestamp(dateBegin))
+    url += "&dateEnd={}".format(util.getTimestamp(dateEnd))
+
+    logger.debug(url)
+    logger.debug("dateBegin: {}".format(dateBegin.strftime("%Y-%m-%d %H:%M:%S")))
+    logger.debug("dateEnd: {}".format(dateEnd.strftime("%Y-%m-%d %H:%M:%S")))
+
+    retJSON = None
+    token = tokens[branch]
+    logger.error("Gesto request token: {}".format(token))
+
+    r = requests.get(url, headers={'GESTOTOKEN': token})
+
+    if r.status_code != 200:
+        logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
+        logger.error("Gesto request url: {}".format(url))
+        1/0
+    else:
+        retJSON = r.json()
+
+        logger.info("verify: {}".format(retJSON["verify"]))
+
+        if not doVerify or retJSON["verify"] == "success":
+            # email is sent from Gesto if there is any problem
+            winmentor.addWorkOrders(retJSON)
+            ret = True
+        elif retJSON["verify"] == "No Vectron data":
+            ret = True
+        else:
+            ret = False
+
+    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+    return ret
+
+# NP_G
+# productie - exectie - intrari din productie
+def generateIntrariDinProductie(baseURL, branch, date, doVerify):
     logger.info(">>> {}()".format(inspect.stack()[0][3]))
     start = dt.now()
 
     url = baseURL + "/products/summary/?"
     url += "type=workOrder"
-    verify=True # only for workOrders
-    if verify:
+
+    if branch == "29 Memo":
+        doVerify = False
+
+    if doVerify:
         url += "&verify=1"
 
+    url += "&winMentor=1"
+    url += "&excludeListVal=0"
+    url += "&showInactivePoses=0"
+
+    # add workOrders for the previous day
+    dateEnd = date - timedelta(days = 1)
+    dateBegin = dateEnd.replace(hour=0, minute=0, second=0)
+
+    url += "&dateBegin={}".format(util.getTimestamp(dateBegin))
+    url += "&dateEnd={}".format(util.getTimestamp(dateEnd))
+
+    logger.debug(url)
+    logger.debug("dateBegin: {}".format(dateBegin.strftime("%Y-%m-%d %H:%M:%S")))
+    logger.debug("dateEnd: {}".format(dateEnd.strftime("%Y-%m-%d %H:%M:%S")))
+
+    retJSON = None
+    token = tokens[branch]
+    logger.error("Gesto request token: {}".format(token))
+
+    r = requests.get(url, headers={'GESTOTOKEN': token})
+
+    if r.status_code != 200:
+        logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
+        logger.error("Gesto request url: {}".format(url))
+        1/0
+    else:
+        retJSON = r.json()
+
+        logger.info("verify: {}".format(retJSON["verify"]))
+        if not doVerify or retJSON["verify"] == "success":
+            # email is sent from Gesto if there is any problem
+            winmentor.addIntrariDinProductie(retJSON)
+            ret = True
+        elif retJSON["verify"] == "No Vectron data":
+            ret = True
+        else:
+            ret = False
+
+    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+    return ret
+
+# bonuri de consum
+# BC_G
+def exportSummaryTransfers(baseURL, branch, date):
+    logger.info(">>> {}()".format(inspect.stack()[0][3]))
+    start = dt.now()
+
+    url = baseURL + "/products/summary/?"
+    url += "type=transfer"
     url += "&winMentor=1"
     url += "&excludeListVal=0"
 
@@ -46,19 +165,55 @@ def generateWorkOrders(baseURL, branch, date):
 
     retJSON = None
     token = tokens[branch]
+    logger.error("Gesto request token: {}".format(token))
+
     r = requests.get(url, headers={'GESTOTOKEN': token})
 
     if r.status_code != 200:
         logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
-        logger.error("Gesto request url: {}", url)
-        logger.error("Gesto request token: {}", token)
+        logger.error("Gesto request url: {}".format(url))
         1/0
     else:
         retJSON = r.json()
+        winmentor.addProductSummary(retJSON, dateEnd)
 
-        if retJSON["verify"] == "success":
-            # email is sent from Gesto if there is any problem
-            winmentor.addWorkOrders(retJSON)
+    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+
+
+def exportSummaryBonDeConsum(baseURL, branch, date):
+    logger.info(">>> {}()".format(inspect.stack()[0][3]))
+    start = dt.now()
+
+    url = baseURL + "/products/summary/?"
+    url += "type=bon_de_consum"
+    url += "&winMentor=1"
+    url += "&codes_gte=5000"
+    url += "&codes_lte=6000"
+
+    # add BonDeConsum for the previous month
+    dateEnd = (date.replace(day=1) - datetime.timedelta(days=1)).replace(hour=23, minute=59, second=59)
+    dateBegin = dateEnd.replace(day=1, hour=0, minute=0, second=0)
+
+    url += "&dateBegin={}".format(util.getTimestamp(dateBegin))
+    url += "&dateEnd={}".format(util.getTimestamp(dateEnd))
+
+    logger.debug(url)
+    logger.debug("dateBegin: {}".format(dateBegin.strftime("%Y-%m-%d %H:%M:%S")))
+    logger.debug("dateEnd: {}".format(dateEnd.strftime("%Y-%m-%d %H:%M:%S")))
+
+    retJSON = None
+    token = tokens[branch]
+    logger.error("Gesto request token: {}".format(token))
+
+    r = requests.get(url, headers={'GESTOTOKEN': token})
+
+    if r.status_code != 200:
+        logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
+        logger.error("Gesto request url: {}".format(url))
+        1/0
+    else:
+        retJSON = r.json()
+        winmentor.addProductSummary(retJSON, dateEnd)
 
     logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
@@ -71,11 +226,6 @@ def generateMonetare(baseURL, branch, date):
 
     url = baseURL + "/products/summary/?"
     url += "type=sale"
-
-    verify=False # only for workOrders
-    if verify:
-        url += "&verify=1"
-
     url += "&winMentor=1"
     url += "&excludeOpVal=0"
 
@@ -92,22 +242,17 @@ def generateMonetare(baseURL, branch, date):
 
     retJSON = None
     token = tokens[branch]
+    logger.error("Gesto request token: {}".format(token))
+
     r = requests.get(url, headers={'GESTOTOKEN': token})
 
     if r.status_code != 200:
         logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
-        logger.error("Gesto request url: {}", url)
-        logger.error("Gesto request token: {}", token)
+        logger.error("Gesto request url: {}".format(url))
         1/0
     else:
         retJSON = r.json()
-
-        # logger.debug(retJSON)
-        if not verify or retJSON["verify"] == "success":
-            pass
-
-            # email is sent from Gesto if there is any problem
-            winmentor.addMonetare(retJSON)
+        winmentor.addMonetare(retJSON)
 
     logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
@@ -196,6 +341,8 @@ def importAvize(baseURL, date):
     logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
 
+# "return": "NTR_G"
+# "reception": "NTA_G"
 def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate = None, daysDelta = 7):
     """
     @param branch: Gesto branch used for request
@@ -207,41 +354,97 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
     logger.info(">>> {}()".format(inspect.stack()[0][3]))
     start = dt.now()
 
-    logger.info("Getting receptie from Gesto for {}, {}".format(branch, tokens[branch]))
+    # opDate = datetime.datetime.strptime("2018-06-01", "%Y-%m-%d")
+    # winmentor.transferExists(10, opDate)
+    # 1/0
+    # endDate = min(endDate, datetime.datetime.strptime("2018-04-30 23:59:59", "%Y-%m-%d %H:%M:%S"))
+    endDate = None
+
+    logger.info("Getting {} from Gesto for {}, {}".format(operationType, branch, tokens[branch]))
     if endDate is None:
         endDate = dt.today()
         endDate = endDate.replace(hour=23, minute=59, second=59)
+    if operationType == "reception":
+        # start of previousMonth
+        startDate = dt.today().replace(day=1, hour=0, minute=0, second=0)
+        startDate = startDate - timedelta(days=1)
+        startDate = startDate.replace(day=1, hour=0, minute=0, second=0)
+        # startDate = datetime.datetime.strptime("2018-12-01", "%Y-%m-%d")
+    elif operationType == "supplyOrder":
+        startDate = dt.today().replace(hour=0, minute=0, second=0)
+        # startDate = startDate - timedelta(days = 1)
+        endDate = startDate + timedelta(days = daysDelta)
+    elif operationType == "return":
+        # start of previousMonth
+        startDate = dt.today().replace(day=1, hour=0, minute=0, second=0)
+        startDate = startDate - timedelta(days=1)
+        startDate = startDate.replace(day=1, hour=0, minute=0, second=0)
+        # startDate = datetime.datetime.strptime("2018-12-01", "%Y-%m-%d")
+    elif operationType == "sale":
+        # startDate = dt.today().replace(day=1, hour=0, minute=0, second=0)
+        # startDate = startDate - timedelta(days=1)
+        # startDate = endDate.replace(day=1, hour=0, minute=0, second=0)
+        endDate = endDate.replace(day=1) - datetime.timedelta(days=1)
+        endDate = endDate.replace(hour=23, minute=59, second=59)
+        startDate = endDate.replace(day=1, hour=0, minute=0, second=0)
+    else :
+        startDate = (endDate - timedelta(days = daysDelta)).replace(hour=0, minute=0, second=0)
+    try:
+        branchStartDate = dt.strptime(util.getCfgVal("receptionsStartDate", branch), "%Y-%m-%d")
+    except NoOptionError:
+        branchStartDate = startDate
 
-    startDate = (endDate - timedelta(days = daysDelta)).replace(hour=0, minute=0, second=0)
-    branchStartDate = dt.strptime(util.getCfgVal("receptionsStartDate", branch), "%Y-%m-%d")
-    logger.debug("startDate: {}".format(branchStartDate))
+    logger.debug("startDate: {}".format(startDate))
+    logger.debug("branchStartDate: {}".format(branchStartDate))
     startDate = max([startDate, branchStartDate])
 
     logger.debug("startDate: {}".format(startDate))
     logger.debug("endDate: {}".format(endDate))
 
-    url = baseURL + "/operations?"
-    url += "&type="+operationType
-    if startDate is not None:
-        startDate = util.getTimestamp(startDate)
-        url += "&dateBegin="+str(startDate)
-    if endDate is not None:
-        endDate = util.getTimestamp(endDate)
-        url += "&dateEnd="+str(endDate)
+    onlyKeepStockProducts = False
+    id = None
+    # id = 46405157
+    # if operationType == "reception":
+    #     id = 49095512
+    #     onlyKeepStockProducts = True
+    # if operationType == "return":
+    #     id = 46966370
+
+    if id is not None:
+        url = baseURL + "/operations/{}/?".format(id)
+    else:
+        url = baseURL + "/operations/?"
+        url += "&type="+operationType
+
+        if startDate is not None:
+            startDate = util.getTimestamp(startDate)
+            url += "&dateBegin="+str(startDate)
+        if endDate is not None:
+            endDate = util.getTimestamp(endDate)
+            url += "&dateEnd="+str(endDate)
+
+        logger.debug("startDate: {}".format(dt.utcfromtimestamp(startDate)))
+        logger.debug("endDate: {}".format(dt.utcfromtimestamp(endDate)))
 
     if excludeCUI is not None:
         url += "&excludeCUI="+str(excludeCUI)
 
-    url += "&winMentor="+str(1)
+    if onlyKeepStockProducts:
+        url += "&onlyKeepStockProducts=1"
 
-    urlCount = url + "&pageSize="+str(1)
-    urlCount += "&page="+str(1)
+    url += "&winMentor=1"
+
+    if operationType == "sale":
+        url += "&showInvoicedSales=1"
+
+    urlCount = url + "&pageSize=1"
+    urlCount += "&page=1"
     logger.debug(url)
-    logger.debug("startDate: {}".format(dt.utcfromtimestamp(startDate)))
-    logger.debug("endDate: {}".format(dt.utcfromtimestamp(endDate)))
 
     retJSON = None
     token = tokens[branch]
+    logger.error("Gesto request token: {}".format(token))
+
     r = requests.get(urlCount, headers={'GESTOTOKEN': token})
 
     if r.status_code != 200:
@@ -278,7 +481,7 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
         totalRecords = retJSON["range"]["totalRecords"]
         logger.info("{} {}".format(totalRecords, operationType))
 
-        pageSize = 10
+        pageSize = 100
         pagesCount = int((totalRecords + pageSize - 1) / pageSize)
         print "pagesCount: {}".format(pagesCount)
 
@@ -305,25 +508,141 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
 
                 # gestoData = retJSON["data"]
                 # if util.isArray(gestoData) and len(gestoData) >= 1:
-                if operationType == "reception":
+                if op["type"] == "reception":
                     # Get partener from gesto
                     gestoPartener = util.fixupCUI(op["source"]["code"])
                     logger.info("gestoPartener = {}".format(gestoPartener))
-                    winmentor.addReception(op)
 
-                # if ctr2==2:
+                    # op["items"] = op["items"]
+                    if int(gestoPartener) > 1500 \
+                    or int(gestoPartener) < 0:
+                        winmentor.addReception(op)
+                    else:
+                        deliveryNoteReceptionsDate = datetime.datetime.strptime("2018-06-01", "%Y-%m-%d")
+                        opDate = dt.utcfromtimestamp(op["documentDate"])
+                        logger.info("deliveryNoteReceptionsDate = {}".format(deliveryNoteReceptionsDate))
+                        logger.info("opDate = {}".format(opDate))
+
+                        if opDate > deliveryNoteReceptionsDate:
+                            winmentor.addWorkOrderFromOperation(op)
+                            # 1/0
+
+                    # 1/0
+
+                elif op["type"] == "supplyOrder":
+                    winmentor.addSupplyOrder(op)
+                elif op["type"] == "sale":
+                    winmentor.addSale(op)
+                elif op["type"] == "return":
+                    winmentor.addWorkOrderFromOperation(op)
+
+                # if ctr2==1:
                 #     1/0
 
     logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
 
-def cleanId(name):
-    """ Remove spaces and convert a id/name to smallcase, to avoid
-    user insert format problems. Example: "31 Vlaicu", "31Vlaicu" all
-    convert to "31vlaicu"
-
+def getGestoDocumentsMarkedForWinMentorExport(baseURL, branch):
     """
-    return "".join(name.lower().split())
+    @param branch: Gesto branch used for request
+    """
+    logger.info(">>> {}()".format(inspect.stack()[0][3]))
+    start = dt.now()
+
+    logger.info("Getting all operations marked for WinMentorExport")
+    url = baseURL + "/operations/?"
+    url += "&markedForWinMentorExport=1"
+    url += "&onlyKeepStockProducts=1"
+    logger.debug(url)
+
+    token = tokens[branch]
+    logger.error("Gesto request token: {}".format(token))
+
+    r = requests.get(url, headers={'GESTOTOKEN': token})
+
+    if r.status_code != 200:
+        logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
+    else:
+        retJSON = r.json()
+        logger.debug("\n%s",
+                json.dumps(
+                    retJSON,
+                    sort_keys=True,
+                    indent=4,
+                    separators=(',', ': '),
+                    default=util.defaultJSON
+                    )
+                )
+
+        totalRecords = retJSON["range"]["totalRecords"]
+        logger.info("{} operations".format(totalRecords))
+        if totalRecords == 0:
+            logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+            return
+
+        if retJSON["data"][0]["simbolWinMentorReception"] in [None, "nil",]:
+            txtMail = "Locatia {} nu are setat un simbol pentru WinMentor".format(retJSON["data"][0]["destination"]["name"])
+
+            send_email(
+                    subject = txtMail,
+                    msg = txtMail
+                    )
+
+            logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+            return
+
+        totalRecords = retJSON["range"]["totalRecords"]
+        logger.info("{} operations".format(totalRecords))
+
+        currentMonth = None
+        currentYear = None
+
+        for ctr, op in enumerate(retJSON["data"], start=1):
+            logger.debug("{}, {}, {}".format(ctr, totalRecords, op["id"]))
+
+            opDate = dt.utcfromtimestamp(op["documentDate"])
+            if opDate.month != currentMonth and opDate.year != currentYear:
+                winmentor.setLunaLucru(opDate.month, opDate.year)
+                currentMonth = opDate.month
+                currentYear = opDate.year
+
+            gestoData = retJSON["data"]
+            if op["type"]== "reception":
+                # Get partener from gesto
+                gestoPartener = util.fixupCUI(op["source"]["code"])
+                logger.info("gestoPartener = {}".format(gestoPartener))
+
+                # op["items"] = op["items"]
+                if int(gestoPartener) > 1500 \
+                or int(gestoPartener) < 0:
+                    winmentor.addReception(op)
+                else:
+                    deliveryNoteReceptionsDate = datetime.datetime.strptime("2018-06-01", "%Y-%m-%d")
+                    opDate = dt.utcfromtimestamp(op["documentDate"])
+                    logger.info("deliveryNoteReceptionsDate = {}".format(deliveryNoteReceptionsDate))
+                    logger.info("opDate = {}".format(opDate))
+
+                    if opDate > deliveryNoteReceptionsDate:
+                        winmentor.addWorkOrderFromOperation(op)
+                        # 1/0
+
+                # 1/0
+
+            elif op["type"] == "supplyOrder":
+                winmentor.addSupplyOrder(op)
+            elif op["type"] == "sale":
+                winmentor.addSale(op)
+            elif op["type"] == "return":
+                winmentor.addWorkOrderFromOperation(op)
+
+            url = baseURL + "/operations/{}/exportedWinMentor/".format(op["id"])
+            r = requests.put(url, headers={'GESTOTOKEN': token})
+            logger.info(r)
+
+            # if ctr==1:
+            #     1/0
+
+    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
 
 def setup_logging(
@@ -362,7 +681,6 @@ def setup_logging(
 
 if __name__ == "__main__":
     try:
-
         # Set DJANGO for email support
         os.environ.setdefault("DJANGO_SETTINGS_MODULE", "settings")
         django.setup()
@@ -377,18 +695,13 @@ if __name__ == "__main__":
         with codecs.open('config_local.ini', 'r', encoding='utf-8') as f:
             cfg.readfp(f)
 
+        # logger.info("SILVIU")
+        # exit()
+
         logger.info(">>> {}()".format(inspect.stack()[0][3]))
         start = dt.now()
 
-        tokens={}
-        for opt in cfg.options("tokens"):
-            tokens[opt] = str(util.getCfgVal("tokens", opt))
 
-        # Connect to winmentor
-        winmentor = WinMentor(firma = util.getCfgVal("winmentor", "firma"), an=start.year, luna=start.month)
-        if not winmentor:
-            logger.error("Failed to get winmentor object")
-            1/0
 
         # # TODO here for testing
         # intrari, rc = winmentor._stat.GetIntrari()
@@ -415,6 +728,7 @@ if __name__ == "__main__":
         logger.info("START")
 
         branches = util.getCfgVal("gesto", "branches")
+        branches_default = True
 
         # Get date to use for Unit Test
         try:
@@ -423,98 +737,231 @@ if __name__ == "__main__":
             workdate = dt.today()
 
         doExportReceptions = util.getCfgVal("gesto", "exportReceptions", "bool")
+        doExportSales = util.getCfgVal("gesto", "exportSales", "bool")
+        doExportReturns = util.getCfgVal("gesto", "exportReturns", "bool")
+        doExportSupplyOrders = util.getCfgVal("gesto", "exportSupplyOrders", "bool")
         doGenerateWorkOrders = util.getCfgVal("gesto", "generateWorkOrders", "bool")
+        doGenerateIntrariDinProductie = util.getCfgVal("gesto", "generateIntrariDinProductie", "bool")
         doGenerateMonetare = util.getCfgVal("gesto", "generateMonetare", "bool")
         doImportAvize = util.getCfgVal("gesto", "importAvize", "bool")
+        doExportSummaryTransfers = util.getCfgVal("gesto", "exportSummaryTransfers", "bool")
+        doExportSummaryBonDeConsum = util.getCfgVal("gesto", "exportSummaryBonDeConsum", "bool")
+        doVerify = util.getCfgVal("gesto", "verify", "bool")
+        markedForWinMentorExport = False
 
         try:
+            # logger.info(sys.argv)
             opts, args = getopt.getopt(sys.argv[1:],"h",["exportReceptions=",
+                                     "exportSales=",
+                                     "exportReturns=",
+                                     "exportSupplyOrders=",
                                      "generateWorkOrders=",
+                                     "generateIntrariDinProductie=",
                                      "generateMonetare=",
                                      "importAvize=",
+                                     "exportSummaryTransfers=",
+                                     "exportSummaryBonDeConsum=",
                                      "branches=",
-                                     "workDate="
+                                     "verify=",
+                                     "workDate=",
+                                     "markedForWinMentorExport=",
                                     ])
 
             logger.info(opts)
             logger.info(args)
 
         except getopt.GetoptError:
-            print '{} --exportReceptions=<> --generateWorkOrders=<> --generateMonetare=<> --importAvize=<> --branches=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0])
+            print '{} --exportReceptions=<> --generateWorkOrders=<> --generateIntrariDinProductie=<> --generateMonetare=<> --importAvize=<> --exportSummaryTransfers=<> --exportSummaryBonDeConsum=<> --exportSales=<> --exportReturns=<> --exportSupplyOrders=<> --branches=<> --verify=<> --markedForWinMentorExport=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0])
             sys.exit(2)
         for opt, arg in opts:
             if opt == '-h':
-                print '{} --exportReceptions=<> --generateWorkOrders=<> --generateMonetare=<> --importAvize=<> --branches=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0])
+                print '{} --exportReceptions=<> --generateWorkOrders=<> --generateIntrariDinProductie=<> --generateMonetare=<> --importAvize=<> --exportSummaryTransfers=<> --exportSummaryBonDeConsum=<> --exportSales=<> --exportReturns=<> --exportSupplyOrders=<> --branches=<> --verify=<> --markedForWinMentorExport=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0])
                 sys.exit()
             elif opt in ("--exportReceptions"):
                 doExportReceptions = bool(int(arg))
+            elif opt in ("--exportSales"):
+                doExportSales = bool(int(arg))
+            elif opt in ("--exportReturns"):
+                doExportReturns = bool(int(arg))
+            elif opt in ("--exportSupplyOrders"):
+                doExportSupplyOrders = bool(int(arg))
             elif opt in ("--generateWorkOrders"):
                 doGenerateWorkOrders = bool(int(arg))
+            elif opt in ("--generateIntrariDinProductie"):
+                doGenerateIntrariDinProductie = bool(int(arg))
             elif opt in ("--generateMonetare"):
                 doGenerateMonetare = bool(int(arg))
             elif opt in ("--importAvize"):
                 doImportAvize = bool(int(arg))
+            elif opt in ("--exportSummaryTransfers"):
+                doExportSummaryTransfers = bool(int(arg))
+            elif opt in ("--exportSummaryBonDeConsum"):
+                doExportSummaryBonDeConsum = bool(int(arg))
             elif opt in ("--branches"):
-                branches = [x.strip() for x in arg.split(",")]
+                branches = [x.strip().replace("_", " ") for x in arg.split(",")]
+                branches_default = False
             elif opt in ("--workDate"):
                 try:
                     workdate = dt.strptime(arg, "%Y-%m-%d")
                 except NoOptionError as e:
                     pass
+            elif opt in ("--verify"):
+                doVerify = bool(int(arg))
+            elif opt in ("--markedForWinMentorExport"):
+                markedForWinMentorExport = bool(int(arg))
 
-        logger.info( 'exportReceptions {}'.format(doExportReceptions))
-        logger.info( 'generateWorkOrders {}'.format(doGenerateWorkOrders))
-        logger.info( 'generateMonetare {}'.format(doGenerateMonetare))
-        logger.info( 'importAvize {}'.format(doImportAvize))
-        logger.info( 'branches: {}'.format(branches))
+        logger.info( 'markedForWinMentorExport {}'.format(markedForWinMentorExport))
 
+        if markedForWinMentorExport:
+            if dt.now().hour == 12 and dt.now().minute == 5:
+                logger.info(">>> E ora 12.05, nu prelua documentele")
 
-        daysDelta = util.getCfgVal("gesto", "daysDelta", "int")
+                logger.info("END")
+                logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+                exit()
+
+        tokens = util.getCfgOptsDict("tokens")
+
+        # Connect to winmentor
+        winmentor = WinMentor(firma = util.getCfgVal("winmentor", "firma"), an=start.year, luna=start.month)
+        if not winmentor:
+            logger.error("Failed to get winmentor object")
+            1/0
+
         baseURL = util.getCfgVal("gesto", "url")
 
-        logger.info("Using workdate: {}".format(workdate))
-
-        # end of day
-        endDate = workdate.replace(hour=23, minute=59, second=59)
-        logger.info("Using end date: {}".format(endDate))
-
-        if doExportReceptions:
-            branches = cfg.options("receptionsStartDate")
+        if markedForWinMentorExport:
+            logger.info( 'markedForWinMentorExport {}'.format(markedForWinMentorExport))
+            getGestoDocumentsMarkedForWinMentorExport(
+                            baseURL = baseURL,
+                            branch = branches[0]
+                        )
+        else:
+            logger.info( 'exportReceptions {}'.format(doExportReceptions))
+            logger.info( 'exportSales {}'.format(doExportSales))
+            logger.info( 'exportReturns {}'.format(doExportReturns))
+            logger.info( 'exportSupplyOrders {}'.format(doExportSupplyOrders))
+            logger.info( 'generateWorkOrders {}'.format(doGenerateWorkOrders))
+            logger.info( 'generateIntrariDinProductie {}'.format(doGenerateIntrariDinProductie))
+            logger.info( 'generateMonetare {}'.format(doGenerateMonetare))
+            logger.info( 'importAvize {}'.format(doImportAvize))
+            logger.info( 'exportSummaryTransfers {}'.format(doExportSummaryTransfers))
+            logger.info( 'exportSummaryBonDeConsum {}'.format(doExportSummaryBonDeConsum))
             logger.info( 'branches: {}'.format(branches))
+            logger.info( 'verify: {}'.format(doVerify))
 
-            excludeCUI = util.getCfgVal("receptions", "excludeCUI")
+            daysDelta = util.getCfgVal("gesto", "daysDelta", "int")
 
+            logger.info("Using workdate: {}".format(workdate))
+
+            # end of day
+            endDate = workdate.replace(hour=23, minute=59, second=59)
+            logger.info("Using end date: {}".format(endDate))
+
+            if doExportReceptions:
+                # if dt.now().hour == 13:
+                #     logger.info(">>> E ora 12, nu prelua receptiile")
+                #     exit()
+
+                if branches_default:
+                    branches = cfg.options("receptionsStartDate")
+
+                logger.info( 'branches: {}'.format(branches))
+
+                excludeCUI = util.getCfgVal("receptions", "excludeCUI")
+
+                for branch in branches:
+                    gestoData = getGestoDocuments(
+                            baseURL = baseURL,
+                            branch = branch,
+                            operationType="reception",
+                            excludeCUI=excludeCUI,
+                            endDate = endDate,
+                            daysDelta = daysDelta,
+                            )
+
+            if doExportSales:
+                for branch in branches:
+                    gestoData = getGestoDocuments(
+                            baseURL = baseURL,
+                            branch = branch,
+                            operationType="sale",
+                            endDate = endDate,
+                            daysDelta = daysDelta,
+                            )
+
+            if doExportReturns:
+                for branch in branches:
+                    gestoData = getGestoDocuments(
+                            baseURL = baseURL,
+                            branch = branch,
+                            operationType="return",
+                            endDate = endDate,
+                            daysDelta = daysDelta,
+                            )
+
+            if doExportSupplyOrders:
+                for branch in branches:
+                    gestoData = getGestoDocuments(
+                            baseURL = baseURL,
+                            branch = branch,
+                            operationType="supplyOrder",
+                            endDate = endDate,
+                            # daysDelta = daysDelta,
+                            daysDelta = 1,
+                            )
+
+            # ordinea importanta
             for branch in branches:
-                gestoData = getGestoDocuments(
-                        baseURL = baseURL,
-                        branch = branch,
-                        operationType="reception",
-                        excludeCUI=excludeCUI,
-                        endDate = endDate,
-                        daysDelta = daysDelta,
-                        )
+                if doGenerateIntrariDinProductie:
+                    ret = generateIntrariDinProductie(
+                            baseURL = baseURL,
+                            branch = branch,
+                            date = endDate,
+                            doVerify = doVerify,
+                            )
 
-        if doGenerateMonetare:
-            for branch in branches:
-                gestoData = generateMonetare(
-                        baseURL = baseURL,
-                        branch = branch,
-                        date = endDate,
-                        )
+                    if ret == False:
+                        # verification failed
+                        continue
 
-        if doGenerateWorkOrders:
-            for branch in branches:
-                gestoData = generateWorkOrders(
-                        baseURL = baseURL,
-                        branch = branch,
-                        date = endDate,
-                        )
+                if doGenerateWorkOrders:
+                    ret = generateWorkOrders(
+                            baseURL = baseURL,
+                            branch = branch,
+                            date = endDate,
+                            doVerify = doVerify,
+                            )
+                    if ret == False:
+                        # verification failed
+                        continue
 
-        if doImportAvize:
-            gestoData = importAvize(
-                    baseURL = baseURL,
-                    date = endDate,
-                    )
+                if doExportSummaryTransfers:
+                    gestoData = exportSummaryTransfers(
+                            baseURL = baseURL,
+                            branch = branch,
+                            date = endDate,
+                            )
+
+                if doExportSummaryBonDeConsum:
+                    gestoData = exportSummaryBonDeConsum(
+                            baseURL = baseURL,
+                            branch = branch,
+                            date = endDate,
+                            )
+
+                if doGenerateMonetare:
+                    gestoData = generateMonetare(
+                            baseURL = baseURL,
+                            branch = branch,
+                            date = endDate,
+                            )
+
+                if doImportAvize:
+                    gestoData = importAvize(
+                            baseURL = baseURL,
+                            date = endDate,
+                            )
 
         # Send mail with new products and partners
         winmentor.sendNewProductsMail()

@@ -8,9 +8,14 @@ from unidecode import unidecode
 import util
 import settings
 
-# from win32com.client import makepy
-# makepy.main ()
-# exit()
+import sys
+from win32com.client import makepy
+
+# sys.argv = ["makepy", r"./WMDocImpServer.tlb"]
+sys.argv = ["makepy", r"./DocImpServer.tlb"]
+makepy.main ()
+
+exit()
 
 
 # GESTO_IP="http://www.gesto.ro"
@@ -34,7 +39,7 @@ for index in xrange(0, fdm.GetTypeInfoCount()):
         print type_iid
         DocImpServer = win32com.client.Dispatch(type_iid)
 
-        # ret = DocImpServer.LogOn('Mircea', '2')
+        # ret = DocImpServer.LogOn('vectron', '1')
         ret = DocImpServer.GetListaFirme()
         if ret != 0:
             print ret
@@ -239,7 +244,7 @@ for ctr in range(1, pagesCount + 1):
         facturaLines.append("LunaLucru={}".format(op["documentDate"].month))
         facturaLines.append("TipDocument=FACTURA INTRARE")
         facturaLines.append("TotalFacturi=1")
-        facturaLines.append("LogOn=Master")
+        # facturaLines.append("LogOn=Master")
         facturaLines.append("")
         facturaLines.append("[Factura_1]")
         facturaLines.append("Operatie=A")
