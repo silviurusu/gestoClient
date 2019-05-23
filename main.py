@@ -4,7 +4,6 @@ import os
 import sys, getopt
 import datetime
 import util
-# from myConfigParser import *
 import settings
 from winmentor import WinMentor
 from datetime import datetime as dt, timedelta
@@ -26,7 +25,17 @@ def generateWorkOrders(baseURL, branch, date, doVerify):
     start = dt.now()
 
     url = baseURL + "/products/summary/?"
-    url += "type=workOrder"
+    companyName = util.getCfgVal("winmentor", "companyName")
+    if companyName == "Panemar morarit si panificatie SRL":
+        url += "type=workOrder"
+    else:
+        if branch != "Sediu":
+            logger.info("Only generate transfers for Sediu, not for {}".format(branch))
+            logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+            return True
+
+        url += "type=sale"
+        url += "&excludeCodes=1,2"
 
     if branch == "29 Memo":
         doVerify = False
@@ -810,9 +819,7 @@ if __name__ == "__main__":
                 logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
                 exit()
 
-        tokens={}
-        for opt in cfg.options("tokens"):
-            tokens[opt] = str(util.getCfgVal("tokens", opt))
+        tokens = util.getCfgOptsDict("tokens")
 
         # Connect to winmentor
         winmentor = WinMentor(firma = util.getCfgVal("winmentor", "firma"), an=start.year, luna=start.month)

@@ -14,7 +14,7 @@ else
 
     for i in `seq $start $end`
     do
-        printf -v workDate "2019-01-%02d" $i
+        printf -v workDate "2019-05-%02d" $i
         # echo $workDate
         ./preiaZi.bat workDate:$workDate
     done

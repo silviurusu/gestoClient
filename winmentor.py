@@ -1119,17 +1119,6 @@ class WinMentor(object):
             send_email(subject, html_part, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
 
 
-    def genNrNir(self):
-        """ Genereaza nr NIR pentru o factura noua
-
-        """
-
-        # rc = self._stat.GetNumarFactura("Note de receptie 2011")
-
-        return "672267"
-        # return rc
-
-
     def matchGestiune(self, name, tip="P", operation_id=None):
         """
         @param name: Nume destinatie din Gesto
@@ -1150,25 +1139,28 @@ class WinMentor(object):
         # self.logger.debug("gestiuni: {}".format(gestiuni))
 
         matchStr = '^\s*([0-9]{1,4})\s*'
-        simbolGestiuneSearch = name
-        x = re.match(matchStr, name)
-        if x:
-            no = x.group(1)
-            self.logger.debug(repr(no))
 
-            # Find a "gestiune" that matches
-            simbolGestiuneSearch = "Magazin {:02d}{}".format(int(no), tip)
-            self.logger.debug("simbolGestiuneSearch: {}".format(simbolGestiuneSearch))
+        companyName = util.getCfgVal("winmentor", "companyName")
+        if companyName == "Panemar morarit si panificatie SRL":
+            x = re.match(matchStr, name)
+            if x:
+                no = x.group(1)
+                self.logger.debug(repr(no))
 
-            for gestiune in gestiuni:
-                # regex = r"^\s*" + re.escape(no) + "\s*Magazin"
-                # found = re.match(regex, gestiune["simbol"], re.IGNORECASE)
-                # if found:
-                #     result.append(gestiune)
-                # self.logger.debug("gestiune: {}".format(gestiune))
-                if simbolGestiuneSearch == gestiune:
-                    ret = gestiune
-                    break
+                # Find a "gestiune" that matches
+                simbolGestiuneSearch = "Magazin {:02d}{}".format(int(no), tip)
+                self.logger.debug("simbolGestiuneSearch: {}".format(simbolGestiuneSearch))
+        else:
+            simbolGestiuneSearch = name
+
+        if simbolGestiuneSearch in gestiuni:
+            # regex = r"^\s*" + re.escape(no) + "\s*Magazin"
+            # found = re.match(regex, gestiune["simbol"], re.IGNORECASE)
+            # if found:
+            #     result.append(gestiune)
+            # self.logger.debug("gestiune: {}".format(gestiune))
+
+            ret = simbolGestiuneSearch
 
         if ret is None:
             template = loader.get_template("mail/admin/missingInventory.html")
@@ -1711,15 +1703,15 @@ class WinMentor(object):
 
         # Transfer
         txtWMDoc += "[Monetar_{}]\n".format(1)
-        txtWMDoc += "Operat={}\n".format("N")
+        txtWMDoc += "Operat={}\n".format(kwargs.get("operat"))
         txtWMDoc += "NrDoc={}\n".format(util.getNextDocumentNumber("MON"))
-        txtWMDoc += "SimbolCarnet={}\n".format("M_G")
+        txtWMDoc += "SimbolCarnet={}\n".format(kwargs.get("simbol_carnet"))
         txtWMDoc += "Operatie={}\n".format("A")
         txtWMDoc += "CasaDeMarcat={}\n".format("D")
         txtWMDoc += "NumarBonuri={}\n".format(kwargs.get("clientsNo", ""))
         txtWMDoc += "Data={:%d.%m.%Y}\n".format(kwargs.get("data"))
-        txtWMDoc += "CasaCash={}\n".format("Casa lei")
-        txtWMDoc += "CasaCard={}\n".format("Incasare card")
+        txtWMDoc += "CasaCash={}\n".format(kwargs.get("casa_cash"))
+        txtWMDoc += "CasaCard={}\n".format(kwargs.get("casa_card"))
         txtWMDoc += "CasaBonValoric={}\n".format("Tichete")
         txtWMDoc += "TotalArticole={}\n".format(len(items))
         payment = kwargs.get("payment")
@@ -1734,26 +1726,33 @@ class WinMentor(object):
 
         # Adauga items in monetar
         txtWMDoc += "\n[Items_{}]\n".format(1)
-        keys = (
+        keys = [
                 "codExternArticol",
                 "um",
                 "cant",
                 "pret",
                 "simbGest",
-                )
+                ]
 
-        prodIdx = {}
-        prodIdx["G_PROD_9"] = 1
-        prodIdx["G_MARF_19"] = 2
-        prodIdx["G_MARF_9"] = 3
-        prodIdx["G_PROD_19"] = 4
+        companyName = util.getCfgVal("winmentor", "companyName")
+        if companyName == "Panemar morarit si panificatie SRL":
+            prodIdx = {}
+            prodIdx["G_PROD_9"] = 1
+            prodIdx["G_MARF_19"] = 2
+            prodIdx["G_MARF_9"] = 3
+            prodIdx["G_PROD_19"] = 4
 
-        for item in items:
-            txtProd = self._dictToColonList(keys, item)
-            key = item["codExternArticol"][:item["codExternArticol"].rfind("_")]
-            self.logger.debug("key: {}".format(key))
-            self.logger.debug("idx: {}".format(prodIdx[key]))
-            txtWMDoc += "Item_{}={}\n".format(prodIdx[key], txtProd) # articolele incep de la 1
+            for item in items:
+                txtProd = self._dictToColonList(keys, item)
+                key = item["codExternArticol"][:item["codExternArticol"].rfind("_")]
+                self.logger.debug("key: {}".format(key))
+                self.logger.debug("idx: {}".format(prodIdx[key]))
+                txtWMDoc += "Item_{}={}\n".format(prodIdx[key], txtProd) # articolele incep de la 1
+        else:
+            keys.append("pret")
+            for idx, item in enumerate(items, start=1):
+                txtProd = self._dictToColonList(keys, item)
+                txtWMDoc += "Item_{}={}\n".format(idx, txtProd) # articolele incep de la 1
 
         self.logger.debug("txtWMDoc: \n{}".format(txtWMDoc))
 
@@ -1805,12 +1804,15 @@ class WinMentor(object):
 
         newItems = {}
         ret = True
-
+        companyName = util.getCfgVal("winmentor", "companyName")
         for item in gestoData["items"]:
-            if item["winMentorCode"].startswith("G_MARF"):
-                codExternArticol = item["winMentorCode"]
+            if companyName == "Panemar morarit si panificatie SRL":
+                if item["winMentorCode"].startswith("G_MARF"):
+                    codExternArticol = item["winMentorCode"]
+                else:
+                    codExternArticol = "G_PROD_{}_{}".format(item["vat"], gestoData["branch"][:2])
             else:
-                codExternArticol = "G_PROD_{}_{}".format(item["vat"], gestoData["branch"][:2])
+                codExternArticol = item["winMentorCode"]
 
             if not self.productExists(codExternArticol):
                 ret = False
@@ -1855,9 +1857,28 @@ class WinMentor(object):
                             }
                         )
 
+            if companyName == "Panemar morarit si panificatie SRL":
+                operat = "N"
+                casa_cash = "Casa lei"
+                casa_card = "Incasare card"
+                simbol_carnet = "M_G"
+            else:
+                operat = "D"
+                casa_lei = util.getCfgOptsDict("casa lei")
+                carnet_monetare = util.getCfgOptsDict("carnet monetare")
+
+                casa_cash = "CASA LEI {}".format(casa_lei[gestoData["branch"]])
+                casa_card = "Card"
+
+                simbol_carnet = carnet_monetare[gestoData["branch"]]
+
             rc = self.importaMonetare(
                     data = opDate,
                     items = articoleWMDoc,
+                    casa_cash = casa_cash,
+                    casa_card = casa_card,
+                    operat = operat,
+                    simbol_carnet = simbol_carnet,
                     payment = gestoData["payment"],
                     observatii = gestoData["branch"],
                     clientsNo = gestoData["clientsNo"] if gestoData["clientsNo"] not in ("nil", None) else 0,
@@ -1900,7 +1921,7 @@ class WinMentor(object):
         txtWMDoc += "TotalArticole={}\n".format(len(items))
         txtWMDoc += "SimbolCarnetLivr={}\n".format("DL_G")
         txtWMDoc += "NrLivr={}\n".format(util.getNextDocumentNumber("LIV"))
-        txtWMDoc += "SimbolCarnetNir={}\n".format("GNIR")
+        txtWMDoc += "SimbolCarnetNir={}\n".format(kwargs.get("simbol_carnet_NIR"))
         txtWMDoc += "NrNIR={}\n".format(util.getNextDocumentNumber("NIR"))
         txtWMDoc += "Observatii={}\n".format(kwargs.get("observatii", ""))
         txtWMDoc += "ObservatiiNIR={}\n\n".format(kwargs.get("observatii", ""))
@@ -2174,7 +2195,12 @@ class WinMentor(object):
             return
 
         # Get gestiune in WinMentor
-        wmGestiune = self.matchGestiune(gestoData["branch"], )
+        companyName = util.getCfgVal("winmentor", "companyName")
+        if companyName == "Panemar morarit si panificatie SRL":
+            branch_code = gestoData["branch"]
+        else:
+            branch_code = gestoData["branch_winMentorCode"]
+        wmGestiune = self.matchGestiune(branch_code)
         if wmGestiune is None:
             self.logger.info("Nu am gasit gestiunea")
             return
@@ -2198,26 +2224,44 @@ class WinMentor(object):
             if int(item["code"]) in ignoreCodes:
                 continue
 
-            # Adauga produs la lista produse
-            if self.isDrink(int(item["code"])):
-                simbGest = "PF-Bauturi"
-            elif self.isSdwSalad(int(item["code"])):
-                simbGest = "PF Sandwich"
-            else:
-                # I need to have a gestiune for these articles too
-                continue
+            if companyName == "Panemar morarit si panificatie SRL":
+                art_key = "winMentorCode"
 
-            wmArticol = self.getProduct(item["winMentorCode"])
+                # Adauga produs la lista produse
+                if self.isDrink(int(item["code"])):
+                    simbGest = "PF-Bauturi"
+                elif self.isSdwSalad(int(item["code"])):
+                    simbGest = "PF Sandwich"
+                else:
+                    # I need to have a gestiune for these articles too
+                    continue
+
+                wmArticol = self.getProduct(item[art_key])
+            else:
+                art_key = "name2"
+                wmArticol = self.getProduct(item[art_key])
+                simbGest = wmArticol["GestImplicita"]
+
             self.logger.debug("wmArticol: \n{}".format(wmArticol))
 
             articoleWMDoc.append({
-                        "codExternArticol": item["winMentorCode"],
+                        "codExternArticol": item[art_key],
                         "um": wmArticol["DenUM"],
                         "cant": item["qty"],
                         # "pret": item["listVal"]/item["qty"],
                         "pret": wmArticol["PretVanzareCuTVA"],
                         "simbGest": simbGest
                     })
+
+        companyName = util.getCfgVal("winmentor", "companyName")
+        if companyName == "Panemar morarit si panificatie SRL":
+            operat = "N"
+            simbol_carnet_NIR = "GNIR"
+            observatii = ""
+        else:
+            operat = "D"
+            simbol_carnet_NIR = "NIR_G"
+            observatii = self.gestiuni[wmGestiune],
 
         # Creaza transferul
         rc = self.importaTransfer(
@@ -2226,7 +2270,9 @@ class WinMentor(object):
                 data = opDate,
                 gestiune = wmGestiune,
                 items = articoleWMDoc,
-                operat = "N",
+                operat = operat,
+                simbol_carnet_NIR = simbol_carnet_NIR,
+                observatii = observatii,
                 )
 
         if rc:
@@ -2617,7 +2663,7 @@ if __name__ == "__main__":
     #     print(repr(partener))
     # print("-- Start factura")
     # rc = winmentor.importaFactIntrare(
-    #         logOn = "Master",
+    #         logOn = util.getCfgVal("winmentor", "userName"),
     #         nrDoc = "7123",
     #         nrNir = "672267",
     #         data = dt(2017, 07, 21),
