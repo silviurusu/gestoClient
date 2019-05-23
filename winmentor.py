@@ -52,7 +52,7 @@ class WinMentor(object):
     def __init__(self, **kwargs):
         self.logger = logging.getLogger(__name__)
 
-        self._fdm = pythoncom.LoadTypeLib('WMDocImpServer.tlb')
+        self._fdm = pythoncom.LoadTypeLib('tlb/WMDocImpServer.tlb')
         self._stat = None
 
         if self._fdm is None:

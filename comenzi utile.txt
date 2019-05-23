@@ -1,0 +1,9 @@
+pentru obtinerea gen_py
+
+copiaza tlb-ul in
+c:\Python27\Lib\site-packages\win32com\client
+in directorul respectiv ruleaza
+/drives/c/Python27/python.exe makepy.py  WMDocImpServer.tlb
+
+rezultatul il gasesti in
+c:\Python27\Lib\site-packages\win32com\gen_py
