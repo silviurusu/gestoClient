@@ -368,7 +368,7 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
         startDate = dt.today().replace(day=1, hour=0, minute=0, second=0)
         startDate = startDate - timedelta(days=1)
         startDate = startDate.replace(day=1, hour=0, minute=0, second=0)
-        # startDate = datetime.datetime.strptime("2018-12-01", "%Y-%m-%d")
+        # startDate = datetime.datetime.strptime("2019-04-01", "%Y-%m-%d")
     elif operationType == "supplyOrder":
         startDate = dt.today().replace(hour=0, minute=0, second=0)
         # startDate = startDate - timedelta(days = 1)
@@ -378,7 +378,7 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
         startDate = dt.today().replace(day=1, hour=0, minute=0, second=0)
         startDate = startDate - timedelta(days=1)
         startDate = startDate.replace(day=1, hour=0, minute=0, second=0)
-        # startDate = datetime.datetime.strptime("2018-12-01", "%Y-%m-%d")
+        # startDate = datetime.datetime.strptime("2019-04-01", "%Y-%m-%d")
     elif operationType == "sale":
         # startDate = dt.today().replace(day=1, hour=0, minute=0, second=0)
         # startDate = startDate - timedelta(days=1)
@@ -681,6 +681,7 @@ def setup_logging(
 if __name__ == "__main__":
     try:
         # Set DJANGO for email support
+
         os.environ.setdefault("DJANGO_SETTINGS_MODULE", "settings")
         django.setup()
 
@@ -700,7 +701,10 @@ if __name__ == "__main__":
         logger.info(">>> {}()".format(inspect.stack()[0][3]))
         start = dt.now()
 
+        # with open('d:\\gestoClientWME\\debug\\silviu.log', 'wb') as f:
+        #     f.write(start.strftime("%Y-%m-%d %H:%M:%S"))
 
+        # 1/0
 
         # # TODO here for testing
         # intrari, rc = winmentor._stat.GetIntrari()

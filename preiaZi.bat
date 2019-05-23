@@ -24,8 +24,8 @@ c:\Python27\python.exe main.py --generateIntrariDinProductie=1 --generateWorkOrd
 rem echo c:\Python27\python.exe main.py --generateIntrariDinProductie=1 --generateWorkOrders=1 --exportSummaryTransfers=1 %args%
 rem c:\Python27\python.exe main.py --generateIntrariDinProductie=1 --generateWorkOrders=1 --exportSummaryTransfers=1 %args%
 
-rem echo c:\Python27\python.exe main.py --generateIntrariDinProductie=1 --generateWorkOrders=1 %args%
-rem c:\Python27\python.exe main.py --generateIntrariDinProductie=1 --generateWorkOrders=1 %args%
+rem echo c:\Python27\python.exe main.py --generateIntrariDinProductie=1 --generateWorkOrders=1 --branch="81 Centru" %args%
+rem c:\Python27\python.exe main.py --generateIntrariDinProductie=1 --generateWorkOrders=1 --branch="81 Centru" %args%
 
 rem echo c:\Python27\python.exe main.py --exportSummaryTransfers=1 --generateMonetare=1 %args%
 rem c:\Python27\python.exe main.py --exportSummaryTransfers=1 --generateMonetare=1 %args%
