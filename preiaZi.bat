@@ -18,8 +18,8 @@ rem echo %args%
 rem echo c:\Python27\python.exe main.py --generateMonetare=1 --generateWorkOrders=1 %args%
 rem c:\Python27\python.exe main.py --generateMonetare=1 --generateWorkOrders=1 %args%
 
-echo c:\Python27\python.exe main.py --generateIntrariDinProductie=1 --generateWorkOrders=1 --exportSummaryTransfers=1 --generateMonetare=1 %args%
-c:\Python27\python.exe main.py --generateIntrariDinProductie=1 --generateWorkOrders=1 --exportSummaryTransfers=1 --generateMonetare=1 %args%
+rem echo c:\Python27\python.exe main.py --generateIntrariDinProductie=1 --generateWorkOrders=1 --exportSummaryTransfers=1 --generateMonetare=1 %args%
+rem c:\Python27\python.exe main.py --generateIntrariDinProductie=1 --generateWorkOrders=1 --exportSummaryTransfers=1 --generateMonetare=1 %args%
 
 rem echo c:\Python27\python.exe main.py --generateIntrariDinProductie=1 --generateWorkOrders=1 --exportSummaryTransfers=1 %args%
 rem c:\Python27\python.exe main.py --generateIntrariDinProductie=1 --generateWorkOrders=1 --exportSummaryTransfers=1 %args%
