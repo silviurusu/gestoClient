@@ -2279,7 +2279,7 @@ class WinMentor(object):
         else:
             operat = "D"
             simbol_carnet_NIR = "NIR_G"
-            observatii = self.gestiuni[wmGestiune],
+            observatii = self.gestiuni[wmGestiune]
 
         # Creaza transferul
         rc = self.importaTransfer(
