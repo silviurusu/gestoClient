@@ -1413,7 +1413,8 @@ class WinMentor(object):
                 observatii += "; "+item["name"]
 
         # max column length 200
-        observatii = observatii[:195] + " ..."
+        if len(observatii) > 200:
+            observatii = observatii[:195] + " ..."
 
         # Creaza factura import
         rc = self.importaFactIntrare(
@@ -2449,6 +2450,15 @@ class WinMentor(object):
         else:
             1/0
 
+        companyName = util.getCfgVal("winmentor", "companyName")
+        if companyName == "Panemar morarit si panificatie SRL":
+            simbol_carnet_NIR = "GNIR"
+            observatii = "{} - {}".format(gestoData["source"]["name"], gestoData["documentNo"])
+        else:
+            1/0
+            simbol_carnet_NIR = "NIR_G"
+            observatii = self.gestiuni[wmGestiune]
+
         # Creaza transferul
         rc = self.importaTransfer(
                 nrDoc=nrDoc,
@@ -2457,7 +2467,8 @@ class WinMentor(object):
                 gestiune = wmGestiune,
                 operat = "D",
                 items = articoleWMDoc,
-                observatii = "{} - {}".format(gestoData["source"]["name"], gestoData["documentNo"])
+                simbol_carnet_NIR = simbol_carnet_NIR,
+                observatii = observatii,
                 )
 
         if rc:
