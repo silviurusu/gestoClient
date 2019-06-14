@@ -368,7 +368,7 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
         startDate = dt.today().replace(day=1, hour=0, minute=0, second=0)
         startDate = startDate - timedelta(days=1)
         startDate = startDate.replace(day=1, hour=0, minute=0, second=0)
-        # startDate = datetime.datetime.strptime("2019-04-01", "%Y-%m-%d")
+        # startDate = datetime.datetime.strptime("2019-06-04", "%Y-%m-%d")
     elif operationType == "supplyOrder":
         startDate = dt.today().replace(hour=0, minute=0, second=0)
         # startDate = startDate - timedelta(days = 1)

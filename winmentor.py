@@ -1722,7 +1722,7 @@ class WinMentor(object):
         txtWMDoc += "Data={:%d.%m.%Y}\n".format(kwargs.get("data"))
         txtWMDoc += "CasaCash={}\n".format(kwargs.get("casa_cash"))
         txtWMDoc += "CasaCard={}\n".format(kwargs.get("casa_card"))
-        txtWMDoc += "CasaBonValoric={}\n".format("Tichete")
+        txtWMDoc += "CasaBonValoric={}\n".format(kwargs.get("casa_bon_valoric"))
         txtWMDoc += "TotalArticole={}\n".format(len(items))
         payment = kwargs.get("payment")
         txtWMDoc += "CEC={}\n".format(payment["bank transfer"] if "bank transfer" in payment else 0)
@@ -1757,12 +1757,15 @@ class WinMentor(object):
                 key = item["codExternArticol"][:item["codExternArticol"].rfind("_")]
                 self.logger.debug("key: {}".format(key))
                 self.logger.debug("idx: {}".format(prodIdx[key]))
+
                 # if key == "G_PROD_9":
                 #     txtProd += ";{}".format(item["pret"]/1.09)
                 # elif key == "G_PROD_19":
                 #     txtProd += ";{}".format(item["pret"]/1.19)
                 # else:
-                #     txtProd += ";0"
+                #     txtProd += ";{}".format(item["pret"])
+
+                txtProd += ";{}".format(item["pret"])
 
                 txtWMDoc += "Item_{}={}\n".format(prodIdx[key], txtProd) # articolele incep de la 1
         else:
@@ -1874,18 +1877,24 @@ class WinMentor(object):
                             }
                         )
 
+            operat = "D"
             if companyName == "Panemar morarit si panificatie SRL":
-                operat = "N"
-                casa_cash = "Casa lei"
                 casa_card = "Incasare card"
+                if gestoData["branch"] == "81 Centru":
+                    casa_cash = "Casa ORADEA"
+                    casa_bon_valoric = "Tichete Oradea"
+                else:
+                    casa_cash = "Casa lei"
+                    casa_bon_valoric = "Tichete"
+
                 simbol_carnet = "M_G"
             else:
-                operat = "D"
                 casa_lei = util.getCfgOptsDict("casa lei")
                 carnet_monetare = util.getCfgOptsDict("carnet monetare")
 
                 casa_cash = "CASA LEI {}".format(casa_lei[gestoData["branch"]])
                 casa_card = "Card"
+                casa_bon_valoric = "Tichete"
 
                 simbol_carnet = carnet_monetare[gestoData["branch"]]
 
@@ -1894,6 +1903,7 @@ class WinMentor(object):
                     items = articoleWMDoc,
                     casa_cash = casa_cash,
                     casa_card = casa_card,
+                    casa_bon_valoric = casa_bon_valoric,
                     operat = operat,
                     simbol_carnet = simbol_carnet,
                     payment = gestoData["payment"],
@@ -1929,9 +1939,10 @@ class WinMentor(object):
                 1,
                 )
 
+        simbolCarnet = kwargs.get("simbolCarnet")
         # Transfer
         txtWMDoc += "[Transfer_{}]\n".format(1)
-        txtWMDoc += "SimbolCarnet={}\n".format(kwargs.get("simbolCarnet"))
+        txtWMDoc += "SimbolCarnet={}\n".format(simbolCarnet)
         txtWMDoc += "NrDoc={}\n".format(kwargs.get("nrDoc", ""))
         txtWMDoc += "Data={:%d.%m.%Y}\n".format(kwargs.get("data"))
         txtWMDoc += "GestDest={}\n".format(kwargs.get("gestiune"))
@@ -1947,13 +1958,17 @@ class WinMentor(object):
 
         # Adauga items in factura
         txtWMDoc += "\n[Items_{}]\n".format(1)
-        keys = (
+        keys = [
                 "codExternArticol",
                 "um",
                 "cant",
                 "pret",
                 "simbGest",
-                )
+                ]
+
+        if simbolCarnet in ["NTA_G", "NTR_G", "NT_G"]:
+            keys.append("pret")
+            keys.append("pret")
 
         for idx, item in enumerate(items):
             txtProd = self._dictToColonList(keys, item)
@@ -2068,6 +2083,7 @@ class WinMentor(object):
                 "cant",
                 "pret",
                 "simbGest",
+                "pret",
                 )
 
         for idx, item in enumerate(items):
@@ -2096,7 +2112,8 @@ class WinMentor(object):
         self.setLunaLucru(opDate.month, opDate.year)
 
         alreadyAdded = False
-        transferuri, rc = self._stat.GetTransferuri()
+        workDate = opDate.strftime("%d.%m.%Y")
+        transferuri, rc = self._stat.GetTransferuri(workDate, workDate)
         if rc != 0:
             self.logger.error(repr(self.getListaErori()))
 
@@ -2110,7 +2127,8 @@ class WinMentor(object):
         deliveryNotes = {}
 
         self.logger.info("{} transferuri".format(len(transferuri)))
-        # self.logger.info(transferuri)
+        # for transfer in transferuri:
+        #     self.logger.info(transfer)
         # 1/0
 
         ret = True
@@ -2217,8 +2235,15 @@ class WinMentor(object):
         companyName = util.getCfgVal("winmentor", "companyName")
         if companyName == "Panemar morarit si panificatie SRL":
             branch_code = gestoData["branch"]
+            campPret = "PretVanzareFaraTVA"
+            art_key = "winMentorCode"
+            simbGest = "Magazin {}DF".format(gestoData["branch"][:2])
         else:
             branch_code = gestoData["branch_winMentorCode"]
+            campPret = "PretVanzareCuTVA"
+            art_key = "name2"
+            simbGest = wmArticol["GestImplicita"]
+
         wmGestiune = self.matchGestiune(branch_code)
         if wmGestiune is None:
             self.logger.info("Nu am gasit gestiunea")
@@ -2243,24 +2268,7 @@ class WinMentor(object):
             if int(item["code"]) in ignoreCodes:
                 continue
 
-            if companyName == "Panemar morarit si panificatie SRL":
-                art_key = "winMentorCode"
-
-                # Adauga produs la lista produse
-                if self.isDrink(int(item["code"])):
-                    simbGest = "PF-Bauturi"
-                elif self.isSdwSalad(int(item["code"])):
-                    simbGest = "PF Sandwich"
-                else:
-                    # I need to have a gestiune for these articles too
-                    continue
-
-                wmArticol = self.getProduct(item[art_key])
-            else:
-                art_key = "name2"
-                wmArticol = self.getProduct(item[art_key])
-                simbGest = wmArticol["GestImplicita"]
-
+            wmArticol = self.getProduct(item[art_key])
             self.logger.debug("wmArticol: \n{}".format(wmArticol))
 
             articoleWMDoc.append({
@@ -2268,17 +2276,16 @@ class WinMentor(object):
                         "um": wmArticol["DenUM"],
                         "cant": item["qty"],
                         # "pret": item["listVal"]/item["qty"],
-                        "pret": wmArticol["PretVanzareCuTVA"],
+                        "pret": wmArticol[campPret],
                         "simbGest": simbGest
                     })
 
+        operat = "D"
         companyName = util.getCfgVal("winmentor", "companyName")
         if companyName == "Panemar morarit si panificatie SRL":
-            operat = "N"
             simbol_carnet_NIR = "GNIR"
             observatii = ""
         else:
-            operat = "D"
             simbol_carnet_NIR = "NIR_G"
             observatii = self.gestiuni[wmGestiune]
 
