@@ -20,6 +20,7 @@ from util import send_email
 from django.template import loader, Context
 import datetime
 import settings
+from decimal import Decimal
 
 
 class WinMentor(object):
@@ -1146,6 +1147,8 @@ class WinMentor(object):
         matchStr = '^\s*([0-9]{1,4})\s*'
 
         companyName = util.getCfgVal("winmentor", "companyName")
+        simbolGestiuneSearch = name
+
         if companyName == "Panemar morarit si panificatie SRL":
             x = re.match(matchStr, name)
             if x:
@@ -1155,8 +1158,6 @@ class WinMentor(object):
                 # Find a "gestiune" that matches
                 simbolGestiuneSearch = "Magazin {:02d}{}".format(int(no), tip)
                 self.logger.debug("simbolGestiuneSearch: {}".format(simbolGestiuneSearch))
-        else:
-            simbolGestiuneSearch = name
 
         if simbolGestiuneSearch in gestiuni:
             # regex = r"^\s*" + re.escape(no) + "\s*Magazin"
@@ -1232,12 +1233,14 @@ class WinMentor(object):
         rdnFormats = [
                 {"f":'^([^0-9]*)([0-9]*)([^0-9]*)$', "i":1},
                 {"f":'^([^-]*)(-)(.*)$', "i":2},
+                {"f":'^(.*)j0*(.*)$', "i":1},
             ]
 
         found = False
         for rdnf in rdnFormats:
             try:
                 gestoData["relatedDocumentNo"] = re.match(rdnf["f"], gestoData["relatedDocumentNo"]).groups()
+                # self.logger.error(gestoData["relatedDocumentNo"])
                 gestoData["relatedDocumentNo"] = gestoData["relatedDocumentNo"][rdnf["i"]]
                 # gestoData["relatedDocumentNo"] = gestoData["relatedDocumentNo"][-9:]
                 found = True
@@ -1247,14 +1250,18 @@ class WinMentor(object):
 
         if not found:
             subject = "Nu pot determina numarul facturii din: {}, {}".format(gestoData["relatedDocumentNo"], gestoData["destination"]["name"])
-            msg = "Data: {}".format(gestoData["documentDateHuman"])
-            msg += "\nLocatie: {}".format(gestoData["destination"]["name"])
-            msg += "\nNumarul: {}".format(gestoData["relatedDocumentNo"])
+            template = loader.get_template("mail/admin/operation.html")
 
-            send_email(subject, msg, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
+            html_part = template.render({
+                "subject": subject,
+                "gestoData": gestoData,
+                'HOME_URL': settings.HOME_URL,
+            })
 
-            self.logger.error(msg)
+            send_email(subject, html_part, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
+
             self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+
             return
 
         self.logger.info("relatedDocumentNo: {}".format(gestoData["relatedDocumentNo"]))
@@ -1670,10 +1677,12 @@ class WinMentor(object):
 
         observatii= "{} - {}, {}".format(opDate.strftime("%d/%m/%Y"), gestoData["documentNo"], gestoData["source"]["name"])
 
+        # relateddoc are forma CJPAN/220200020 data: 27/05/2019-
+
         # Creaza factura de iesire
         rc = self.importaFacturaIesire(
                 gestDest="Magazin {}MP".format(gestoData["branch"][:2]),
-                nrDoc=gestoData["relatedDocumentNo"].split("/")[1],
+                nrDoc=gestoData["relatedDocumentNo"].split("/")[1].split(" ")[0],
                 data=opDate,
                 observatii=observatii,
                 items=articoleWMDoc,
@@ -1880,7 +1889,7 @@ class WinMentor(object):
             operat = "D"
             if companyName == "Panemar morarit si panificatie SRL":
                 casa_card = "Incasare card"
-                if gestoData["branch"] == "81 Centru":
+                if gestoData["branch"] in ["81 Centru", "82 Crisu", ]:
                     casa_cash = "Casa ORADEA"
                     casa_bon_valoric = "Tichete Oradea"
                 else:
