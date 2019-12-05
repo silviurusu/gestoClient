@@ -86,7 +86,7 @@ def getCfgVal(section, varName, retType=None):
 
     if section == "client" and varName in ['bccEmails', 'notificationEmails', ] \
     or section == "deliveryNote" and varName in ['sources', 'destinations'] \
-    or section == "gesto" and varName in ['branches', ] \
+    or section == "gesto" and varName in ['branches', 'branches_monetare'] \
     or section == "receptions" and varName in ['branches', ] \
     or section == "products" and varName in ['allowMissingDefaultGest', ]:
         ret = [x.strip() for x in ret.split(",")]

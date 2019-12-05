@@ -212,7 +212,7 @@ def exportSummaryBonDeConsum(baseURL, branch, date):
         1/0
     else:
         retJSON = r.json()
-        winmentor.addProductSummary(retJSON, dateEnd)
+        winmentor.addProductSummary(retJSON, dateEnd, monthly=True)
 
     logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
@@ -363,12 +363,13 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
     if endDate is None:
         endDate = dt.today()
         endDate = endDate.replace(hour=23, minute=59, second=59)
+
     if operationType == "reception":
         # start of previousMonth
         startDate = dt.today().replace(day=1, hour=0, minute=0, second=0)
         startDate = startDate - timedelta(days=1)
         startDate = startDate.replace(day=1, hour=0, minute=0, second=0)
-        # startDate = datetime.datetime.strptime("2019-06-04", "%Y-%m-%d")
+        # startDate = datetime.datetime.strptime("2019-11-08", "%Y-%m-%d")
     elif operationType == "supplyOrder":
         startDate = dt.today().replace(hour=0, minute=0, second=0)
         # startDate = startDate - timedelta(days = 1)
@@ -378,7 +379,7 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
         startDate = dt.today().replace(day=1, hour=0, minute=0, second=0)
         startDate = startDate - timedelta(days=1)
         startDate = startDate.replace(day=1, hour=0, minute=0, second=0)
-        # startDate = datetime.datetime.strptime("2019-04-01", "%Y-%m-%d")
+        # startDate = datetime.datetime.strptime("2019-11-08", "%Y-%m-%d")
     elif operationType == "sale":
         # startDate = dt.today().replace(day=1, hour=0, minute=0, second=0)
         # startDate = startDate - timedelta(days=1)
@@ -731,6 +732,8 @@ if __name__ == "__main__":
         logger.info("START")
 
         branches = util.getCfgVal("gesto", "branches")
+        branches_monetare = util.getCfgVal("gesto", "branches_monetare")
+
         branches_default = True
 
         # Get date to use for Unit Test
@@ -914,7 +917,7 @@ if __name__ == "__main__":
                             daysDelta = 1,
                             )
 
-            # ordinea importanta
+            # ordinea e importanta
             for branch in branches:
                 if doGenerateIntrariDinProductie:
                     ret = generateIntrariDinProductie(
@@ -965,6 +968,15 @@ if __name__ == "__main__":
                             baseURL = baseURL,
                             date = endDate,
                             )
+
+            if branches_monetare != ['']:
+                for branch in branches_monetare:
+                    if doGenerateMonetare:
+                        gestoData = generateMonetare(
+                                baseURL = baseURL,
+                                branch = branch,
+                                date = endDate,
+                                )
 
         # Send mail with new products and partners
         winmentor.sendNewProductsMail()
