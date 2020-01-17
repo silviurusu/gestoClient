@@ -256,6 +256,68 @@ def generateMonetare(baseURL, branch, date):
     logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
 
+def getExportedDeliveryNotes(baseURL, startDate, endDate):
+    logger.info(">>> {}()".format(inspect.stack()[0][3]))
+    start = dt.now()
+
+    operationType = "reception"
+    url = baseURL + "/operations/?"
+    url += "&type=" + operationType
+
+    url += "&dateBegin={}".format(util.getTimestamp(startDate))
+    url += "&dateEnd={}".format(util.getTimestamp(endDate))
+    url += "&onlyRelatedDocumentNo=1"
+
+    retJSON = None
+    token = "gG9PGmXQaF"
+    logger.error("Gesto request token: {}".format(token))
+
+    r = requests.get(url, headers={'GESTOTOKEN': token})
+
+    logger.info(url)
+
+    ret = []
+
+    if r.status_code != 200:
+        logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
+    else:
+        retJSON = r.json()
+        logger.debug("\n%s",
+                json.dumps(
+                    retJSON,
+                    sort_keys=True,
+                    indent=4,
+                    separators=(',', ': '),
+                    default=util.defaultJSON
+                    )
+                )
+
+        totalRecords = retJSON["range"]["totalRecords"]
+        logger.info("{} {}".format(totalRecords, operationType))
+
+        if totalRecords != 0:
+            pageSize = 100
+            pagesCount = int((totalRecords + pageSize - 1) / pageSize)
+
+            for ctr in range(1, pagesCount + 1):
+                urlPage = url + "&pageSize="+str(pageSize)
+                urlPage += "&page="+str(ctr)
+                logger.debug("{}, {}, {}".format(ctr, pagesCount, urlPage))
+
+                r = requests.get(urlPage, headers={'GESTOTOKEN': token})
+                retJSON = r.json()
+
+                tot = len(retJSON["data"])
+                for ctr2, op in enumerate(retJSON["data"], start=1):
+                    logger.debug("{}, {}, {}".format(ctr2, tot, op["id"]))
+                    ret.append(op["relatedDocumentNo"])
+
+    logger.info(ret)
+
+    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+    return ret
+
+
 def importAvize(baseURL, date):
     logger.info(">>> {}()".format(inspect.stack()[0][3]))
     start = dt.now()
