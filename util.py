@@ -10,6 +10,7 @@ import codecs
 from django.template import loader, Context
 import traceback
 import json
+import decorators
 
 
 logger = logging.getLogger(__name__)
@@ -112,20 +113,13 @@ def getCfgOptsDict(section):
     for opt in cfg.options(section):
         ret[opt] = cfg.get(section, opt)
 
-    logger.info(json.dumps(ret, sort_keys=True, indent=4, separators=(',', ': '), default=defaultJSON)
-                     )
+    logger.info(json.dumps(ret, sort_keys=True, indent=4, separators=(',', ': '), default=defaultJSON))
     logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], datetime.datetime.now() - start))
     return ret
 
 
-def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGestoProblem=False):
-    logger.info(">>> {0}()".format(inspect.stack()[0][3]))
-    start = datetime.datetime.now()
-
-    logger.info("subject: {}".format(subject))
-    logger.info("toEmails: {}".format(toEmails))
-    logger.info("bccEmails: {}".format(bccEmails))
-
+@decorators.time_log
+def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGestoProblem=False, replaceWithHTMLCodes=False):
     if not isGestoProblem:
         callersFrame = inspect.stack()[1][0]
     else:
@@ -138,11 +132,14 @@ def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGes
         msg = "{}\n\n{}:{}".format(msg, frameinfo.filename, frameinfo.lineno)
     logger.info("msg: {}".format(msg))
 
-    if msg.find("<html") == -1:
+    if replaceWithHTMLCodes or msg.find("<!-- replaceWithHTMLCodes -->") != -1:
         # msg = msg.replace("<", "&lt;")
         # msg = msg.replace(">", "&gt;")
+        msg = msg.replace(" ", "&nbsp;")
         # this one goes last
         msg = msg.replace("\n", "<br/>")
+
+    logger.info("msg: {}".format(msg))
 
     if toEmails is None or bccEmails is None:
         # create new list, if I ever append to it the value for settings.BCC_EMAILS will change and I will
@@ -168,7 +165,14 @@ def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGes
     except BaseException as e:
         logger.exception("{0}, {1}".format(e, e.message))
 
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], datetime.datetime.now() - start))
+
+def getNumber(arg):
+    ret = float(arg.replace(",","."))
+    if int(ret) == ret:
+        # change to int if possible
+        ret = int(ret)
+
+    return ret
 
 
 def printArray(array):

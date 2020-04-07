@@ -16,12 +16,11 @@ import inspect
 import re
 import json
 import math
-from util import send_email
 from django.template import loader, Context
 import datetime
 import settings
 from decimal import Decimal
-
+import decorators
 
 class WinMentor(object):
     ''' classdocs
@@ -205,12 +204,9 @@ class WinMentor(object):
         return myDict
 
 
-    def productsAreOK(self, gestoData, ignoreCodes=[]):
-        self.logger.info(">>> {}()".format(inspect.stack()[0][3]))
-        start = dt.now()
-
+    @decorators.time_log
+    def productsAreOK(self, gestoData, ignoreCodes=[], verifyGest=True):
         ret = True
-        self.logger.info("ignoreCodes: {}".format(ignoreCodes))
 
         for item in gestoData["items"]:
 
@@ -223,6 +219,8 @@ class WinMentor(object):
             or not self.productExists(item["winMentorCode"]):
                 ret = False
                 if item["code"] not in self.missingCodes:
+                    self.logger.info("code: {}, missing".format(item["code"]))
+
                     # only add a code once
 
                     if "operationDateHuman" in gestoData:
@@ -261,7 +259,6 @@ class WinMentor(object):
                         }
 
         self.logger.info("ret: {}".format(ret))
-        self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
         return ret
 
 
@@ -295,6 +292,7 @@ class WinMentor(object):
         return ret
 
 
+    @decorators.time_log
     def getListaParteneri(self):
         keys = (
                 "idPartener",
@@ -349,6 +347,7 @@ class WinMentor(object):
         return retParteneri
 
 
+    @decorators.time_log
     def getNomenclatorArticole(self):
         keys = [
             [0, "CodExternIntern"],
@@ -394,9 +393,10 @@ class WinMentor(object):
         return self.products[id]
 
 
+
+
+    @decorators.time_log
     def partenerExists(self, partenerID):
-        self.logger.info(">>> {}()".format(inspect.stack()[0][3]))
-        start = dt.now()
 
         self.logger.info("partenerID: {}".format(partenerID))
 
@@ -406,23 +406,17 @@ class WinMentor(object):
             ret = True
 
         self.logger.info("ret: {}".format(ret))
-        self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
         return ret
 
 
+    @decorators.time_log
     def getPartener(self, partenerID):
-        self.logger.info(">>> {}()".format(inspect.stack()[0][3]))
-        start = dt.now()
-
-        self.logger.info("partenerID: {}".format(partenerID))
-
         if partenerID not in self.parteneri:
             ret = None
         else:
             ret = self.parteneri[partenerID]
 
         self.logger.info("ret: {}".format(ret))
-        self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
         return ret
 
 
@@ -1080,6 +1074,7 @@ class WinMentor(object):
         return self.gestiuni[simbol]
 
 
+    @decorators.time_log
     def sendNewProductsMail(self):
         if len(self._newProducts) != 0:
             txtMail = ""
@@ -1087,11 +1082,13 @@ class WinMentor(object):
                 for tag, val in prod.iteritems():
                     txtMail += "{}: {}\n".format(tag, val)
                 txtMail += "-" * 20 + "\n"
-            send_email(
+            util.send_email(
                     subject = "Produs(e) noi in WinMentor",
                     msg = txtMail
                     )
 
+
+    @decorators.time_log
     def sendIncorrectWinMentorProductsMail(self):
         if len(self.missingCodes) \
         or len(self.missingDefaultGest) \
@@ -1110,9 +1107,11 @@ class WinMentor(object):
                 "productsMissingWMCodes": self.productsMissingWMCodes,
                 "missingWMCodes": self.missingWMCodes,
             })
-            send_email(subject, html_part, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
+
+            util.send_email(subject, html_part, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
 
 
+    @decorators.time_log
     def sendPartnersMail(self):
         if len(self.missingPartners) != 0 or len(self.multiplePartenerIDsForEmail)!=0:
             template = loader.get_template("mail/admin/WinMentorPartenersProblems.html")
@@ -1122,7 +1121,7 @@ class WinMentor(object):
                 "missingPartners": self.missingPartners,
                 "multiplePartenerIDsForEmail": self.multiplePartenerIDsForEmail,
             })
-            send_email(subject, html_part, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
+            util.send_email(subject, html_part, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
 
 
     def matchGestiune(self, name, tip="P", operation_id=None):
@@ -1180,7 +1179,7 @@ class WinMentor(object):
             # self.logger.info("Gestiunile din WinMentor")
             # self.logger.info(self.gestiuni)
 
-            send_email(
+            util.send_email(
                     subject=subject,
                     msg = html_part,
                     toEmails=util.getCfgVal("client", "notificationEmails"),
@@ -1223,7 +1222,7 @@ class WinMentor(object):
             msg = "Factura {}, {} nu are document de legatura.".format(gestoData["documentNo"], gestoData["destination"]["name"])
             subject = msg
 
-            send_email(subject, msg, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
+            util.send_email(subject, msg, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
 
             self.logger.error(msg)
             self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
@@ -1258,7 +1257,7 @@ class WinMentor(object):
                 'HOME_URL': settings.HOME_URL,
             })
 
-            send_email(subject, html_part, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
+            util.send_email(subject, html_part, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
 
             self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
@@ -1354,7 +1353,7 @@ class WinMentor(object):
                     'HOME_URL': settings.HOME_URL,
                 })
 
-                send_email(subject, html_part, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
+                util.send_email(subject, html_part, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
                 self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
                 return
@@ -1390,7 +1389,7 @@ class WinMentor(object):
 
         for item in gestoData["items"]:
             if int(item["code"]) in ignoreCodes:
-                self.logger.info("ignora wmArticol: {}".format(wmArticol))
+                self.logger.info("code: {}, ignore".format(item["code"]))
                 continue
 
             wmArticol = self.getProduct(item["winMentorCode"])
@@ -1590,9 +1589,10 @@ class WinMentor(object):
             self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
             return
 
-        ignoreCodes = [ 816, 825, 830, 831, 832, 834, 840, 841, 850, 862, 1510, 5503, 1111, 1113 ]
+        ignoreCodes = [ 816, 825, 830, 831, 832, 834, 840, 841, 850, 851, 852, 853, 854, 855, 856,
+                860, 861, 862, 1510, 5503, 5504, 1111, 1112, 1113 ]
         # verify I have all gesto codes and default gestiuni in WinMentor
-        if not self.productsAreOK(gestoData, ignoreCodes):
+        if not self.productsAreOK(gestoData, ignoreCodes, verifyGest=False):
             self.logger.info("Articole cu coduri nesetate sau gestiuni lipsa, nu adaug")
             self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
             return
@@ -1625,7 +1625,7 @@ class WinMentor(object):
 
             self.logger.error("Partenerul {} de pe vanzare gesto nu exista, nu adaug vanzarea facturata".format(gestoPartener))
             self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
-            return
+            return None
 
         wmPartenerID = self.getPartener(gestoPartener)["idPartener"]
         self.logger.info("wmPartenerID: {}".format(wmPartenerID))
