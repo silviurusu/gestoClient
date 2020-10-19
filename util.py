@@ -40,10 +40,16 @@ def newException(e):
 
 
 def getNextDocumentNumber(type):
+    import sys
+
     cfg = SafeConfigParser()
     cfg.optionxform = str
     try:
-        with codecs.open('config_documentNo_local.ini', 'r', encoding='utf-8') as f:
+        import os.path
+        documentNumberFolder = getCfgVal("gesto", "documentNumberFolder")
+
+        cfg_filename = os.path.join(documentNumberFolder, 'config_documentNo_local.ini')
+        with codecs.open(cfg_filename, 'r', encoding='utf-8') as f:
             cfg.readfp(f)
     except:
         logger.exception("Failed to read .ini file")
@@ -51,7 +57,7 @@ def getNextDocumentNumber(type):
 
     docNo = cfg.getint("documentNumbers", type)
     cfg.set("documentNumbers", type, str(docNo+1))
-    with open('config_documentNo_local.ini', 'wb') as configfile:
+    with open(cfg_filename, 'wb') as configfile:
         cfg.write(configfile)
 
     return docNo
@@ -167,10 +173,13 @@ def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGes
 
 
 def getNumber(arg):
-    ret = float(arg.replace(",","."))
-    if int(ret) == ret:
-        # change to int if possible
-        ret = int(ret)
+    if arg == '':
+        ret = 0
+    else:
+        ret = float(arg.replace(",","."))
+        if int(ret) == ret:
+            # change to int if possible
+            ret = int(ret)
 
     return ret
 

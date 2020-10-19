@@ -1,3 +1,6 @@
+<!-- replaceWithHTMLCodes -->
+Buna ziua,
+
 {%if missingPartners|length != 0%}
 Urmatorii {{missingPartners|length}} parteneri nu exista in WinMentor:<br/>
 {% for key,p in missingPartners.items  %}
@@ -11,6 +14,5 @@ Urmatoarele {{multiplePartenerIDsForEmail|length}} coduri fiscale apar de mai mu
     {{p}}
 {% endfor %}
 {%endif%}
-
 
 Nu dati reply la acest mail va rog, nu urmareste nimeni aceasta adresa de mail.

@@ -345,7 +345,7 @@ def getExportedDeliveryNotes(baseURL, startDate, endDate):
                                 "documentNo": op["relatedDocumentNo"],
                                 "items": []
                             }
-                    logger.debug("{}, {}, {}".format(ctr2, tot, op["id"]))
+                    logger.debug("{}, {}, {}".format(ctr2, tot, op_ret))
                     for item in op["items"]:
                         logger.debug(item)
                         op_ret["items"].append({
@@ -388,30 +388,33 @@ def needs_exporting(comanda, exported_receptions_notes):
     else:
         exported_op = exported_receptions_notes["ops"][comanda["documentNo"]]
         logger.info(json.dumps(
-                exported_op,
-                sort_keys=True,
-                indent=4,
-                separators=(',', ': '),
-                default=util.defaultJSON
-            ))
+                    exported_op,
+                    sort_keys=True,
+                    indent=4,
+                    separators=(',', ': '),
+                    default=util.defaultJSON
+                ))
 
-        comanda_items = comanda["items"]
-        exported_op_items = exported_op["items"]
-
-        if len(comanda_items) != len(exported_op_items):
+        if comanda["date"] != exported_op["date"]:
             ret = True
         else:
-            comanda_items = sorted(comanda_items, key=lambda k: k['winMentorCode'])
-            exported_op_items = sorted(exported_op_items, key=lambda k: k['winMentorCode'])
+            comanda_items = comanda["items"]
+            exported_op_items = exported_op["items"]
 
-            for (i1, i2) in zip(comanda_items, exported_op_items):
-                if any([i1["winMentorCode"] != i2["winMentorCode"],
-                        i1["qty"] != i2["qty"],
-                        i1["opPrice"] != i2["opPrice"]]):
-                    logger.info("i1: {}".format(i1))
-                    logger.info("i2: {}".format(i2))
-                    ret = True
-                    break
+            if len(comanda_items) != len(exported_op_items):
+                ret = True
+            else:
+                comanda_items = sorted(comanda_items, key=lambda k: k['winMentorCode'])
+                exported_op_items = sorted(exported_op_items, key=lambda k: k['winMentorCode'])
+
+                for (i1, i2) in zip(comanda_items, exported_op_items):
+                    if any([i1["winMentorCode"] != i2["winMentorCode"],
+                            i1["qty"] != i2["qty"],
+                            i1["opPrice"] != i2["opPrice"]]):
+                        logger.info("i1: {}".format(i1))
+                        logger.info("i2: {}".format(i2))
+                        ret = True
+                        break
 
     logger.info("ret: {}".format(ret))
 
@@ -434,7 +437,7 @@ def exportComenziGest(baseURL, date):
     # begining of month
     # startDate = date.replace(day=12)
     # startDate = date.replace(day=1, hour=0, minute=0, second=0)
-    startDate = date- timedelta(days=5)
+    startDate = date - timedelta(days=5)
     startDate = startDate.replace(hour=0, minute=0, second=0, microsecond=0)
     # startDate = startDate.strftime("%d.%m.%Y")
 
@@ -447,7 +450,7 @@ def exportComenziGest(baseURL, date):
     # endDate = endDate - timedelta(days=1)
     # endDate = endDate.replace(hour=23, minute=59, second=59)
     # endDate = endDate.strftime("%d.%m.%Y")
-    endDate = startDate + timedelta(days=6)
+    endDate = date
     endDate = endDate.replace(hour=23, minute=59, second=59, microsecond=0)
 
     logger.info("startDate: {}".format(startDate))
@@ -481,7 +484,8 @@ def exportComenziGest(baseURL, date):
             # comanda was modified
             opStr["operation_id"] = op["id"]
         except KeyError:
-            pass
+            # remove operation_id from operation string
+            opStr.pop('operation_id', None)
 
         opStr["relatedDocumentNo"] = documentNo
 
@@ -819,6 +823,9 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
                 if op["type"] == "reception":
                     # Get partener from gesto
                     gestoPartener = util.fixupCUI(op["source"]["code"])
+                    if gestoPartener == '':
+                        gestoPartener = util.fixupCUI(op["source"]["ro"])
+
                     logger.info("gestoPartener = {}".format(gestoPartener))
 
                     # op["items"] = op["items"]
@@ -1000,6 +1007,9 @@ def getGestoDocumentsMarkedForWinMentorExport(baseURL, branch):
             if op["type"]== "reception":
                 # Get partener from gesto
                 gestoPartener = util.fixupCUI(op["source"]["code"])
+                if gestoPartener == '':
+                    gestoPartener = util.fixupCUI(op["source"]["ro"])
+
                 logger.info("gestoPartener = {}".format(gestoPartener))
 
                 # op["items"] = op["items"]
@@ -1330,6 +1340,8 @@ if __name__ == "__main__":
 
             # ordinea e importanta
             for branch in branches:
+                logger.info("Working with branch: {}".format(branch))
+
                 if doGenerateIntrariDinProductie:
                     ret = generateIntrariDinProductie(
                             baseURL = baseURL,
