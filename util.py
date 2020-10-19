@@ -10,6 +10,7 @@ import codecs
 from django.template import loader, Context
 import traceback
 import json
+from decimal import Decimal
 
 
 logger = logging.getLogger(__name__)
@@ -180,8 +181,6 @@ def printArray(array):
 
 
 def defaultJSON(obj):
-    logger.info(obj)
-
     if isinstance(obj, Decimal):
         return float(obj)
     elif isinstance(obj, datetime.datetime):

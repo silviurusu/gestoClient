@@ -17,6 +17,8 @@ import traceback
 import inspect
 from django.template import loader, Context
 import django
+from decimal import Decimal
+from django.utils.translation import ngettext
 
 
 def generateWorkOrders(baseURL, branch, date, doVerify):
@@ -266,7 +268,7 @@ def getExportedDeliveryNotes(baseURL, startDate, endDate):
 
     url += "&dateBegin={}".format(util.getTimestamp(startDate))
     url += "&dateEnd={}".format(util.getTimestamp(endDate))
-    url += "&onlyRelatedDocumentNo=1"
+    url += "&returnFields=relatedDocumentNo,itemsCount,value,documentNo,documentDate,simbolWinMentorDeliveryNote"
 
     retJSON = None
     token = "gG9PGmXQaF"
@@ -276,7 +278,7 @@ def getExportedDeliveryNotes(baseURL, startDate, endDate):
 
     logger.info(url)
 
-    ret = []
+    ret = {}
 
     if r.status_code != 200:
         logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
@@ -310,7 +312,7 @@ def getExportedDeliveryNotes(baseURL, startDate, endDate):
                 tot = len(retJSON["data"])
                 for ctr2, op in enumerate(retJSON["data"], start=1):
                     logger.debug("{}, {}, {}".format(ctr2, tot, op["id"]))
-                    ret.append(op["relatedDocumentNo"])
+                    ret[op["relatedDocumentNo"]] = op
 
     logger.info(ret)
 
@@ -322,7 +324,32 @@ def importAvize(baseURL, date):
     logger.info(">>> {}()".format(inspect.stack()[0][3]))
     start = dt.now()
 
-    deliveryNotes = winmentor.getTransferuri(date)
+    # logger.info(date)
+    # logger.info(type(date))
+
+    # begining of previous month
+    startDate = date.replace(day=1)
+    startDate = startDate - timedelta(days=1)
+    startDate = startDate.replace(day=1, hour=0, minute=0, second=0)
+
+    # startDate = startDate.strftime("%d.%m.%Y")
+    # startDate = datetime.datetime.strptime("2020-05-01", "%Y-%m-%d")
+
+    # end of month
+    endDate = date.replace(day=25)
+    endDate = endDate + timedelta(days = 10)
+    endDate = endDate.replace(day=1)
+    endDate = endDate - timedelta(days=1)
+    endDate = endDate.replace(hour=23, minute=59, second=59)
+    # endDate = endDate.strftime("%d.%m.%Y")
+    # startDate = datetime.datetime.strptime("2020-02-29", "%Y-%m-%d")
+
+    logger.info("startDate: {}".format(startDate))
+    logger.info("endDate: {}".format(endDate))
+
+    exported_delivery_notes = getExportedDeliveryNotes(baseURL, startDate, endDate)
+
+    deliveryNotes = winmentor.getTransferuri(startDate, endDate)
 
     opStr = {
         "version": "1.0",
@@ -332,13 +359,14 @@ def importAvize(baseURL, date):
 
     hour = util.getCfgVal("deliveryNote", "hour", "int")
 
+    winMentorDocumentNos = []
+
     for (source, val1) in deliveryNotes.items():
         opStr["source"] = {
                             "name": winmentor.getGestiuneName(source),
                             "type": "company",
                             "winMentorcode": source,
                         }
-
         for (date, val2) in val1.items():
             date = [int(x) for x in date.split(".")]
             date = datetime.datetime(date[2], date[1], date[0])
@@ -349,15 +377,12 @@ def importAvize(baseURL, date):
             opStr["operationDate"] = util.getTimestamp(operationDate)
             opStr["operationDateHuman"] = operationDate.strftime("%d/%m/%Y %H:%M:%S")
 
-            if operationDate.day == date.day \
-            and operationDate.month == date.month \
-            and operationDate.year == date.year:
+            if all([operationDate.day == date.day,
+                    operationDate.month == date.month,
+                    operationDate.year == date.year]):
                 documentDate = operationDate
             else:
                 documentDate = date.replace(hour=hour)
-
-            opStr["documentDate"] = util.getTimestamp(documentDate)
-            opStr["documentDateHuman"] = documentDate.strftime("%d/%m/%Y %H:%M:%S")
 
             for (destination, val3) in val2.items():
                 opStr["destination"] = {
@@ -367,11 +392,54 @@ def importAvize(baseURL, date):
                         }
 
                 for (documentNo, val4) in val3.items():
-                    opStr["relatedDocumentNo"] = documentNo
+                    winMentorDocumentNos.append(documentNo)
+                    opStr["documentDate"] = util.getTimestamp(documentDate)
+                    opStr["documentDateHuman"] = documentDate.strftime("%d/%m/%Y %H:%M:%S")
 
+                    if documentNo in exported_delivery_notes:
+                        exported_document = exported_delivery_notes[documentNo]
+                        exp_val = Decimal("{:.2f}".format(exported_document["value"]))
+                        val4_val = Decimal("{:.2f}".format(val4["value"]))
+
+                        logger.info("count: {} - {}, value: {} - {}, date: {} - {}, destination: {} - {}".format(
+                                                            exported_document["itemsCount"],
+                                                            len(val4["items"]),
+                                                            exp_val,
+                                                            val4_val,
+                                                            datetime.datetime.utcfromtimestamp(exported_document["documentDate"]).date(),
+                                                            documentDate.date(),
+                                                            destination,
+                                                            exported_document["simbolWinMentorDeliveryNote"]
+                                                            ))
+
+                        if destination == exported_document["simbolWinMentorDeliveryNote"] \
+                        and datetime.datetime.utcfromtimestamp(exported_document["documentDate"]).date() == documentDate.date()\
+                        and exported_document["itemsCount"] == len(val4["items"]) \
+                        and exp_val == val4_val:
+                            logger.info("Receptia {} exista".format(documentNo))
+                            continue
+                        else:
+                            logger.info("Receptia {} a fost modificata".format(documentNo))
+                            logger.info("count: {} - {}, value: {} - {}, date: {} - {}, destination: {} - {}".format(
+                                                            exported_document["itemsCount"],
+                                                            len(val4["items"]),
+                                                            exp_val,
+                                                            val4_val,
+                                                            datetime.datetime.utcfromtimestamp(exported_document["documentDate"]).date(),
+                                                            documentDate.date(),
+                                                            destination,
+                                                            exported_document["simbolWinMentorDeliveryNote"]
+                                                            ))
+
+                            opStr["operation_id"] = exported_document["id"]
+                            opStr["documentNo"] = exported_document["documentNo"]
+                    else:
+                        logger.info("Receptia {} nu exista".format(documentNo))
+
+                    opStr["relatedDocumentNo"] = documentNo
                     opStr["items"] = []
 
-                    for item in val4:
+                    for item in val4["items"]:
                         opStr["items"].append(item)
 
                     opStrText = json.dumps(
@@ -388,6 +456,7 @@ def importAvize(baseURL, date):
                         )
 
                     r = requests.post(baseURL+"/importOperation/", data = opStrText)
+                    logger.info("Gesto response: %d, %s", r.status_code, r.text)
                     if r.status_code != 200:
                         logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
                         1/0
@@ -395,9 +464,48 @@ def importAvize(baseURL, date):
                     # 1/0
                     opStr.pop('documentNo', None)
                     opStr.pop('items', None)
+                    opStr.pop('operation_id', None)
+                    opStr.pop('documentDate', None)
                 opStr.pop('destination', None)
-            opStr.pop('date', None)
         opStr.pop('source', None)
+
+    # winMentorDocumentNos.pop()
+    # winMentorDocumentNos.pop()
+
+    logger.info("{} winMentorDocumentNos: {}".format(len(winMentorDocumentNos), winMentorDocumentNos))
+    exported_delivery_notes_document_nos = exported_delivery_notes.keys()
+    logger.info("{} exported_delivery_notes: {}".format(len(exported_delivery_notes_document_nos), exported_delivery_notes_document_nos))
+
+    if len(exported_delivery_notes_document_nos) != len(winMentorDocumentNos):
+        deleted_delivery_notes = []
+
+        for dn in exported_delivery_notes_document_nos:
+            if dn not in winMentorDocumentNos:
+                dn_doc = exported_delivery_notes[dn]
+                dn_doc["documentDateHuman"] = dt.utcfromtimestamp(dn_doc["documentDate"]).strftime("%d/%m/%Y %H:%M:%S")
+                dn_doc["destination"] = winmentor.getGestiuneName(dn_doc["simbolWinMentorDeliveryNote"])
+                deleted_delivery_notes.append(dn_doc)
+
+        logger.info("deleted_delivery_notes: {}".format(deleted_delivery_notes))
+
+        template = loader.get_template("mail/admin/WinMentorDeletedDeliveryNotes.html")
+        deleted_delivery_notes_cnt = len(deleted_delivery_notes)
+        if deleted_delivery_notes_cnt != 0:
+            subject = ngettext(
+                "%(deleted_delivery_notes_cnt)d aviz sters din WinMentor",
+                "%(deleted_delivery_notes_cnt)d avize sterse din WinMentor",
+                deleted_delivery_notes_cnt
+                ) % {
+                    'deleted_delivery_notes_cnt': deleted_delivery_notes_cnt,
+                }
+
+            html_part = template.render({
+                'HOME_URL': settings.HOME_URL,
+                "subject": subject,
+                "deleted_delivery_notes": deleted_delivery_notes,
+            })
+            # send_email(subject, html_part, location=False)
+            send_email(subject, html_part, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
 
     logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
@@ -979,6 +1087,12 @@ if __name__ == "__main__":
                             daysDelta = 1,
                             )
 
+            if doImportAvize:
+                gestoData = importAvize(
+                        baseURL = baseURL,
+                        date = endDate,
+                        )
+
             # ordinea e importanta
             for branch in branches:
                 if doGenerateIntrariDinProductie:
@@ -1022,12 +1136,6 @@ if __name__ == "__main__":
                     gestoData = generateMonetare(
                             baseURL = baseURL,
                             branch = branch,
-                            date = endDate,
-                            )
-
-                if doImportAvize:
-                    gestoData = importAvize(
-                            baseURL = baseURL,
                             date = endDate,
                             )
 

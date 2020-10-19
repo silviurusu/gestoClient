@@ -841,8 +841,8 @@ class WinMentor(object):
         if workDate not in self.transfers:
             self.transfers[workDate] = []
 
+            self._stat.SetTipFiltruTransferuri(1)
             transferuri, rc = self._stat.GetTransferuri(workDate, workDate)
-            # transferuri, rc = self._stat.GetTransferuri("01.03.2019", "01.05.2019")
 
             if rc != 0:
                 self.logger.error(repr(self.getListaErori()))
@@ -861,14 +861,12 @@ class WinMentor(object):
             # 1/0
 
         if str(nrDoc) not in self.transfers[workDate]:
+            self.logger.info("Transferul nu exista in WinMentor")
+
             ret = False
         else:
-            ret = True
-
-        if ret:
             self.logger.info("Transferul este adaugat deja")
-        else:
-            self.logger.info("Transferul nu exista in WinMentor")
+            ret = True
 
         self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
         return ret
@@ -2163,23 +2161,34 @@ class WinMentor(object):
         return (rc == 1)
 
 
-    def getTransferuri(self, opDate):
+    def getTransferuri(self, startDate, endDate):
         self.logger.info(">>> {}()".format(inspect.stack()[0][3]))
         start = dt.now()
 
-        self.setLunaLucru(opDate.month, opDate.year)
+        self.logger.info("startDate: {} ".format(startDate))
+        self.logger.info("endDate: {} ".format(endDate))
 
-        alreadyAdded = False
-        workDate = opDate.strftime("%d.%m.%Y")
-        transferuri, rc = self._stat.GetTransferuri(workDate, workDate)
+        self.setLunaLucru(startDate.month, startDate.year)
+
+        startDate = startDate.strftime("%d.%m.%Y")
+        endDate = endDate.strftime("%d.%m.%Y")
+
+        self.logger.info("startDate: {} ".format(startDate))
+        self.logger.info("endDate: {} ".format(endDate))
+
+        ret = True
+
+        self._stat.SetTipFiltruTransferuri(1)
+        transferuri, rc = self._stat.GetTransferuri(startDate, endDate)
+
         if rc != 0:
             self.logger.error(repr(self.getListaErori()))
 
         sources = util.getCfgVal("deliveryNote", "sources")
         destinations = util.getCfgVal("deliveryNote", "destinations")
-        dnDate = "{}.{}.{}".format(opDate.day, opDate.month, opDate.year)
-
-        self.logger.info("dnDate: {}".format(dnDate))
+        # dnDate = "{}.{}.{}".format(opDate.day, opDate.month, opDate.year)
+        # dnDate = opDate.strftime("%d.%m.%Y")
+        # self.logger.info("dnDate: {}".format(dnDate))
 
         company = util.getCfgVal("winmentor", "companyName")
         deliveryNotes = {}
@@ -2189,24 +2198,26 @@ class WinMentor(object):
         #     self.logger.info(transfer)
         # 1/0
 
-        ret = True
-
         for item in transferuri:
-            # self.logger.info(item)
+            self.logger.info(item)
             items = item.split(";")
             # self.logger.info(items)
 
-            source = str(items[0])
-            date = items[3]
-            destination = str(items[1])
-            transferNo = items[2]
+            # [u'28939', u'09.12.2019', u'G_3276', u'DEP_CENTRAL',
+            # u'SHOP_CITY', u'071219102254', u'7', u'9', u'',
+            # u'4', u'9', u'145517', u'0', u'102254', u'42', u'']
+
+            source = str(items[3])
+            date = items[1]
+            destination = str(items[4])
+            transferNo = items[0]
 
             if source not in sources:
                 continue
             if destination not in destinations:
                 continue
-            if date != dnDate:
-                continue
+            # if date != dnDate:
+            #     continue
 
             if source not in deliveryNotes:
                 deliveryNotes[source] = {}
@@ -2218,54 +2229,53 @@ class WinMentor(object):
                 deliveryNotes[source][date][destination] = {}
 
             if transferNo not in deliveryNotes[source][date][destination]:
-                deliveryNotes[source][date][destination][transferNo] = []
+                deliveryNotes[source][date][destination][transferNo] = {
+                    "items": [],
+                    "transferNo": transferNo,
+                    "value": 0
+                }
 
             productCode = items[4]
 
-            if items[4] == "":
+            if items[2] == "":
                 if items[5] not in self.productsMissingWMCodes:
                     ret = False
                     # only add a code once
                     self.productsMissingWMCodes.append(items[5])
 
-            if items[6] != "":
+            if items[9] != "": #qty
                 if company == "Andalusia":
-                    opPrice = float(items[8].replace(",", "."))
+                    opPrice = Decimal(items[14].replace(",", "."))
                 else:
-                    opPrice = float(items[7].replace(",", "."))
+                    opPrice = Decimal(items[7].replace(",", "."))
 
-                deliveryNotes[source][date][destination][transferNo].append({
-                                "winMentorCode": items[4],
-                                "name": items[5],
-                                "opPrice": opPrice,
-                                "listPrice": float(items[8].replace(",", ".")),
-                                "qty": float(items[6].replace(",","."))
-                        })
+                qty = Decimal(items[9].replace(",","."))
+                qty = Decimal(format(qty, '.4f'))
 
-        self.logger.info(
-                json.dumps(
-                    deliveryNotes,
-                    sort_keys=True,
-                    indent=4,
-                    separators=(',', ': '),
-                    default=util.defaultJSON
-                    )
-                )
+                deliveryNotes[source][date][destination][transferNo]["value"] += opPrice * qty
+                deliveryNotes[source][date][destination][transferNo]["items"].append({
+                            "winMentorCode": items[2],
+                            # "name": items[5],
+                            "opPrice": opPrice,
+                            # "listPrice": float(items[8].replace(",", ".")),
+                            "qty": qty,
+                            "name": self.getProduct(items[2])["Denumire"]
+                    })
 
         if ret == False:
             deliveryNotes = {}
 
-        self.logger.info(
-                json.dumps(
-                    deliveryNotes,
-                    sort_keys=True,
-                    indent=4,
-                    separators=(',', ': '),
-                    default=util.defaultJSON
-                    )
-                )
-
         ret = deliveryNotes
+
+        self.logger.info(
+                    json.dumps(
+                        ret,
+                        sort_keys=True,
+                        indent=4,
+                        separators=(',', ': '),
+                        default=util.defaultJSON
+                        )
+                    )
         self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
         return ret
 
@@ -2284,14 +2294,6 @@ class WinMentor(object):
                             )
                         )
 
-        self._stat.SetTipFiltruTransferuri(0)
-        deliveryNotes = self.getTransferuri(datetime.datetime.strptime("2019-05-10", "%Y-%m-%d"))
-
-        self._stat.SetTipFiltruTransferuri(1)
-        deliveryNotes = self.getTransferuri(datetime.datetime.strptime("2019-05-10", "%Y-%m-%d"))
-
-        # 1/0
-
         if len(gestoData["items"]) == 0:
             self.logger.info("Nu am nici un produs pe transfer")
             self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
@@ -2303,12 +2305,10 @@ class WinMentor(object):
             branch_code = gestoData["branch"]
             campPret = "PretVanzareFaraTVA"
             art_key = "winMentorCode"
-            simbGest = "Magazin {}DF".format(gestoData["branch"][:2])
         else:
             branch_code = gestoData["branch_winMentorCode"]
             campPret = "PretVanzareCuTVA"
             art_key = "name2"
-            simbGest = wmArticol["GestImplicita"]
 
         wmGestiune = self.matchGestiune(branch_code)
         if wmGestiune is None:
@@ -2336,6 +2336,11 @@ class WinMentor(object):
 
             wmArticol = self.getProduct(item[art_key])
             self.logger.debug("wmArticol: \n{}".format(wmArticol))
+
+            if companyName == "Panemar morarit si panificatie SRL":
+                simbGest = "Magazin {}DF".format(gestoData["branch"][:2])
+            else:
+                simbGest = wmArticol["GestImplicita"]
 
             articoleWMDoc.append({
                         "codExternArticol": item[art_key],
