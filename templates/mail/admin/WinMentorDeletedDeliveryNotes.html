@@ -1,0 +1,10 @@
+<!-- replaceWithBR -->
+Buna ziua,
+
+{{deleted_delivery_notes|length}} aviz{{ deleted_delivery_notes|length|pluralize:" a fost sters,e au fost sterse" }} din WinMentor si exista in Gesto, va rog analizati:
+
+{% for deliverynote in deleted_delivery_notes %}
+<a href="{{HOME_URL}}/web/operations/?&operation_id={{deliverynote.id}}">{{deliverynote.relatedDocumentNo}} -  {{deliverynote.destination}}</a> {{deliverynote.documentDateHuman}}
+{% endfor %}
+
+Nu dati reply la acest mail va rog, nu urmareste nimeni aceasta adresa de mail.
