@@ -2,7 +2,6 @@ import datetime
 import collections
 from django.core.mail import EmailMessage
 import logging
-import functools
 import re
 import inspect
 from ConfigParser import SafeConfigParser, NoOptionError, NoSectionError
@@ -17,11 +16,9 @@ import decorators
 logger = logging.getLogger(__name__)
 
 
+@decorators.time_log
 def newException(e):
     try:
-        logger.info(">>> {0}()".format(inspect.stack()[0][3]))
-        start = datetime.datetime.now()
-
         # new Exception for today
         template = loader.get_template("mail/admin/exception.html")
         subject = "Exception at {0}()".format(inspect.stack()[1][3])
@@ -36,8 +33,6 @@ def newException(e):
 
     except BaseException as e:
         logger.exception("{0}, {1}".format(e, e.message))
-
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], datetime.datetime.now() - start))
 
 
 def getNextDocumentNumber(type):
@@ -77,10 +72,8 @@ def retToFileArray(ret, filename):
         thefile.write("{}/{} - {}\n".format(ctr, retCnt, r))
 
 
+@decorators.time_log
 def getCfgVal(section, varName, retType=None):
-    logger.info(">>> {0}()".format(inspect.stack()[0][3]))
-    start = datetime.datetime.now()
-
     cfg = SafeConfigParser()
     with codecs.open('config_local.ini', 'r', encoding='utf-8') as f:
         cfg.readfp(f)
@@ -100,16 +93,11 @@ def getCfgVal(section, varName, retType=None):
         ret = [x.strip() for x in ret.split(",")]
 
     logger.info("{}: {}".format(varName, ret))
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], datetime.datetime.now() - start))
     return ret
 
 
+@decorators.time_log
 def getCfgOptsDict(section):
-    logger.info(">>> {}()".format(inspect.stack()[0][3]))
-    start = datetime.datetime.now()
-
-    logger.info("section: {}".format(section))
-
     cfg = SafeConfigParser()
     cfg.optionxform = str
 
@@ -120,8 +108,7 @@ def getCfgOptsDict(section):
     for opt in cfg.options(section):
         ret[opt] = cfg.get(section, opt)
 
-    logger.info(json.dumps(ret, sort_keys=True, indent=4, separators=(',', ': '), default=defaultJSON))
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], datetime.datetime.now() - start))
+    log_json(ret)
     return ret
 
 
@@ -170,10 +157,10 @@ def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGes
             logger.info(msg)
 
     except BaseException as e:
-        logger.exception("{0}, {1}".format(e, e.message))
+        logger.exception("{}, {}".format(e, e.message))
 
 
-def getNumber(arg):
+def getNumber(arg, decimal_places=4):
     if arg == '':
         ret = 0
     else:
@@ -181,6 +168,8 @@ def getNumber(arg):
         if int(ret) == ret:
             # change to int if possible
             ret = int(ret)
+        else:
+            ret = Decimal(format(ret, '.{}f'.format(decimal_places)))
 
     return ret
 
@@ -209,22 +198,8 @@ def getTimestamp(date):
     ret = int((date - datetime.datetime(1970, 1, 1)).total_seconds())
     return ret
 
-def disable_logging(lvl = logging.DEBUG):
-    """ Decorator
 
-    """
-    def actual_disable_logging(func):
-        @functools.wraps(func)
-        def wrapper(*args,**kwargs):
-            logging.disable(lvl)
-            result = func(*args,**kwargs)
-            logging.disable(logging.NOTSET)
-            return result
-        return wrapper
-    return actual_disable_logging
-
-
-@disable_logging(logging.DEBUG)
+@decorators.disable_logging(logging.DEBUG)
 def fixupCUI2(cui):
     """ Return a CUI or CNP or Serie/Nr CI in format fix, daca sirul de intrare
         corepunde:
@@ -267,7 +242,7 @@ def fixupCUI2(cui):
     return (False, cui)
 
 
-@disable_logging(logging.DEBUG)
+@decorators.disable_logging(logging.DEBUG)
 def fixupCUI(cui):
     """ Return a unique simbol that can identify the partener
         @return: (str): simbol that can identify the partener
@@ -277,3 +252,8 @@ def fixupCUI(cui):
     ret = ret.replace("ro", "")
 
     return ret
+
+
+def log_json(myjson, indent=2):
+    # logger.info(myjson)
+    logger.info(json.dumps(myjson, sort_keys=True, indent=indent, separators=(',', ': '), default=defaultJSON))

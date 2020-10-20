@@ -22,10 +22,9 @@ from django.utils.translation import ngettext
 import decorators
 
 
+@decorators.time_log
 def generateWorkOrders(baseURL, branch, date, doVerify):
     # ajung in mentor in NT_G
-    logger.info(">>> {}()".format(inspect.stack()[0][3]))
-    start = dt.now()
 
     url = baseURL + "/products/summary/?"
     companyName = util.getCfgVal("winmentor", "companyName")
@@ -34,7 +33,6 @@ def generateWorkOrders(baseURL, branch, date, doVerify):
     else:
         if branch != "Sediu":
             logger.info("Only generate transfers for Sediu, not for {}".format(branch))
-            logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
             return True
 
         url += "type=sale"
@@ -84,15 +82,12 @@ def generateWorkOrders(baseURL, branch, date, doVerify):
         else:
             ret = False
 
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
     return ret
 
 # NP_G
 # productie - exectie - intrari din productie
+@decorators.time_log
 def generateIntrariDinProductie(baseURL, branch, date, doVerify):
-    logger.info(">>> {}()".format(inspect.stack()[0][3]))
-    start = dt.now()
-
     url = baseURL + "/products/summary/?"
     url += "type=workOrder"
 
@@ -140,15 +135,12 @@ def generateIntrariDinProductie(baseURL, branch, date, doVerify):
         else:
             ret = False
 
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
     return ret
 
 # bonuri de consum
 # BC_G
+@decorators.time_log
 def exportSummaryTransfers(baseURL, branch, date):
-    logger.info(">>> {}()".format(inspect.stack()[0][3]))
-    start = dt.now()
-
     url = baseURL + "/products/summary/?"
     url += "type=transfer"
     url += "&winMentor=1"
@@ -179,13 +171,9 @@ def exportSummaryTransfers(baseURL, branch, date):
         retJSON = r.json()
         winmentor.addProductSummary(retJSON, dateEnd)
 
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
-
+@decorators.time_log
 def exportSummaryBonDeConsum(baseURL, branch, date):
-    logger.info(">>> {}()".format(inspect.stack()[0][3]))
-    start = dt.now()
-
     url = baseURL + "/products/summary/?"
     url += "type=bon_de_consum"
     url += "&winMentor=1"
@@ -217,13 +205,9 @@ def exportSummaryBonDeConsum(baseURL, branch, date):
         retJSON = r.json()
         winmentor.addProductSummary(retJSON, dateEnd, monthly=True)
 
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
-
+@decorators.time_log
 def generateMonetare(baseURL, branch, date):
-    logger.info(">>> {}()".format(inspect.stack()[0][3]))
-    start = dt.now()
-
     logger.info("Generate monetare for {}, {}".format(branch, tokens[branch]))
 
     # add monetare for the previous day
@@ -246,7 +230,6 @@ def generateMonetare(baseURL, branch, date):
 
         if sales_details is not None and None in sales_details:
             # there are problems with the sale export
-            logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
             return
 
     url = baseURL + "/products/summary/?"
@@ -275,8 +258,6 @@ def generateMonetare(baseURL, branch, date):
         retJSON = r.json()
         winmentor.addMonetare(retJSON, sales_details)
 
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
-
 
 @decorators.time_log
 def getExportedDeliveryNotes(baseURL, startDate, endDate):
@@ -289,7 +270,7 @@ def getExportedDeliveryNotes(baseURL, startDate, endDate):
     url += "&returnFields=relatedDocumentNo,itemsCount,value,documentNo,documentDate,simbolWinMentorDeliveryNote"
 
     filterCUI = util.getCfgVal("receptions", "excludeCUI")
-    if filterCUI is not None:
+    if filterCUI not in [None, "", ]:
         url += "&filterCUI={}".format(filterCUI)
 
     token = util.getCfgVal("winmentor", "companyToken")
@@ -304,17 +285,10 @@ def getExportedDeliveryNotes(baseURL, startDate, endDate):
 
     if r.status_code != 200:
         logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
+        1/0
     else:
         retJSON = r.json()
-        logger.debug("\n%s",
-                json.dumps(
-                    retJSON,
-                    sort_keys=True,
-                    indent=4,
-                    separators=(',', ': '),
-                    default=util.defaultJSON
-                    )
-                )
+        util.log_json(retJSON)
 
         totalRecords = retJSON["range"]["totalRecords"]
         logger.info("{} {}".format(totalRecords, operationType))
@@ -336,43 +310,19 @@ def getExportedDeliveryNotes(baseURL, startDate, endDate):
                     logger.debug("{}, {}, {}".format(ctr2, tot, op["id"]))
                     ret[op["relatedDocumentNo"]] = op
 
-    logger.debug(
-                json.dumps(
-                    ret,
-                    sort_keys=True,
-                    indent=4,
-                    separators=(',', ': '),
-                    default=util.defaultJSON
-                    )
-                )
+    util.log_json(ret)
 
     return ret
 
 
+@decorators.time_log
 def needs_exporting(comanda, exported_receptions_notes):
-    logger.info(">>> {}()".format(inspect.stack()[0][3]))
-    start = dt.now()
-
-    logger.info(json.dumps(
-            comanda,
-            sort_keys=True,
-            indent=4,
-            separators=(',', ': '),
-            default=util.defaultJSON
-            ))
-
     ret = False
     if comanda["documentNo"] not in exported_receptions_notes["documentNo"]:
         ret = True
     else:
         exported_op = exported_receptions_notes["ops"][comanda["documentNo"]]
-        logger.info(json.dumps(
-                    exported_op,
-                    sort_keys=True,
-                    indent=4,
-                    separators=(',', ': '),
-                    default=util.defaultJSON
-                ))
+        util.log_json(exported_op)
 
         if comanda["date"] != exported_op["date"]:
             ret = True
@@ -397,21 +347,16 @@ def needs_exporting(comanda, exported_receptions_notes):
 
     logger.info("ret: {}".format(ret))
 
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
     return ret
 
 
+@decorators.time_log
 def exportComenziGest(baseURL, date):
     """
     Se exporta comenzile de la gestiuni, ajung receptii in Gesto
     :param operation:
     :return:
     """
-    logger.info(">>> {}()".format(inspect.stack()[0][3]))
-    start = dt.now()
-
-    # logger.info(date)
-    # logger.info(type(date))
 
     # begining of month
     # startDate = date.replace(day=12)
@@ -507,13 +452,7 @@ def exportComenziGest(baseURL, date):
 
         opStr["items"] = val1["items"]
 
-        logger.info(json.dumps(
-            opStr,
-            sort_keys=True,
-            indent=4,
-            separators=(',', ': '),
-            default=util.defaultJSON
-            ))
+        util.log_json(opStr)
 
         # 1/0
 
@@ -533,13 +472,8 @@ def exportComenziGest(baseURL, date):
         # 1/0
 
 
+@decorators.time_log
 def importAvize(baseURL, date):
-    logger.info(">>> {}()".format(inspect.stack()[0][3]))
-    start = dt.now()
-
-    # logger.info(date)
-    # logger.info(type(date))
-
     # begining of previous month
     startDate = date.replace(day=1)
     startDate = startDate - timedelta(days=1)
@@ -609,6 +543,8 @@ def importAvize(baseURL, date):
                     opStr["documentDate"] = util.getTimestamp(documentDate)
                     opStr["documentDateHuman"] = documentDate.strftime("%d/%m/%Y %H:%M:%S")
 
+                    do10 = False
+
                     if documentNo in exported_delivery_notes:
                         exported_document = exported_delivery_notes[documentNo]
                         exp_val = Decimal("{:.2f}".format(exported_document["value"]))
@@ -633,7 +569,7 @@ def importAvize(baseURL, date):
                             continue
                         else:
                             logger.info("Receptia {} a fost modificata".format(documentNo))
-                            logger.info("count: {} - {}, value: {} - {}, date: {} - {}, destination: {} - {}".format(
+                            logger.info("gesto-wm ... count: {} - {}, value: {} - {}, date: {} - {}, destination: {} - {}".format(
                                                             exported_document["itemsCount"],
                                                             len(val4["items"]),
                                                             exp_val,
@@ -646,8 +582,14 @@ def importAvize(baseURL, date):
 
                             opStr["operation_id"] = exported_document["id"]
                             opStr["documentNo"] = exported_document["documentNo"]
+
+                        if documentDate.date() != dt.now().date():
+                            if exported_document["itemsCount"] == len(val4["items"]):
+                                do10 = True
+
                     else:
                         logger.info("Receptia {} nu exista".format(documentNo))
+
 
                     opStr["relatedDocumentNo"] = documentNo
                     opStr["items"] = []
@@ -655,18 +597,11 @@ def importAvize(baseURL, date):
                     for item in val4["items"]:
                         opStr["items"].append(item)
 
-                    opStrText = json.dumps(
-                        opStr,
-                        sort_keys=True,
-                        indent=4,
-                        separators=(',', ': '),
-                        default=util.defaultJSON
-                        )
-                    logger.info(opStrText)
-                    opStrText = json.dumps(
-                        opStr,
-                        default=util.defaultJSON
-                        )
+                    util.log_json(opStr)
+                    opStrText = json.dumps(opStr, default=util.defaultJSON)
+
+                    if do10:
+                        1/0
 
                     r = requests.post(baseURL+"/importOperation/", data = opStrText)
                     logger.info("Gesto response: %d, %s", r.status_code, r.text)
@@ -720,12 +655,11 @@ def importAvize(baseURL, date):
             # send_email(subject, html_part, location=False)
             send_email(subject, html_part, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
 
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
-
 
 # return: NTR_G
 # reception: NTA_G
 # sale: FI_G
+@decorators.time_log
 def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate = None, daysDelta = 7):
     """
     @param branch: Gesto branch used for request
@@ -734,11 +668,6 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
     @return processed json if successfull, None otherwise
 
     """
-    logger.info(">>> {}()".format(inspect.stack()[0][3]))
-    start = dt.now()
-
-    logger.debug("endDate: {}".format(endDate))
-    logger.debug("daysDelta: {}".format(daysDelta))
 
     # opDate = datetime.datetime.strptime("2018-06-01", "%Y-%m-%d")
     # winmentor.transferExists(10, opDate)
@@ -845,31 +774,11 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
         logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
     else:
         retJSON = r.json()
-        # logger.debug("\n%s",
-        #         json.dumps(
-        #             retJSON,
-        #             sort_keys=True,
-        #             indent=4,
-        #             separators=(',', ': '),
-        #             default=util.defaultJSON
-        #             )
-        #         )
+        util.log_json(retJSON)
 
         totalRecords = retJSON["range"]["totalRecords"]
         if totalRecords == 0:
             logger.info("{} {}".format(totalRecords, operationType))
-            logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
-            return
-
-        if retJSON["data"][0]["simbolWinMentorReception"] in [None, "nil",]:
-            txtMail = "Locatia {} nu are setat un simbol pentru WinMentor".format(retJSON["data"][0]["destination"]["name"])
-
-            send_email(
-                    subject = txtMail,
-                    msg = txtMail
-                    )
-
-            logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
             return
 
         totalRecords = retJSON["range"]["totalRecords"]
@@ -886,15 +795,7 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
 
             r = requests.get(urlPage, headers={'GESTOTOKEN': token})
             retJSON = r.json()
-            # logger.debug("\n%s",
-            #         json.dumps(
-            #             retJSON,
-            #             sort_keys=True,
-            #             indent=4,
-            #             separators=(',', ': '),
-            #             default=util.defaultJSON
-            #             )
-            #         )
+            util.log_json(retJSON)
 
             tot = len(retJSON["data"])
             for ctr2, op in enumerate(retJSON["data"], start=1):
@@ -938,14 +839,11 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
                 # if ctr2==1:
                 #     1/0
 
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
     return ret
 
 
+@decorators.time_log
 def getExportWinMentorData():
-    logger.info(">>> {}()".format(inspect.stack()[0][3]))
-    start = dt.now()
-
     baseURL = util.getCfgVal("gesto", "url")
     token = util.getCfgVal("winmentor", "companyToken")
     url = baseURL + "/report/exportWinMentorData/"
@@ -961,15 +859,7 @@ def getExportWinMentorData():
             break
         else:
             retJSON = r.json()
-            logger.debug("\n%s",
-                    json.dumps(
-                        retJSON,
-                        sort_keys=True,
-                        indent=4,
-                        separators=(',', ': '),
-                        default=util.defaultJSON
-                        )
-                    )
+            util.log_json(retJSON)
 
             if retJSON["report_id"] is not None:
                 if retJSON["report_data"]["data"] == "monetare":
@@ -1020,16 +910,12 @@ def getExportWinMentorData():
                 logger.info("report id is null")
                 break
 
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
-
+@decorators.time_log
 def getGestoDocumentsMarkedForWinMentorExport(baseURL, branch):
     """
     @param branch: Gesto branch used for request
     """
-    logger.info(">>> {}()".format(inspect.stack()[0][3]))
-    start = dt.now()
-
     logger.info("Getting all operations marked for WinMentorExport")
     url = baseURL + "/operations/?"
     url += "&markedForWinMentorExport=1"
@@ -1045,31 +931,11 @@ def getGestoDocumentsMarkedForWinMentorExport(baseURL, branch):
         logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
     else:
         retJSON = r.json()
-        logger.debug("\n%s",
-                json.dumps(
-                    retJSON,
-                    sort_keys=True,
-                    indent=4,
-                    separators=(',', ': '),
-                    default=util.defaultJSON
-                    )
-                )
+        util.log_json(retJSON)
 
         totalRecords = retJSON["range"]["totalRecords"]
         logger.info("{} operations".format(totalRecords))
         if totalRecords == 0:
-            logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
-            return
-
-        if retJSON["data"][0]["simbolWinMentorReception"] in [None, "nil",]:
-            txtMail = "Locatia {} nu are setat un simbol pentru WinMentor".format(retJSON["data"][0]["destination"]["name"])
-
-            send_email(
-                    subject = txtMail,
-                    msg = txtMail
-                    )
-
-            logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
             return
 
         totalRecords = retJSON["range"]["totalRecords"]
@@ -1126,8 +992,6 @@ def getGestoDocumentsMarkedForWinMentorExport(baseURL, branch):
             # if ctr==1:
             #     1/0
 
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
-
 
 def setup_logging(
         default_path='logging.json',
@@ -1179,9 +1043,6 @@ if __name__ == "__main__":
         cfg.optionxform = str
         with codecs.open('config_local.ini', 'r', encoding='utf-8') as f:
             cfg.readfp(f)
-
-        # logger.info("SILVIU")
-        # exit()
 
         logger.info(">>> {}()".format(inspect.stack()[0][3]))
         start = dt.now()
