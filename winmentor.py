@@ -1227,7 +1227,8 @@ class WinMentor(object):
         self.logger.info("relatedDocumentNo: {}".format(gestoData["relatedDocumentNo"]))
 
         ignoreCodes = []
-        ignoreCodes = [1325, 1326, 1601, 1602, ]
+        if companyName == "Panemar morarit si panificatie SRL":
+            ignoreCodes = [1325, 1326, 1601, 1602, ]
 
         # verify I have all gesto codes and default gestiuni in WinMentor
         if not self.productsAreOK(gestoData, ignoreCodes):
@@ -1605,8 +1606,6 @@ class WinMentor(object):
                 self.logger.error(repr(self.getListaErori()))
                 1/0
 
-        1/0
-
 
     @decorators.time_log
     def addSale(self, gestoData):
@@ -1615,8 +1614,11 @@ class WinMentor(object):
             self.logger.info("Nu am nici un produs pe vanzare")
             return
 
-        ignoreCodes = [ 816, 825, 827, 830, 831, 832, 834, 840, 841, 850, 851, 852, 853, 854, 855, 856,
+        ignoreCodes = []
+        if companyName == "Panemar morarit si panificatie SRL":
+            ignoreCodes = [ 816, 825, 827, 830, 831, 832, 834, 840, 841, 850, 851, 852, 853, 854, 855, 856,
                 860, 861, 862, 1510, 5503, 5504, 1111, 1112, 1113 ]
+
         # verify I have all gesto codes and default gestiuni in WinMentor
         if not self.productsAreOK(gestoData, ignoreCodes, verifyGest=False):
             self.logger.info("Articole cu coduri nesetate sau gestiuni lipsa, nu adaug")
@@ -2408,7 +2410,8 @@ class WinMentor(object):
         self.setLunaLucru(opDate.month, opDate.year)
 
         ignoreCodes = []
-        ignoreCodes = [1105, 819,]
+        if companyName == "Panemar morarit si panificatie SRL":
+            ignoreCodes = [1105, 819,]
 
         # verify I have all gesto codes and default gestiuni in WinMentor
         if not self.productsAreOK(gestoData, ignoreCodes):
@@ -2527,7 +2530,8 @@ class WinMentor(object):
             return
 
         ignoreCodes = []
-        ignoreCodes = [1105, 1325, 1326, 1601, 1602, ]
+        if companyName == "Panemar morarit si panificatie SRL":
+            ignoreCodes = [1105, 1325, 1326, 1601, 1602, ]
 
         tipGest = self.getTipGest(gestoData, ignoreCodes)
         if tipGest == "Skip export":
@@ -2650,7 +2654,8 @@ class WinMentor(object):
         self.setLunaLucru(opDate.month, opDate.year)
 
         ignoreCodes = []
-        ignoreCodes = [1105, 819, ]
+        if companyName == "Panemar morarit si panificatie SRL":
+            ignoreCodes = [1105, 819, ]
 
         # verify I have all gesto codes and default gestiuni in WinMentor
         if not self.productsAreOK(gestoData, ignoreCodes):
@@ -2723,7 +2728,9 @@ class WinMentor(object):
         self.setLunaLucru(opDate.month, opDate.year)
 
         ignoreCodes = []
-        ignoreCodes = [729, 5200, 5201, 5329 ]
+        if companyName == "Panemar morarit si panificatie SRL":
+            ignoreCodes = [729, 5200, 5201, 5329 ]
+
         # verify I have all gesto codes and default gestiuni in WinMentor
         if not self.productsAreOK(gestoData, ignoreCodes):
             self.logger.info("Articole cu coduri nesetate sau gestiuni lipsa, nu adaug")
