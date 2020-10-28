@@ -324,7 +324,9 @@ def needs_exporting(comanda, exported_receptions_notes):
         exported_op = exported_receptions_notes["ops"][comanda["documentNo"]]
         util.log_json(exported_op)
 
-        if comanda["date"] != exported_op["date"]:
+        logger.info("{} - {},  {} - {}".format(comanda["date"], exported_op["date"], comanda["destination"], exported_op["destination"]))
+        if comanda["date"] != exported_op["date"] \
+        or comanda["destination"] != exported_op["destination"]:
             ret = True
         else:
             comanda_items = comanda["items"]
