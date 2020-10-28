@@ -351,17 +351,28 @@ def needs_exporting(comanda, exported_receptions_notes):
 
 
 @decorators.time_log
-def exportComenziGest(baseURL, date):
+def exportComenziGest(baseURL, date, interval=1):
     """
     Se exporta comenzile de la gestiuni, ajung receptii in Gesto
-    :param operation:
+    :param
+        interval: 1 - default number of days
+                  2 - 20 days
     :return:
     """
 
     # begining of month
     # startDate = date.replace(day=12)
     # startDate = date.replace(day=1, hour=0, minute=0, second=0)
-    startDate = date - timedelta(days=5)
+    if interval == 1:
+        start_days = 5
+        end_days = 0
+    elif interval == 2:
+        start_days = 20
+        end_days = 1
+    else:
+        1/0
+
+    startDate = date - timedelta(days=start_days)
     startDate = startDate.replace(hour=0, minute=0, second=0, microsecond=0)
     # startDate = startDate.strftime("%d.%m.%Y")
 
@@ -374,7 +385,7 @@ def exportComenziGest(baseURL, date):
     # endDate = endDate - timedelta(days=1)
     # endDate = endDate.replace(hour=23, minute=59, second=59)
     # endDate = endDate.strftime("%d.%m.%Y")
-    endDate = date
+    endDate = date - timedelta(days=end_days)
     endDate = endDate.replace(hour=23, minute=59, second=59, microsecond=0)
 
     logger.info("startDate: {}".format(startDate))
@@ -583,10 +594,6 @@ def importAvize(baseURL, date):
                             opStr["operation_id"] = exported_document["id"]
                             opStr["documentNo"] = exported_document["documentNo"]
 
-                        if documentDate.date() != dt.now().date():
-                            if exported_document["itemsCount"] == len(val4["items"]):
-                                do10 = True
-
                     else:
                         logger.info("Receptia {} nu exista".format(documentNo))
 
@@ -599,9 +606,6 @@ def importAvize(baseURL, date):
 
                     util.log_json(opStr)
                     opStrText = json.dumps(opStr, default=util.defaultJSON)
-
-                    if do10:
-                        1/0
 
                     r = requests.post(baseURL+"/importOperation/", data = opStrText)
                     logger.info("Gesto response: %d, %s", r.status_code, r.text)
@@ -1081,11 +1085,7 @@ if __name__ == "__main__":
 
         branches_default = True
 
-        # Get date to use for Unit Test
-        try:
-            workdate = dt.strptime(util.getCfgVal("_UT_", "workdate"), "%Y-%m-%d")
-        except NoOptionError as e:
-            workdate = dt.today()
+        workdate = dt.today()
 
         doExportReceptions = False
         doExportSales = False
@@ -1149,7 +1149,7 @@ if __name__ == "__main__":
             elif opt in ("--importAvize"):
                 doImportAvize = bool(int(arg))
             elif opt in ("--exportComenziGest"):
-                doExportComenziGest = bool(int(arg))
+                doExportComenziGest = int(arg)
             elif opt in ("--exportSummaryTransfers"):
                 doExportSummaryTransfers = bool(int(arg))
             elif opt in ("--exportSummaryBonDeConsum"):
@@ -1287,6 +1287,7 @@ if __name__ == "__main__":
                 gestoData = exportComenziGest(
                         baseURL = baseURL,
                         date = endDate,
+                        interval = doExportComenziGest
                         )
 
             # ordinea e importanta

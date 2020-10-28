@@ -1460,7 +1460,7 @@ class WinMentor(object):
                 # Magazin 13P;17.01.2020;5188;G_301;1;1;269184;1683008;DA
                 date = datetime.datetime.strptime(items[1], "%d.%m.%Y")
                 if not startDate <= date <= endDate:
-                    self.logger.info("data incorecta {} {} {}".format(startDate, date, endDate))
+                    self.logger.info("data incorecta, nu am: {} < {} < {}".format(startDate, date, endDate))
                     continue
 
                 anulat = items[8]
