@@ -1100,7 +1100,12 @@ if __name__ == "__main__":
         doExportComenziGest = False
         doExportSummaryTransfers = False
         doExportSummaryBonDeConsum = False
-        doVerify = True
+
+        doVerify = False
+        companyName = util.getCfgVal("winmentor", "companyName")
+        if companyName == "Panemar morarit si panificatie SRL":
+            doVerify = True
+
         markedForWinMentorExport = False
         exportWinMentorData = False
 

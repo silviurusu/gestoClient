@@ -2429,8 +2429,10 @@ class WinMentor(object):
 
             if companyName == "Panemar morarit si panificatie SRL":
                 pret = round(item["listVal"]/item["qty"]/((100.0+item["vat"]) /100), 2)
+                simbGest = "Magazin {}DF".format(gestoData["branch"][:2])
             else:
                 pret = wmArticol[campPret]
+                simbGest = wmArticol["GestImplicita"]
 
             articoleWMDoc.append({
                         "codExternArticol": item[art_key],
