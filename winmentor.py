@@ -156,14 +156,15 @@ class WinMentor(object):
         self._stat.SetNumeFirma(firma)
 
 
+    @decorators.time_log
     def setLunaLucru(self, luna, an):
-        self.logger.info(">>> {}()".format(inspect.stack()[0][3]))
-        start = dt.now()
+        if self.luna == luna and self.an == an:
+            return True
+
+        self.logger.info("Setez luna de lucru: {}, an: {}, valori actuale: luna: {}, an: {}".format(luna, an, self.luna, self.an))
 
         self.luna = luna
         self.an = an
-        self.logger.info("luna: {}".format(self.luna))
-        self.logger.info("an: {}".format(self.an))
 
         if self._stat is None:
             return False
@@ -175,7 +176,7 @@ class WinMentor(object):
                     )
             1/0
 
-        self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+
         return (rc == 1)
 
 
@@ -1260,11 +1261,14 @@ class WinMentor(object):
         found = False
         for rdnf in rdnFormats:
             try:
-                gestoData["relatedDocumentNo"] = re.match(rdnf["f"], gestoData["relatedDocumentNo"]).groups()
+
+                relatedDocumentNo = re.match(rdnf["f"], gestoData["relatedDocumentNo"]).groups()
                 # self.logger.error(gestoData["relatedDocumentNo"])
-                gestoData["relatedDocumentNo"] = gestoData["relatedDocumentNo"][rdnf["i"]]
+                relatedDocumentNo = relatedDocumentNo[rdnf["i"]]
                 # gestoData["relatedDocumentNo"] = gestoData["relatedDocumentNo"][-9:]
-                found = True
+                if len(relatedDocumentNo) > 0:
+                    found = True
+                    gestoData["relatedDocumentNo"] = relatedDocumentNo
                 break
             except AttributeError:
                 pass
@@ -1283,7 +1287,7 @@ class WinMentor(object):
 
             return
 
-        self.logger.info("relatedDocumentNo: {}".format(gestoData["relatedDocumentNo"]))
+        self.logger.info("relatedDocumentNo: >{}<".format(gestoData["relatedDocumentNo"]))
 
         ignoreCodes = []
         ignoreCodes = [1325, 1326, 1601, 1602, ]
@@ -1736,7 +1740,7 @@ class WinMentor(object):
             return
 
         ignoreCodes = [ 816, 825, 827, 830, 831, 832, 834, 840, 841, 850, 851, 852, 853, 854, 855, 856,
-                860, 861, 862, 1510, 5503, 5504, 1111, 1112, 1113 ]
+                860, 861, 862, 1510, 5503, 5504, 1111, 1112, 1113, 1200 ]
         # verify I have all gesto codes and default gestiuni in WinMentor
         if not self.productsAreOK(gestoData, ignoreCodes, verifyGest=False):
             self.logger.info("Articole cu coduri nesetate sau gestiuni lipsa, nu adaug")
@@ -1746,7 +1750,7 @@ class WinMentor(object):
         # Get partener from gesto
         gestoPartener = util.fixupCUI(gestoData["destination"]["code"])
         if gestoPartener == '':
-            gestoPartener = util.fixupCUI(gestoData["source"]["ro"])
+            gestoPartener = util.fixupCUI(gestoData["destination"]["ro"])
         self.logger.info("gestoPartener = {}".format(gestoPartener))
 
         if gestoPartener in self.multiplePartenerIDs:

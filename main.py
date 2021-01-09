@@ -684,7 +684,8 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
         startDate = dt.today().replace(day=1, hour=0, minute=0, second=0)
         startDate = startDate - timedelta(days=1)
         startDate = startDate.replace(day=1, hour=0, minute=0, second=0)
-        # startDate = datetime.datetime.strptime("2020-02-24", "%Y-%m-%d")
+        endDate = endDate - timedelta(days=1)
+        # startDate = datetime.datetime.strptime("2021-01-01", "%Y-%m-%d")
     elif operationType == "supplyOrder":
         startDate = dt.today().replace(hour=0, minute=0, second=0)
         # startDate = startDate - timedelta(days = 1)
@@ -694,7 +695,8 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
         startDate = dt.today().replace(day=1, hour=0, minute=0, second=0)
         startDate = startDate - timedelta(days=1)
         startDate = startDate.replace(day=1, hour=0, minute=0, second=0)
-        # startDate = datetime.datetime.strptime("2019-11-08", "%Y-%m-%d")
+        endDate = endDate - timedelta(days=1)
+        # startDate = datetime.datetime.strptime("2021-01-01", "%Y-%m-%d")
     elif operationType == "sale":
         if daysDelta!=1:
             # startDate = dt.today().replace(day=1, hour=0, minute=0, second=0)
