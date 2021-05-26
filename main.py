@@ -59,7 +59,7 @@ def generateWorkOrders(baseURL, branch, date, doVerify):
 
     retJSON = None
     token = tokens[branch]
-    logger.error("Gesto request token: {}".format(token))
+    logger.debug("Gesto request token: {}".format(token))
 
     r = requests.get(url, headers={'GESTOTOKEN': token})
 
@@ -116,7 +116,7 @@ def generateIntrariDinProductie(baseURL, branch, date, doVerify):
 
     retJSON = None
     token = tokens[branch]
-    logger.error("Gesto request token: {}".format(token))
+    logger.debug("Gesto request token: {}".format(token))
 
     r = requests.get(url, headers={'GESTOTOKEN': token})
 
@@ -164,7 +164,7 @@ def exportSummaryTransfers(baseURL, branch, date):
 
     retJSON = None
     token = tokens[branch]
-    logger.error("Gesto request token: {}".format(token))
+    logger.debug("Gesto request token: {}".format(token))
 
     r = requests.get(url, headers={'GESTOTOKEN': token})
 
@@ -202,7 +202,7 @@ def exportSummaryBonDeConsum(baseURL, branch, date):
 
     retJSON = None
     token = tokens[branch]
-    logger.error("Gesto request token: {}".format(token))
+    logger.debug("Gesto request token: {}".format(token))
 
     r = requests.get(url, headers={'GESTOTOKEN': token})
 
@@ -260,7 +260,7 @@ def generateMonetare(baseURL, branch, date):
 
     retJSON = None
     token = tokens[branch]
-    logger.error("Gesto request token: {}".format(token))
+    logger.debug("Gesto request token: {}".format(token))
 
     r = requests.get(url, headers={'GESTOTOKEN': token})
 
@@ -278,8 +278,8 @@ def generateMonetare(baseURL, branch, date):
 def getExportedDeliveryNotes(baseURL, startDate, endDate):
     logger.info(">>> {}()".format(inspect.stack()[0][3]))
     start = dt.now()
-
-    operationType = "reception"
+    
+    operationType = "reception,receptionImported"
     url = baseURL + "/operations/?"
     url += "&type=" + operationType
 
@@ -293,7 +293,7 @@ def getExportedDeliveryNotes(baseURL, startDate, endDate):
 
     retJSON = None
     token = util.getCfgVal("winmentor", "companyToken")
-    logger.error("Gesto request token: {}".format(token))
+    logger.debug("Gesto request token: {}".format(token))
 
     logger.info(url)
 
@@ -454,7 +454,7 @@ def exportComenziGest(baseURL, date, interval=1):
     startDate = startDate.replace(hour=0, minute=0, second=0, microsecond=0)
     # startDate = startDate.strftime("%d.%m.%Y")
 
-    # startDate = datetime.datetime.strptime("2020-02-01", "%Y-%m-%d")
+    # startDate = datetime.datetime.strptime("2021-02-02", "%Y-%m-%d")
 
     # end of month
     # endDate = date.replace(day=25)
@@ -690,13 +690,13 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
         startDate = dt.today().replace(hour=0, minute=0, second=0)
         # startDate = startDate - timedelta(days = 1)
         endDate = startDate + timedelta(days = daysDelta)
-    elif operationType == "return":
+    elif operationType in ("return", "notaConstatareDiferente"):
         # start of previousMonth
         startDate = dt.today().replace(day=1, hour=0, minute=0, second=0)
         startDate = startDate - timedelta(days=1)
         startDate = startDate.replace(day=1, hour=0, minute=0, second=0)
         endDate = endDate - timedelta(days=1)
-        # startDate = datetime.datetime.strptime("2021-01-01", "%Y-%m-%d")
+        # startDate = datetime.datetime.strptime("2021-02-02", "%Y-%m-%d")
     elif operationType == "sale":
         if daysDelta!=1:
             # startDate = dt.today().replace(day=1, hour=0, minute=0, second=0)
@@ -766,7 +766,7 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
 
     retJSON = None
     token = tokens[branch]
-    logger.error("Gesto request token: {}".format(token))
+    logger.debug("Gesto request token: {}".format(token))
 
     ret = []
 
@@ -863,7 +863,7 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
                     winmentor.addSupplyOrder(op)
                 elif op["type"] == "sale":
                     ret.append(winmentor.addSale(op))
-                elif op["type"] == "return":
+                elif op["type"] in ["return", "notaConstatareDiferente"]:
                     winmentor.addWorkOrderFromOperation(op)
 
                 # if ctr2==1:
@@ -968,7 +968,7 @@ def getGestoDocumentsMarkedForWinMentorExport(baseURL, branch):
     logger.debug(url)
 
     token = tokens[branch]
-    logger.error("Gesto request token: {}".format(token))
+    logger.debug("Gesto request token: {}".format(token))
 
     r = requests.get(url, headers={'GESTOTOKEN': token})
 
@@ -1047,7 +1047,7 @@ def getGestoDocumentsMarkedForWinMentorExport(baseURL, branch):
                 winmentor.addSupplyOrder(op)
             elif op["type"] == "sale":
                 winmentor.addSale(op)
-            elif op["type"] == "return":
+            elif op["type"] in ["return", "notaConstatareDiferente"]:
                 winmentor.addWorkOrderFromOperation(op)
 
             url = baseURL + "/operations/{}/exportedWinMentor/".format(op["id"])
@@ -1156,6 +1156,7 @@ if __name__ == "__main__":
         doExportReceptions = False
         doExportSales = False
         doExportReturns = False
+        doExportNotaConstatareDiferente = False
         doExportSupplyOrders = False
         doGenerateWorkOrders = False
         doGenerateIntrariDinProductie = False
@@ -1173,6 +1174,7 @@ if __name__ == "__main__":
             opts, args = getopt.getopt(sys.argv[1:],"h",["exportReceptions=",
                                      "exportSales=",
                                      "exportReturns=",
+                                     "exportNotaConstatareDiferente=",
                                      "exportSupplyOrders=",
                                      "generateWorkOrders=",
                                      "generateIntrariDinProductie=",
@@ -1192,11 +1194,11 @@ if __name__ == "__main__":
             logger.info(args)
 
         except getopt.GetoptError:
-            print '{} --exportReceptions=<> --generateWorkOrders=<> --generateIntrariDinProductie=<> --generateMonetare=<> --importAvize=<> --exportComenziGest=<> --exportSummaryTransfers=<> --exportSummaryBonDeConsum=<> --exportSales=<> --exportReturns=<> --exportSupplyOrders=<> --branches=<> --verify=<> --markedForWinMentorExport=<> --exportWinMentorData=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0])
+            print '{} --exportReceptions=<> --generateWorkOrders=<> --generateIntrariDinProductie=<> --generateMonetare=<> --importAvize=<> --exportComenziGest=<> --exportSummaryTransfers=<> --exportSummaryBonDeConsum=<> --exportSales=<> --exportReturns=<> --exportNotaConstatareDiferente=<> --exportSupplyOrders=<> --branches=<> --verify=<> --markedForWinMentorExport=<> --exportWinMentorData=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0])
             sys.exit(2)
         for opt, arg in opts:
             if opt == '-h':
-                print '{} --exportReceptions=<> --generateWorkOrders=<> --generateIntrariDinProductie=<> --generateMonetare=<> --importAvize=<> --exportComenziGest=<> --exportSummaryTransfers=<> --exportSummaryBonDeConsum=<> --exportSales=<> --exportReturns=<> --exportSupplyOrders=<> --branches=<> --verify=<> --markedForWinMentorExport=<> --exportWinMentorData=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0])
+                print '{} --exportReceptions=<> --generateWorkOrders=<> --generateIntrariDinProductie=<> --generateMonetare=<> --importAvize=<> --exportComenziGest=<> --exportSummaryTransfers=<> --exportSummaryBonDeConsum=<> --exportSales=<> --exportReturns=<> --exportNotaConstatareDiferente=<> --exportSupplyOrders=<> --branches=<> --verify=<> --markedForWinMentorExport=<> --exportWinMentorData=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0])
                 sys.exit()
             elif opt in ("--exportReceptions"):
                 doExportReceptions = bool(int(arg))
@@ -1204,6 +1206,8 @@ if __name__ == "__main__":
                 doExportSales = bool(int(arg))
             elif opt in ("--exportReturns"):
                 doExportReturns = bool(int(arg))
+            elif opt in ("--exportNotaConstatareDiferente"):
+                doExportNotaConstatareDiferente = bool(int(arg))
             elif opt in ("--exportSupplyOrders"):
                 doExportSupplyOrders = bool(int(arg))
             elif opt in ("--generateWorkOrders"):
@@ -1256,20 +1260,23 @@ if __name__ == "__main__":
 
         baseURL = util.getCfgVal("gesto", "url")
 
-        if markedForWinMentorExport:
-            logger.info( 'markedForWinMentorExport {}'.format(markedForWinMentorExport))
-            getGestoDocumentsMarkedForWinMentorExport(
-                            baseURL = baseURL,
-                            branch = branches[0]
-                        )
-        elif exportWinMentorData:
-            logger.info( 'exportWinMentorData {}'.format(exportWinMentorData))
-            getExportWinMentorData()
+        if markedForWinMentorExport or exportWinMentorData:
+            if markedForWinMentorExport:
+                logger.info( 'markedForWinMentorExport {}'.format(markedForWinMentorExport))
+                getGestoDocumentsMarkedForWinMentorExport(
+                                baseURL = baseURL,
+                                branch = branches[0]
+                            )
+            
+            if exportWinMentorData:
+                logger.info( 'exportWinMentorData {}'.format(exportWinMentorData))
+                getExportWinMentorData()            
 
         else:
             logger.info( 'exportReceptions {}'.format(doExportReceptions))
             logger.info( 'exportSales {}'.format(doExportSales))
             logger.info( 'exportReturns {}'.format(doExportReturns))
+            logger.info( 'exportNotaConstatareDiferente {}'.format(doExportNotaConstatareDiferente))
             logger.info( 'exportSupplyOrders {}'.format(doExportSupplyOrders))
             logger.info( 'generateWorkOrders {}'.format(doGenerateWorkOrders))
             logger.info( 'generateIntrariDinProductie {}'.format(doGenerateIntrariDinProductie))
@@ -1328,6 +1335,16 @@ if __name__ == "__main__":
                             baseURL = baseURL,
                             branch = branch,
                             operationType="return",
+                            endDate = endDate,
+                            daysDelta = daysDelta,
+                            )
+
+            if doExportNotaConstatareDiferente:
+                for branch in branches:
+                    gestoData = getGestoDocuments(
+                            baseURL = baseURL,
+                            branch = branch,
+                            operationType="notaConstatareDiferente",
                             endDate = endDate,
                             daysDelta = daysDelta,
                             )

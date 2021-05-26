@@ -1475,8 +1475,12 @@ class WinMentor(object):
         if rc:
             self.logger.info("SUCCESS: Adaugare factura")
         else:
-            self.logger.error(repr(self.getListaErori()))
-            1/0
+            errors = repr(self.getListaErori())
+            self.logger.error(errors)
+
+            util.send_email(
+                    subject = "WinMentor - Eroare la adaugare receptie la {}, {}, {}".format(gestoData["branch"], opDate, gestoData["relatedDocumentNo"]),
+                    msg = errors)
 
 
     @decorators.time_log
@@ -2021,7 +2025,8 @@ class WinMentor(object):
                 # "pret",
                 # "simbGest",
 
-                    txtWMDoc += "Item_{}={};{};1;{};{};{};{}\n".format(avans_idx, avansItem["name2"], wmArticol["DenUM"],
+                    txtWMDoc += "Item_{}={};{};{};{};{};{};{}\n".format(avans_idx, avansItem["name2"], wmArticol["DenUM"],
+                                                                avansItem["qty"],
                                                                 avansItem["opPrice"], simbGest, avansItem["opPrice"],
                                                                 avansItem["opPrice"])
                     avans_idx += 1
@@ -2278,7 +2283,7 @@ class WinMentor(object):
                 "simbGest",
                 ]
 
-        if simbolCarnet in ["NTA_G", "NTR_G", "NT_G"]:
+        if simbolCarnet in ["NTA_G", "NTR_G", "NT_G", "NTCD_G"]:
             keys.append("pret")
             keys.append("pret")
 
@@ -2380,7 +2385,7 @@ class WinMentor(object):
         txtWMDoc += "Data={:%d.%m.%Y}\n".format(kwargs.get("data"))
         txtWMDoc += "GestConsum={}\n".format(kwargs.get("gestiune"))
         txtWMDoc += "Operatie={}\n".format("A")
-        txtWMDoc += "Operat={}\n".format("D")
+        txtWMDoc += "Operat={}\n".format(kwargs.get("operat"))
         txtWMDoc += "TotalArticole={}\n".format(len(items))
         txtWMDoc += "SimbolCarnetLivr={}\n".format("DL_G")
         # txtWMDoc += "SimbolCarnetLivr={}\n".format("DL_G_2")
@@ -2734,6 +2739,8 @@ class WinMentor(object):
         if gestoData["type"] == "return":
             # wmGestiune = "DMR"
             wmGestiune = "DMP"
+        elif gestoData["type"] == "notaConstatareDiferente":
+            wmGestiune = "DepProdFinite"
         else:
             wmGestiune = self.matchGestiune(gestoData["branch"], tipGest, gestoData["id"])
 
@@ -2773,6 +2780,8 @@ class WinMentor(object):
             simbolCarnet = "NTR_G"
         elif gestoData["type"] == "reception":
             simbolCarnet = "NTA_G"
+        elif gestoData["type"] == "notaConstatareDiferente":
+            simbolCarnet = "NTCD_G"
         else:
             1/0
 
@@ -2935,9 +2944,11 @@ class WinMentor(object):
         if monthly:
             simbolCarnet = "BC_MP_G"
             simbGest = "Magazin {}MP".format(gestoData["branch"][:2])
+            operat="N"
         else:
             simbolCarnet = "BC_G"
             simbGest = "Magazin {}P".format(gestoData["branch"][:2])
+            operat="D"
 
         # Get lista articole from gesto, create array of articole pentru workOrders
         articoleWMDoc = []
@@ -2977,7 +2988,8 @@ class WinMentor(object):
                 observatii = gestoData["branch"],
                 observatiiLivr = gestoData["branch"],
                 gestiune = wmGestiune,
-                items = articoleWMDoc
+                items = articoleWMDoc,
+                operat = operat
                 )
 
         if rc:
