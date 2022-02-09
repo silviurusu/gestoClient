@@ -1,7 +1,7 @@
 <!-- replaceWithHTMLCodes -->
 {%if missingCodes|length != 0%}
 Urmatoarele {{missingCodes|length}} produse nu au setate coduri in WinMentor:<br/>
-{% for key,p in missingCodes.items  %}
+{% for key,p in missingCodes.items %}
     {{p.item.name}}, {{p.item.code}} --- {{p.details}}
 {% endfor %}
 {%endif%}
@@ -9,7 +9,7 @@ Urmatoarele {{missingCodes|length}} produse nu au setate coduri in WinMentor:<br
 
 {%if missingDefaultGest|length != 0%}
 Urmatoarele {{missingDefaultGest|length}} produse nu au gestiuni default in WinMentor:<br/>
-{% for key,p in missingDefaultGest.items  %}
+{% for key,p in missingDefaultGest.items %}
     {{p.item.name}}, {{p.item.winMentorCode}} --- {{p.details}}
 {% endfor %}
 {%endif%}
@@ -17,7 +17,7 @@ Urmatoarele {{missingDefaultGest|length}} produse nu au gestiuni default in WinM
 
 {%if productsMissingWMCodes|length != 0%}
 Urmatoarele {{productsMissingWMCodes|length}} produse nu au coduri in WinMentor:<br/>
-{% for p in productsMissingWMCodes  %}
+{% for p in productsMissingWMCodes %}
     {{p}}
 {% endfor %}
 {%endif%}
@@ -25,7 +25,7 @@ Urmatoarele {{productsMissingWMCodes|length}} produse nu au coduri in WinMentor:
 
 {%if missingWMCodes|length != 0%}
 Urmatoarele {{missingWMCodes|length}} coduri nu apar in WinMentor:<br/>
-{% for p in missingWMCodes  %}
+{% for p in missingWMCodes %}
     {{p}} --- {{p.details}}
 {% endfor %}
 {%endif%}

@@ -17,12 +17,13 @@ import traceback
 import inspect
 from django.template import loader, Context
 import django
+import decorators
 
 
+
+@decorators.time_log
 def generateWorkOrders(baseURL, branch, date, doVerify):
     # ajung in mentor in NT_G
-    logger.info(">>> {}()".format(inspect.stack()[0][3]))
-    start = dt.now()
 
     url = baseURL + "/products/summary/?"
     companyName = util.getCfgVal("winmentor", "companyName")
@@ -31,7 +32,6 @@ def generateWorkOrders(baseURL, branch, date, doVerify):
     else:
         if branch != "Sediu":
             logger.info("Only generate transfers for Sediu, not for {}".format(branch))
-            logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
             return True
 
         url += "type=sale"
@@ -81,15 +81,12 @@ def generateWorkOrders(baseURL, branch, date, doVerify):
         else:
             ret = False
 
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
     return ret
 
 # NP_G
 # productie - exectie - intrari din productie
+@decorators.time_log
 def generateIntrariDinProductie(baseURL, branch, date, doVerify):
-    logger.info(">>> {}()".format(inspect.stack()[0][3]))
-    start = dt.now()
-
     url = baseURL + "/products/summary/?"
     url += "type=workOrder"
 
@@ -137,15 +134,12 @@ def generateIntrariDinProductie(baseURL, branch, date, doVerify):
         else:
             ret = False
 
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
     return ret
 
 # bonuri de consum
 # BC_G
+@decorators.time_log
 def exportSummaryTransfers(baseURL, branch, date):
-    logger.info(">>> {}()".format(inspect.stack()[0][3]))
-    start = dt.now()
-
     url = baseURL + "/products/summary/?"
     url += "type=transfer"
     url += "&winMentor=1"
@@ -176,13 +170,9 @@ def exportSummaryTransfers(baseURL, branch, date):
         retJSON = r.json()
         winmentor.addProductSummary(retJSON, dateEnd)
 
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
-
+@decorators.time_log
 def exportSummaryBonDeConsum(baseURL, branch, date):
-    logger.info(">>> {}()".format(inspect.stack()[0][3]))
-    start = dt.now()
-
     url = baseURL + "/products/summary/?"
     url += "type=bon_de_consum"
     url += "&winMentor=1"
@@ -214,13 +204,9 @@ def exportSummaryBonDeConsum(baseURL, branch, date):
         retJSON = r.json()
         winmentor.addProductSummary(retJSON, dateEnd, monthly=True)
 
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
-
+@decorators.time_log
 def generateMonetare(baseURL, branch, date):
-    logger.info(">>> {}()".format(inspect.stack()[0][3]))
-    start = dt.now()
-
     logger.info("Generate monetare for {}, {}".format(branch, tokens[branch]))
 
     # add monetare for the previous day
@@ -241,9 +227,8 @@ def generateMonetare(baseURL, branch, date):
                                 daysDelta = 1,
                                 )
 
-        if sales_details is not None and None in sales_details:
+        if sales_details is not None and False in sales_details:
             # there are problems with the sale export
-            logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
             return
 
     url = baseURL + "/products/summary/?"
@@ -272,13 +257,9 @@ def generateMonetare(baseURL, branch, date):
         retJSON = r.json()
         winmentor.addMonetare(retJSON, sales_details)
 
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
-
+@decorators.time_log
 def getExportedDeliveryNotes(baseURL, startDate, endDate):
-    logger.info(">>> {}()".format(inspect.stack()[0][3]))
-    start = dt.now()
-    
     operationType = "reception,receptionImported"
     url = baseURL + "/operations/?"
     url += "&type=" + operationType
@@ -309,6 +290,8 @@ def getExportedDeliveryNotes(baseURL, startDate, endDate):
 
     if r.status_code != 200:
         logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
+
+        1/0
     else:
         retJSON = r.json()
         logger.debug("\n%s",
@@ -367,13 +350,11 @@ def getExportedDeliveryNotes(baseURL, startDate, endDate):
                     )
                 )
 
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
     return ret
 
-def needs_exporting(comanda, exported_receptions_notes):
-    logger.info(">>> {}()".format(inspect.stack()[0][3]))
-    start = dt.now()
 
+@decorators.time_log
+def needs_exporting(comanda, exported_receptions_notes):
     logger.info(json.dumps(
             comanda,
             sort_keys=True,
@@ -411,8 +392,9 @@ def needs_exporting(comanda, exported_receptions_notes):
 
                 for (i1, i2) in zip(comanda_items, exported_op_items):
                     if any([i1["winMentorCode"] != i2["winMentorCode"],
-                            i1["qty"] != i2["qty"],
-                            i1["opPrice"] != i2["opPrice"]]):
+                            i1["qty"] != i2["qty"]]):
+                        # i1["opPrice"] != i2["opPrice"]
+                        # pretul se poate modifica in WinMentor si atunci se vor reprelua receptiile, in mod incorect
                         logger.info("i1: {}".format(i1))
                         logger.info("i2: {}".format(i2))
                         ret = True
@@ -420,10 +402,10 @@ def needs_exporting(comanda, exported_receptions_notes):
 
     logger.info("ret: {}".format(ret))
 
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
     return ret
 
 
+@decorators.time_log
 def exportComenziGest(baseURL, date, interval=1):
     """
     Se exporta comenzile de la gestiuni, ajung receptii in Gesto
@@ -432,8 +414,6 @@ def exportComenziGest(baseURL, date, interval=1):
                   2 - 20 days
     :return:
     """
-    logger.info(">>> {}()".format(inspect.stack()[0][3]))
-    start = dt.now()
 
     # logger.info(date)
     # logger.info(type(date))
@@ -568,9 +548,6 @@ def exportComenziGest(baseURL, date, interval=1):
 
 
 def importAvize(baseURL, date):
-    logger.info(">>> {}()".format(inspect.stack()[0][3]))
-    start = dt.now()
-
     deliveryNotes = winmentor.getTransferuri(date)
 
     opStr = {
@@ -648,13 +625,12 @@ def importAvize(baseURL, date):
             opStr.pop('date', None)
         opStr.pop('source', None)
 
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
-
 
 # return: NTR_G
 # reception: NTA_G
 # sale: FI_G
-def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate = None, daysDelta = 7):
+@decorators.time_log
+def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate = None, work_date = None, daysDelta = 7):
     """
     @param branch: Gesto branch used for request
     @tparam [datetime] startDate: first day of request, defaults to today
@@ -662,11 +638,9 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
     @return processed json if successfull, None otherwise
 
     """
-    logger.info(">>> {}()".format(inspect.stack()[0][3]))
-    start = dt.now()
 
-    logger.debug("endDate: {}".format(endDate))
-    logger.debug("daysDelta: {}".format(daysDelta))
+    if work_date is None:
+        work_date = dt.today()
 
     # opDate = datetime.datetime.strptime("2018-06-01", "%Y-%m-%d")
     # winmentor.transferExists(10, opDate)
@@ -685,18 +659,23 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
         startDate = startDate - timedelta(days=1)
         startDate = startDate.replace(day=1, hour=0, minute=0, second=0)
         endDate = endDate - timedelta(days=1)
-        # startDate = datetime.datetime.strptime("2021-01-01", "%Y-%m-%d")
+        # startDate = datetime.datetime.strptime("2022-01-26", "%Y-%m-%d")
+        # endDate = datetime.datetime.strptime("2022-02-01", "%Y-%m-%d")
     elif operationType == "supplyOrder":
-        startDate = dt.today().replace(hour=0, minute=0, second=0)
+        startDate = work_date.replace(hour=0, minute=0, second=0)
         # startDate = startDate - timedelta(days = 1)
-        endDate = startDate + timedelta(days = daysDelta)
+        # endDate = startDate + timedelta(days = daysDelta)
+        endDate = startDate + timedelta(days = 1)
+        # startDate = datetime.datetime.strptime("2021-10-25", "%Y-%m-%d")
+        # endDate = datetime.datetime.strptime("2021-10-26", "%Y-%m-%d")
     elif operationType in ("return", "notaConstatareDiferente"):
         # start of previousMonth
         startDate = dt.today().replace(day=1, hour=0, minute=0, second=0)
         startDate = startDate - timedelta(days=1)
         startDate = startDate.replace(day=1, hour=0, minute=0, second=0)
         endDate = endDate - timedelta(days=1)
-        # startDate = datetime.datetime.strptime("2021-02-02", "%Y-%m-%d")
+        # startDate = datetime.datetime.strptime("2022-01-10", "%Y-%m-%d")
+        # endDate = datetime.datetime.strptime("2022-01-17", "%Y-%m-%d")
     elif operationType == "sale":
         if daysDelta!=1:
             # startDate = dt.today().replace(day=1, hour=0, minute=0, second=0)
@@ -737,7 +716,7 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
         url = baseURL + "/operations/{}/?".format(id)
     else:
         url = baseURL + "/operations/?"
-        url += "&type="+operationType
+        url += "&type=" + operationType
 
         if startDate is not None:
             startDate = util.getTimestamp(startDate)
@@ -789,7 +768,6 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
         totalRecords = retJSON["range"]["totalRecords"]
         if totalRecords == 0:
             logger.info("{} {}".format(totalRecords, operationType))
-            logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
             return
 
         if retJSON["data"][0]["simbolWinMentorReception"] in [None, "nil",]:
@@ -799,8 +777,6 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
                     subject = txtMail,
                     msg = txtMail
                     )
-
-            logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
             return
 
         totalRecords = retJSON["range"]["totalRecords"]
@@ -808,7 +784,7 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
 
         pageSize = 100
         pagesCount = int((totalRecords + pageSize - 1) / pageSize)
-        print "pagesCount: {}".format(pagesCount)
+        print("pagesCount: {}".format(pagesCount))
 
         for ctr in range(1, pagesCount + 1):
             urlPage = url + "&pageSize="+str(pageSize)
@@ -848,6 +824,8 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
                     or int(gestoPartener) < 0:
                         winmentor.addReception(op)
                     else:
+                        # if op["id"] != 108814842:
+                        #     continue
                         deliveryNoteReceptionsDate = datetime.datetime.strptime("2018-06-01", "%Y-%m-%d")
                         opDate = dt.utcfromtimestamp(op["documentDate"])
                         logger.info("deliveryNoteReceptionsDate = {}".format(deliveryNoteReceptionsDate))
@@ -869,14 +847,11 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
                 # if ctr2==1:
                 #     1/0
 
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
     return ret
 
 
+@decorators.time_log
 def getExportWinMentorData():
-    logger.info(">>> {}()".format(inspect.stack()[0][3]))
-    start = dt.now()
-
     baseURL = util.getCfgVal("gesto", "url")
     token = util.getCfgVal("winmentor", "companyToken")
     url = baseURL + "/report/exportWinMentorData/"
@@ -912,8 +887,8 @@ def getExportWinMentorData():
                     if report_data["verify"] in ["no verify requested", "success", ]:
                         # email is sent from Gesto if there is any problem
                         ret = winmentor.addIntrariDinProductie(report_data)
-                    elif report_data["verify"] == "No Vectron data":
-                        ret = True
+                    # elif report_data["verify"] == "No Vectron data":
+                    #     ret = True
                     else:
                         ret = False
                 elif retJSON["report_data"]["data"] == "transferuri":
@@ -923,8 +898,8 @@ def getExportWinMentorData():
                     if report_data["verify"] in ["no verify requested", "success", ]:
                         # email is sent from Gesto if there is any problem
                         ret = winmentor.addWorkOrders(report_data)
-                    elif report_data["verify"] == "No Vectron data":
-                        ret = True
+                    # elif report_data["verify"] == "No Vectron data":
+                    #     ret = True
                     else:
                         ret = False
                 elif retJSON["report_data"]["data"] == "bonuri_de_consum":
@@ -951,15 +926,12 @@ def getExportWinMentorData():
                 logger.info("report id is null")
                 break
 
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
-
+@decorators.time_log
 def getGestoDocumentsMarkedForWinMentorExport(baseURL, branch):
     """
     @param branch: Gesto branch used for request
     """
-    logger.info(">>> {}()".format(inspect.stack()[0][3]))
-    start = dt.now()
 
     logger.info("Getting all operations marked for WinMentorExport")
     url = baseURL + "/operations/?"
@@ -989,7 +961,6 @@ def getGestoDocumentsMarkedForWinMentorExport(baseURL, branch):
         totalRecords = retJSON["range"]["totalRecords"]
         logger.info("{} operations".format(totalRecords))
         if totalRecords == 0:
-            logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
             return
 
         if retJSON["data"][0]["simbolWinMentorReception"] in [None, "nil",]:
@@ -1000,7 +971,6 @@ def getGestoDocumentsMarkedForWinMentorExport(baseURL, branch):
                     msg = txtMail
                     )
 
-            logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
             return
 
         totalRecords = retJSON["range"]["totalRecords"]
@@ -1011,6 +981,8 @@ def getGestoDocumentsMarkedForWinMentorExport(baseURL, branch):
 
         for ctr, op in enumerate(retJSON["data"], start=1):
             logger.debug("{}, {}, {}".format(ctr, totalRecords, op["id"]))
+
+            is_exported_OK = True
 
             opDate = dt.utcfromtimestamp(op["documentDate"])
             if opDate.month != currentMonth and opDate.year != currentYear:
@@ -1044,20 +1016,27 @@ def getGestoDocumentsMarkedForWinMentorExport(baseURL, branch):
                 # 1/0
 
             elif op["type"] == "supplyOrder":
-                winmentor.addSupplyOrder(op)
+                if not op["products_missing_category"]:
+                    winmentor.addSupplyOrder(op)
+                pass
             elif op["type"] == "sale":
-                winmentor.addSale(op)
+                add_doc_ret = winmentor.addSale(op)
+                if add_doc_ret == False:
+                    is_exported_OK = False
             elif op["type"] in ["return", "notaConstatareDiferente"]:
                 winmentor.addWorkOrderFromOperation(op)
+            elif op["type"] in ["scrap"]:
+                add_doc_ret = winmentor.addNotaDiminuareStoc(op)
+                if add_doc_ret == False:
+                    is_exported_OK = False
 
-            url = baseURL + "/operations/{}/exportedWinMentor/".format(op["id"])
-            r = requests.put(url, headers={'GESTOTOKEN': token})
-            logger.info(r)
+            if is_exported_OK:
+                url = baseURL + "/operations/{}/exportedWinMentor/".format(op["id"])
+                r = requests.put(url, headers={'GESTOTOKEN': token})
+                logger.info(r)
 
             # if ctr==1:
             #     1/0
-
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
 
 def setup_logging(
@@ -1085,6 +1064,13 @@ def setup_logging(
                             folder,
                             dt.strftime(dt.now(), "%Y_%m_%d__%H_%M.log")
                             )
+
+                    if os.path.exists(path):
+                        path = os.path.join(
+                            folder,
+                            dt.strftime(dt.now(), "%Y_%m_%d__%H_%M__%f.log")
+                            )
+
                     if not os.path.exists(folder):
                         os.mkdir(folder)
                     dhandler["filename"] = path
@@ -1151,8 +1137,7 @@ if __name__ == "__main__":
 
         branches_default = True
 
-        workdate = dt.today()
-
+        workdate = None
         doExportReceptions = False
         doExportSales = False
         doExportReturns = False
@@ -1194,11 +1179,11 @@ if __name__ == "__main__":
             logger.info(args)
 
         except getopt.GetoptError:
-            print '{} --exportReceptions=<> --generateWorkOrders=<> --generateIntrariDinProductie=<> --generateMonetare=<> --importAvize=<> --exportComenziGest=<> --exportSummaryTransfers=<> --exportSummaryBonDeConsum=<> --exportSales=<> --exportReturns=<> --exportNotaConstatareDiferente=<> --exportSupplyOrders=<> --branches=<> --verify=<> --markedForWinMentorExport=<> --exportWinMentorData=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0])
+            print('{} --exportReceptions=<> --generateWorkOrders=<> --generateIntrariDinProductie=<> --generateMonetare=<> --importAvize=<> --exportComenziGest=<> --exportSummaryTransfers=<> --exportSummaryBonDeConsum=<> --exportSales=<> --exportReturns=<> --exportNotaConstatareDiferente=<> --exportSupplyOrders=<> --branches=<> --verify=<> --markedForWinMentorExport=<> --exportWinMentorData=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0]))
             sys.exit(2)
         for opt, arg in opts:
             if opt == '-h':
-                print '{} --exportReceptions=<> --generateWorkOrders=<> --generateIntrariDinProductie=<> --generateMonetare=<> --importAvize=<> --exportComenziGest=<> --exportSummaryTransfers=<> --exportSummaryBonDeConsum=<> --exportSales=<> --exportReturns=<> --exportNotaConstatareDiferente=<> --exportSupplyOrders=<> --branches=<> --verify=<> --markedForWinMentorExport=<> --exportWinMentorData=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0])
+                print('{} --exportReceptions=<> --generateWorkOrders=<> --generateIntrariDinProductie=<> --generateMonetare=<> --importAvize=<> --exportComenziGest=<> --exportSummaryTransfers=<> --exportSummaryBonDeConsum=<> --exportSales=<> --exportReturns=<> --exportNotaConstatareDiferente=<> --exportSupplyOrders=<> --branches=<> --verify=<> --markedForWinMentorExport=<> --exportWinMentorData=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0]))
                 sys.exit()
             elif opt in ("--exportReceptions"):
                 doExportReceptions = bool(int(arg))
@@ -1231,7 +1216,7 @@ if __name__ == "__main__":
                 try:
                     workdate = dt.strptime(arg, "%Y-%m-%d")
                 except NoOptionError as e:
-                    pass
+                    workdate = None
             elif opt in ("--verify"):
                 doVerify = bool(int(arg))
             elif opt in ("--markedForWinMentorExport"):
@@ -1244,13 +1229,13 @@ if __name__ == "__main__":
 
         if markedForWinMentorExport:
             if dt.now().hour == 12 and dt.now().minute == 5:
-                logger.info(">>> E ora 12.05, nu prelua documentele")
+                logger.info("E ora 12.05, nu prelua documentele")
 
                 logger.info("END")
-                logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
                 exit()
 
-        tokens = util.getCfgOptsDict("tokens")
+        # tokens = util.getCfgOptsDict("tokens")
+        tokens = util.getTokens()
 
         # Connect to winmentor
         winmentor = WinMentor(firma = util.getCfgVal("winmentor", "firma"), an=start.year, luna=start.month)
@@ -1267,10 +1252,10 @@ if __name__ == "__main__":
                                 baseURL = baseURL,
                                 branch = branches[0]
                             )
-            
+
             if exportWinMentorData:
                 logger.info( 'exportWinMentorData {}'.format(exportWinMentorData))
-                getExportWinMentorData()            
+                getExportWinMentorData()
 
         else:
             logger.info( 'exportReceptions {}'.format(doExportReceptions))
@@ -1293,7 +1278,12 @@ if __name__ == "__main__":
             logger.info("Using workdate: {}".format(workdate))
 
             # end of day
-            endDate = workdate.replace(hour=23, minute=59, second=59)
+            if workdate is None:
+                endDate = dt.today()
+            else:
+                endDate = workdate
+
+            endDate = endDate.replace(hour=23, minute=59, second=59)
             logger.info("Using end date: {}".format(endDate))
 
             if doExportReceptions:
@@ -1355,9 +1345,7 @@ if __name__ == "__main__":
                             baseURL = baseURL,
                             branch = branch,
                             operationType="supplyOrder",
-                            endDate = endDate,
-                            # daysDelta = daysDelta,
-                            daysDelta = 1,
+                            work_date = workdate
                             )
 
             if doExportComenziGest:
@@ -1436,11 +1424,11 @@ if __name__ == "__main__":
         winmentor.sendIncorrectWinMentorProductsMail()
         winmentor.sendComenziWithProblemsMail()
 
-
     except Exception as e:
-        print repr(e)
+        print(repr(e))
         logger.exception(repr(e))
         util.newException(e)
 
-    logger.info("END")
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+    finally:
+        logger.info("END")
+        logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))

@@ -8,3 +8,7 @@
 /debug/*
 /config_documentNo_local.ini
 /wmclient.py
+.vscode/launch.json
+.vscode/settings.json
+errors.log
+info.log

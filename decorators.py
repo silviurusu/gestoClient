@@ -50,10 +50,16 @@ def time_log(print_args=True):
                 #     util1.util.traceRequest(request)
 
                 if len(args) > 0:
-                    logger.info("positional args:")
                     for ctr, arg in enumerate(args, start=1):
-                        if isinstance(arg, dict) and "request" in arg:
-                            logger.info(" arg {}: {}".format(ctr, "don't trace this argument, contains request"))
+                        if isinstance(arg, dict):
+                            if "request" in arg:
+                                logger.info(" arg {}: {}".format(ctr, "don't trace this argument, contains request"))
+                            elif any(["documentNo" in arg and "ops" in arg and func.__name__ == "needs_exporting"]):
+                                logger.info(" arg {}: don't trace operation string json, {}".format(ctr, func.__name__))
+                            else:
+                                logger.info(arg)
+                        elif str(type(arg)) == "<class 'winmentor.WinMentor'>":
+                            pass
                         else:
                             logger.info(arg)
 
