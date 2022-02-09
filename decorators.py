@@ -11,6 +11,7 @@ import util
 from django.core.handlers.wsgi import WSGIRequest
 # from django.shortcuts import render
 from django.http import HttpResponse
+from django.template.response import ContentNotRenderedError
 
 logger = logging.getLogger(name = __name__)
 
@@ -51,15 +52,16 @@ def time_log(print_args=True):
                 #     util1.util.traceRequest(request)
 
                 if len(args) > 0:
-                    logger.info("positional args:")
                     for ctr, arg in enumerate(args, start=1):
                         if isinstance(arg, dict):
                             if "request" in arg:
-                                logger.info(" arg {}: don't trace this argument, contains request".format(ctr))
-                            elif "companySource" in arg and func.__name__ not in ["verifyProductUpdate", "importOperation", "processOperationStrings", ]:
+                                logger.info(" arg {}: {}".format(ctr, "don't trace this argument, contains request"))
+                            elif any(["documentNo" in arg and "ops" in arg and func.__name__ == "needs_exporting"]):
                                 logger.info(" arg {}: don't trace operation string json, {}".format(ctr, func.__name__))
                             else:
                                 util.log_json(arg, indent=None)
+                        elif str(type(arg)) == "<class 'winmentor.WinMentor'>":
+                            pass
                         else:
                             logger.info(arg)
 

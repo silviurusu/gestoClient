@@ -4,7 +4,7 @@ Buna ziua,
 {{subject}}
 
 Urmatoarele {{comenziWithProblems|length}} comenzi contin produse cu coduri WinMentor lipsa:
-{% for key, c in comenziWithProblems.items  %}
+{% for key, c in comenziWithProblems.items %}
     {{c.destination}} - {{c.documentNo}} - {{c.date}}
         {% for p in c.items%}Cantitate: {{p.qty}}{% endfor %}
 {% endfor %}

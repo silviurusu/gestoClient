@@ -2,6 +2,7 @@ import datetime
 import collections
 from django.core.mail import EmailMessage
 import logging
+import functools
 import re
 import inspect
 from ConfigParser import SafeConfigParser, NoOptionError, NoSectionError
@@ -21,7 +22,7 @@ def newException(e):
     try:
         # new Exception for today
         template = loader.get_template("mail/admin/exception.html")
-        subject = "Exception at {0}()".format(inspect.stack()[1][3])
+        subject = "Exception at {}()".format(inspect.stack()[1][3])
 
         html_part = template.render({
             "subject": subject,
@@ -108,7 +109,7 @@ def getCfgOptsDict(section):
     for opt in cfg.options(section):
         ret[opt] = cfg.get(section, opt)
 
-    log_json(ret)
+    logger.info(json.dumps(ret, sort_keys=True, indent=4, separators=(',', ': '), default=defaultJSON))
     return ret
 
 
@@ -129,7 +130,7 @@ def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGes
     if replaceWithHTMLCodes or msg.find("<!-- replaceWithHTMLCodes -->") != -1:
         # msg = msg.replace("<", "&lt;")
         # msg = msg.replace(">", "&gt;")
-        msg = msg.replace(" ", "&nbsp;")
+        msg = msg.replace("    ", "&nbsp;&nbsp;&nbsp;&nbsp;")
         # this one goes last
         msg = msg.replace("\n", "<br/>")
 
@@ -175,11 +176,11 @@ def getNumber(arg, decimal_places=4):
 
 
 def printArray(array):
-    print ""
+    print("")
     for item in array:
-        print item
+        print(item)
 
-    print ""
+    print("")
 
 
 def defaultJSON(obj):
@@ -257,3 +258,35 @@ def fixupCUI(cui):
 def log_json(myjson, indent=2):
     # logger.info(myjson)
     logger.info(json.dumps(myjson, sort_keys=True, indent=indent, separators=(',', ': '), default=defaultJSON))
+
+
+@decorators.time_log
+def getTokens():
+    import requests
+
+    baseURL = getCfgVal("gesto", "url")
+    token = getCfgVal("winmentor", "companyToken")
+    url = baseURL + "/poses/?active=1"
+
+    logger.info(url)
+
+    r = requests.get(url, headers={'GESTOTOKEN': token})
+
+    if r.status_code != 200:
+        logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
+        1 / 0
+    else:
+        retJSON = r.json()
+        logger.debug("\n%s",
+                    json.dumps(
+                        retJSON,
+                        sort_keys=True,
+                        indent=4,
+                        separators=(',', ': '),
+                        default=defaultJSON
+                        )
+                    )
+
+        tokens = dict([(pos["branch"]["name"], str(pos["serialNum"])) for pos in retJSON["data"]])
+
+        return tokens
