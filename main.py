@@ -607,6 +607,7 @@ def importAvize(baseURL, date):
                         opStr["items"].append(item)
 
                     util.log_json(opStr)
+
                     opStrText = json.dumps(opStr, default=util.defaultJSON)
 
                     r = requests.post(baseURL+"/importOperation/", data = opStrText)
@@ -630,7 +631,7 @@ def importAvize(baseURL, date):
     exported_delivery_notes_document_nos = exported_delivery_notes.keys()
     logger.info("{} exported_delivery_notes: {}".format(len(exported_delivery_notes_document_nos), exported_delivery_notes_document_nos))
 
-    if len(exported_delivery_notes_document_nos) != len(winMentorDocumentNos):
+    if len(winMentorDocumentNos) != 0 and len(exported_delivery_notes_document_nos) != len(winMentorDocumentNos):
         deleted_delivery_notes = []
 
         for dn in exported_delivery_notes_document_nos:
@@ -1190,7 +1191,10 @@ if __name__ == "__main__":
         tokens = util.getCfgOptsDict("tokens")
 
         # Connect to winmentor
-        winmentor = WinMentor(firma = util.getCfgVal("winmentor", "firma"), an=start.year, luna=start.month)
+        winmentor = WinMentor(firma = util.getCfgVal("winmentor", "firma"),
+                              companyName = util.getCfgVal("winmentor", "companyName"),
+                              an=start.year,
+                              luna=start.month)
         if not winmentor:
             logger.error("Failed to get winmentor object")
             1/0

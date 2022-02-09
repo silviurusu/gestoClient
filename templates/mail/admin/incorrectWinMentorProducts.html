@@ -25,8 +25,8 @@ Urmatoarele {{productsMissingWMCodes|length}} produse nu au coduri in WinMentor:
 
 {%if missingWMCodes|length != 0%}
 Urmatoarele {{missingWMCodes|length}} coduri nu apar in WinMentor:<br/>
-{% for p in missingWMCodes  %}
-    {{p}} --- {{p.details}}
+{% for key,p in missingWMCodes.items  %}
+    {{p.item.name}}, {{p.item.winMentorCode}} --- {{p.details}}
 {% endfor %}
 {%endif%}
 
