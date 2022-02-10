@@ -2,7 +2,6 @@ import datetime
 import collections
 from django.core.mail import EmailMessage
 import logging
-import functools
 import re
 import inspect
 from ConfigParser import SafeConfigParser, NoOptionError, NoSectionError
@@ -109,7 +108,7 @@ def getCfgOptsDict(section):
     for opt in cfg.options(section):
         ret[opt] = cfg.get(section, opt)
 
-    logger.info(json.dumps(ret, sort_keys=True, indent=4, separators=(',', ': '), default=defaultJSON))
+    log_json(ret)
     return ret
 
 
