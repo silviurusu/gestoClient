@@ -11,6 +11,8 @@ import util
 from django.core.handlers.wsgi import WSGIRequest
 # from django.shortcuts import render
 from django.http import HttpResponse
+from django.template.response import ContentNotRenderedError
+
 
 logger = logging.getLogger(name = __name__)
 
@@ -58,7 +60,7 @@ def time_log(print_args=True):
                             elif any(["documentNo" in arg and "ops" in arg and func.__name__ == "needs_exporting"]):
                                 logger.info(" arg {}: don't trace operation string json, {}".format(ctr, func.__name__))
                             else:
-                                logger.info(arg)
+                                util.log_json(arg, indent=None)
                         elif str(type(arg)) == "<class 'winmentor.WinMentor'>":
                             pass
                         else:
