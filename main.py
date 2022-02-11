@@ -560,8 +560,6 @@ def importAvize(baseURL, date):
                     opStr["documentDate"] = util.getTimestamp(documentDate)
                     opStr["documentDateHuman"] = documentDate.strftime("%d/%m/%Y %H:%M:%S")
 
-                    do10 = False
-
                     if documentNo in exported_delivery_notes:
                         exported_document = exported_delivery_notes[documentNo]
                         exp_val = Decimal("{:.2f}".format(exported_document["value"]))
