@@ -267,7 +267,10 @@ def getExportedDeliveryNotes(baseURL, startDate, endDate):
 
     url += "&dateBegin={}".format(util.getTimestamp(startDate))
     url += "&dateEnd={}".format(util.getTimestamp(endDate))
-    url += "&returnFields=relatedDocumentNo,itemsCount,value,documentNo,documentDate,simbolWinMentorDeliveryNote"
+
+    companyName = util.getCfgVal("winmentor", "companyName")
+    if companyName == "Andalusia":
+        url += "&returnFields=relatedDocumentNo,itemsCount,value,documentNo,documentDate,simbolWinMentorDeliveryNote"
 
     filterCUI = util.getCfgVal("receptions", "excludeCUI")
     if filterCUI not in [None, "", ]:

@@ -1269,7 +1269,7 @@ class WinMentor(object):
 
             return
 
-        self.logger.info("relatedDocumentNo: {}".format(gestoData["relatedDocumentNo"]))
+        self.logger.info("relatedDocumentNo: >{}<".format(gestoData["relatedDocumentNo"]))
 
         ignoreCodes = []
         if self.companyName == "Panemar morarit si panificatie SRL":
@@ -1743,11 +1743,6 @@ class WinMentor(object):
         if len(gestoData["items"]) == 0:
             self.logger.info("Nu am nici un produs pe vanzare")
             return
-
-        ignoreCodes = []
-        if self.companyName == "Panemar morarit si panificatie SRL":
-            ignoreCodes = [ 816, 825, 827, 830, 831, 832, 834, 840, 841, 850, 851, 852, 853, 854, 855, 856,
-                860, 861, 862, 1510, 5503, 5504, 1111, 1112, 1113 ]
 
         ignoreCodes = []
         if self.companyName == "Panemar morarit si panificatie SRL":
