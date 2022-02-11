@@ -1599,9 +1599,6 @@ class WinMentor(object):
         self.setLunaLucru(opDate.month, opDate.year)
 
         if self.companyName == "Panemar morarit si panificatie SRL":
-
-        if self.companyName == "Panemar morarit si panificatie SRL":
-
             # Get lista articole from gesto, create array of articole pentru comanda
             # materia prima si marfa ajung in gestiuni diferite
             # materia prima are cod > 5000
