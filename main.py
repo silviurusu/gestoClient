@@ -321,10 +321,9 @@ def getExportedDeliveryNotes(baseURL, startDate, endDate):
 @decorators.time_log
 def needs_exporting(comanda, exported_receptions_notes):
     ret = False
-    if comanda["documentNo"] not in exported_receptions_notes["documentNo"]:
-        ret = True
-    else:
-        exported_op = exported_receptions_notes["ops"][comanda["documentNo"]]
+
+    try:
+        exported_op = exported_receptions_notes[comanda["documentNo"]]
         util.log_json(exported_op)
 
         logger.info("{} - {},  {} - {}".format(comanda["date"], exported_op["date"], comanda["destination"], exported_op["destination"]))
@@ -350,6 +349,8 @@ def needs_exporting(comanda, exported_receptions_notes):
                         logger.info("i2: {}".format(i2))
                         ret = True
                         break
+    except IndexError:
+        ret = True
 
     logger.info("ret: {}".format(ret))
 
