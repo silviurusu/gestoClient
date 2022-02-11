@@ -2354,9 +2354,9 @@ class WinMentor(object):
                 "pret",
                 ]
 
-        for idx, item in enumerate(items):
+        for idx, item in enumerate(items, start=1):
             txtProd = self._dictToColonList(keys, item)
-            txtWMDoc += "Item_{}={}\n".format(idx + 1, txtProd) # articolele incep de la 1
+            txtWMDoc += "Item_{}={}\n".format(idx, txtProd)
 
         self.logger.debug("txtWMDoc: \n{}".format(txtWMDoc))
 
@@ -2419,7 +2419,7 @@ class WinMentor(object):
 
         for idx, item in enumerate(items, start=1):
             txtProd = self._dictToColonList(keys, item)
-            txtWMDoc += "Item_{}={}\n".format(idx + 1, txtProd)
+            txtWMDoc += "Item_{}={}\n".format(idx, txtProd)
 
         self.logger.debug("txtWMDoc: \n{}".format(txtWMDoc))
 
@@ -2484,7 +2484,7 @@ class WinMentor(object):
 
         for idx, item in enumerate(items, start=1):
             txtProd = self._dictToColonList(keys, item, forceAbs=True)
-            txtWMDoc += "Item_{}={}\n".format(idx + 1, txtProd)
+            txtWMDoc += "Item_{}={}\n".format(idx, txtProd)
 
         self.logger.debug("txtWMDoc: \n{}".format(txtWMDoc))
 
