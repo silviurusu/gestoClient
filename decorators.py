@@ -13,6 +13,7 @@ from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpResponse
 from django.template.response import ContentNotRenderedError
 
+
 logger = logging.getLogger(name = __name__)
 
 

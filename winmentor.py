@@ -1742,7 +1742,7 @@ class WinMentor(object):
         # in WinMentor sunt facturi de iesire
         if len(gestoData["items"]) == 0:
             self.logger.info("Nu am nici un produs pe vanzare")
-            return
+            return True
 
         ignoreCodes = []
         if self.companyName == "Panemar morarit si panificatie SRL":
