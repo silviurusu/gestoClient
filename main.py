@@ -326,6 +326,9 @@ def needs_exporting(comanda, exported_receptions_notes):
         exported_op = exported_receptions_notes[comanda["documentNo"]]
         util.log_json(exported_op)
 
+        exported_op["date"] = dt.utcfromtimestamp(exported_op["documentDate"]).strftime("%d.%m.%Y")
+        exported_op["destination"] = "Magazin {}".format(exported_op["branch"][:2])
+
         logger.info("{} - {},  {} - {}".format(comanda["date"], exported_op["date"], comanda["destination"], exported_op["destination"]))
         if comanda["date"] != exported_op["date"] \
         or comanda["destination"] != exported_op["destination"]:
@@ -338,10 +341,10 @@ def needs_exporting(comanda, exported_receptions_notes):
                 ret = True
             else:
                 comanda_items = sorted(comanda_items, key=lambda k: k['winMentorCode'])
-                exported_op_items = sorted(exported_op_items, key=lambda k: k['winMentorCode'])
+                exported_op_items = sorted(exported_op_items, key=lambda k: k['name2'])
 
                 for (i1, i2) in zip(comanda_items, exported_op_items):
-                    if any([i1["winMentorCode"] != i2["winMentorCode"],
+                    if any([i1["winMentorCode"] != i2["name2"],
                             i1["qty"] != i2["qty"]]):
                         # i1["opPrice"] != i2["opPrice"]
                         # pretul se poate modifica in WinMentor si atunci se vor reprelua receptiile, in mod incorect
