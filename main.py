@@ -318,9 +318,9 @@ def getExportedDeliveryNotes(baseURL, startDate, endDate):
     return ret
 
 
-@decorators.time_log
 def needs_exporting(comanda, exported_receptions_notes):
     ret = False
+    util.log_json(comanda)
 
     try:
         exported_op = exported_receptions_notes[comanda["documentNo"]]
@@ -352,7 +352,7 @@ def needs_exporting(comanda, exported_receptions_notes):
                         logger.info("i2: {}".format(i2))
                         ret = True
                         break
-    except IndexError:
+    except KeyError:
         ret = True
 
     logger.info("ret: {}".format(ret))
