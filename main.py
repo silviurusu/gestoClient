@@ -313,11 +313,12 @@ def getExportedDeliveryNotes(baseURL, startDate, endDate):
                     logger.debug("{}, {}, {}".format(ctr2, tot, op["id"]))
                     ret[op["relatedDocumentNo"]] = op
 
-    util.log_json(ret)
+    util.log_json(ret.keys())
 
     return ret
 
 
+@decorators.time_log(print_args=False)
 def needs_exporting(comanda, exported_receptions_notes):
     ret = False
     util.log_json(comanda)
@@ -353,6 +354,7 @@ def needs_exporting(comanda, exported_receptions_notes):
                         ret = True
                         break
     except KeyError:
+        util.log_json("{} not exported".format(comanda["documentNo"]))
         ret = True
 
     logger.info("ret: {}".format(ret))
@@ -827,7 +829,6 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
 
             r = requests.get(urlPage, headers={'GESTOTOKEN': token})
             retJSON = r.json()
-            util.log_json(retJSON)
 
             tot = len(retJSON["data"])
             for ctr2, op in enumerate(retJSON["data"], start=1):
@@ -1000,7 +1001,6 @@ def getGestoDocumentsMarkedForWinMentorExport(baseURL, branch):
                 currentMonth = opDate.month
                 currentYear = opDate.year
 
-            gestoData = retJSON["data"]
             if op["type"]== "reception":
                 # Get partener from gesto
                 gestoPartener = util.fixupCUI(op["source"]["code"])

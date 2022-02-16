@@ -218,12 +218,13 @@ class WinMentor(object):
         return myDict
 
 
-    @decorators.time_log
+    @decorators.time_log(print_args=False)
     def productsAreOK(self, gestoData, ignoreCodes=[], verifyGest=True):
+        self.logger.info("ignoreCodes: {}".format(ignoreCodes))
+
         ret = True
 
         for item in gestoData["items"]:
-
             if int(item["code"]) in ignoreCodes:
                 self.logger.info("code: {}, ignore".format(item["code"]))
                 continue
@@ -852,12 +853,12 @@ class WinMentor(object):
             else:
                 ret = facturi[month][partenerId][nr]
 
-        util.log_json(facturi)
+        # util.log_json(facturi)
 
         if ret is None:
             self.logger.info("Factura nu exista")
         elif ret["data"] != data:
-            self.logger.info("Factura are data modificata")
+            self.logger.info("Factura are data modificata: {} != {}".format(ret["data"], data))
         else:
             self.logger.info("Factura exista")
             util.log_json(ret)
