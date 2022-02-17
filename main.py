@@ -427,7 +427,7 @@ def exportComenziGest(baseURL, date, interval=1):
         logger.info(val1)
 
         try:
-            op = exported_receptions_notes["ops"][val1["documentNo"]]
+            op = exported_receptions_notes[documentNo]
             # comanda was modified
             opStr["operation_id"] = op["id"]
         except KeyError:
