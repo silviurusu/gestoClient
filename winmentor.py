@@ -2299,21 +2299,7 @@ class WinMentor(object):
 
         self.logger.info(
                  json.dumps(items, sort_keys=True, indent=4, separators=(',', ': '), default=util.defaultJSON))
-
-
-# [PV_1]
-# Operat=D
-# NrDoc=60
-# SimbolCarnet=PV1
-# Operatie=A
-# Data=20.09.2016
-# TotalArticole=1
-# Operat=D
-# Observatii=
-# [Items_1]
-# Item_1=2244;BUC;1;DEP1;11;2;obs
-
-        # Header transfer
+        # Header
         txtWMDoc = (
             "[InfoPachet]\n"
             "AnLucru={}\n"
@@ -2338,8 +2324,8 @@ class WinMentor(object):
         txtWMDoc += "Operatie={}\n".format("A")
         txtWMDoc += "Operat={}\n".format(kwargs.get("operat"))
         txtWMDoc += "TotalArticole={}\n".format(len(items))
-        # txtWMDoc += "SimbolCarnetLivr={}\n".format("DL_G")
-        # txtWMDoc += "NrLivr={}\n".format(util.getNextDocumentNumber("LIV"))
+        txtWMDoc += "SimbolCarnetLivr={}\n".format("DL_G")
+        txtWMDoc += "NrLivr={}\n".format(util.getNextDocumentNumber("LIV"))
         # txtWMDoc += "SimbolCarnetNir={}\n".format(kwargs.get("simbol_carnet_NIR"))
         # txtWMDoc += "NrNIR={}\n".format(util.getNextDocumentNumber("NIR"))
         txtWMDoc += "Observatii={}\n".format(kwargs.get("observatii", ""))
@@ -2353,11 +2339,13 @@ class WinMentor(object):
                 "cant",
                 "simbGest",
                 "pret",
+                "pret",
                 ]
 
         for idx, item in enumerate(items, start=1):
             txtProd = self._dictToColonList(keys, item)
             txtWMDoc += "Item_{}={}\n".format(idx, txtProd)
+            # txtWMDoc += "G_224;Buc;1;Magazin 37DF;4,59;658.06;658.06;658.06;658.06;658.06;658.06"
 
         self.logger.debug("txtWMDoc: \n{}".format(txtWMDoc))
 
@@ -2463,9 +2451,9 @@ class WinMentor(object):
         txtWMDoc += "Operatie={}\n".format("A")
         txtWMDoc += "Operat={}\n".format(kwargs.get("operat"))
         txtWMDoc += "TotalArticole={}\n".format(len(items))
-        txtWMDoc += "SimbolCarnetLivr={}\n".format("DL_G")
-        # txtWMDoc += "SimbolCarnetLivr={}\n".format("DL_G_2")
-        txtWMDoc += "NrLivr={}\n".format(util.getNextDocumentNumber("LIV"))
+        # txtWMDoc += "SimbolCarnetLivr={}\n".format("DL_G")
+        txtWMDoc += "SimbolCarnetLivr={}\n".format("DL_G_2")
+        # txtWMDoc += "NrLivr={}\n".format(util.getNextDocumentNumber("LIV"))
         txtWMDoc += "Observatii={}\n".format(kwargs.get("observatii"))
         # txtWMDoc += "ObservatiiLivr={}\n".format("aiurea 1")
         # txtWMDoc += "ObservatiiNIR={}\n\n".format("aiurea 2")
@@ -2614,17 +2602,7 @@ class WinMentor(object):
 
     @decorators.time_log
     def addNotaDiminuareStoc(self, gestoData):
-        self.logger.debug("\n%s",
-                        json.dumps(
-                            gestoData,
-                            sort_keys=True,
-                            indent=4,
-                            separators=(',', ': '),
-                            default=util.defaultJSON
-                            )
-                        )
-
-        gestoData["items"][0]["winMentorCode"] = "G_1005"
+        # gestoData["items"][0]["winMentorCode"] = "G_1005"
 
         if len(gestoData["items"]) == 0:
             self.logger.info("Nu am nici un produs pe rebut")
@@ -2635,7 +2613,7 @@ class WinMentor(object):
             branch_code = gestoData["branch"]
             campPret = "PretVanzareFaraTVA"
             art_key = "winMentorCode"
-            simbGest = "Magazin {}DF".format(gestoData["branch"][:2])
+            simbGest = "Magazin {}P".format(gestoData["branch"][:2])
         else:
             1/0
 
@@ -2677,14 +2655,17 @@ class WinMentor(object):
         operat = "D"
         if self.companyName == "Panemar morarit si panificatie SRL":
             simbol_carnet_NIR = "GNIR"
-            observatii = ""
+            msgs = [gestoData["category"], gestoData["details"], gestoData["branch"]]
+            observatii = ", ".join([msg for msg in msgs if msg not in [None, "", "nil"]])
         else:
             simbol_carnet_NIR = "NIR_G"
             observatii = self.gestiuni[wmGestiune]
 
-        # Creaza transferul
+        nrDoc = int(gestoData["branch"][:2]) * 10000000 + gestoData["documentNo"]
+
+
         rc = self.importaReglareInventar(
-                nrDoc=util.getNextDocumentNumber("DS"),
+                nrDoc=nrDoc,
                 simbolCarnet = "DS_G",
                 data = opDate,
                 gestiune = wmGestiune,
@@ -2695,7 +2676,7 @@ class WinMentor(object):
                 )
 
         if rc:
-            self.logger.info("SUCCESS: Adaugare transfer")
+            self.logger.info("SUCCESS: Adaugare diminuare stoc")
         else:
             self.logger.error(repr(self.getListaErori()))
 
