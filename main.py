@@ -1020,10 +1020,7 @@ def getGestoDocumentsMarkedForWinMentorExport(baseURL, branch):
                     logger.info("opDate = {}".format(opDate))
 
                     if opDate > deliveryNoteReceptionsDate:
-                        winmentor.addWorkOrderFromOperation(op)
-                        # 1/0
-
-                # 1/0
+                        is_exported_OK = winmentor.addWorkOrderFromOperation(op)
 
             elif op["type"] == "supplyOrder":
                 if not op["products_missing_category"]:
@@ -1034,7 +1031,7 @@ def getGestoDocumentsMarkedForWinMentorExport(baseURL, branch):
                 if add_doc_ret == False:
                     is_exported_OK = False
             elif op["type"] in ["return", "notaConstatareDiferente"]:
-                winmentor.addWorkOrderFromOperation(op)
+                is_exported_OK = winmentor.addWorkOrderFromOperation(op)
             elif op["type"] in ["scrap"]:
                 add_doc_ret = winmentor.addNotaDiminuareStoc(op)
                 if add_doc_ret == False:

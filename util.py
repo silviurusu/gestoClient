@@ -276,15 +276,7 @@ def getTokens():
         1 / 0
     else:
         retJSON = r.json()
-        logger.debug("\n%s",
-                    json.dumps(
-                        retJSON,
-                        sort_keys=True,
-                        indent=4,
-                        separators=(',', ': '),
-                        default=defaultJSON
-                        )
-                    )
+        log_json(retJSON)
 
         tokens = dict([(pos["branch"]["name"], str(pos["serialNum"])) for pos in retJSON["data"]])
 
