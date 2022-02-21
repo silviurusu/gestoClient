@@ -2620,6 +2620,31 @@ class WinMentor(object):
 
         ignoreCodes = []
 
+        if self.companyName == "Panemar morarit si panificatie SRL":
+            tipGest = self.getTipGest(gestoData, ignoreCodes)
+            if tipGest in ["Skip export", "MP"]:
+                self.logger.info("tipGest={}".format(tipGest))
+                return True
+            elif tipGest is None:
+                template = loader.get_template("mail/admin/incorrectProductTypeReception.html")
+                if gestoData["type"] == "scrap":
+                    subject = "Rebutul {} - {} cu probleme in WinMentor".format(gestoData["documentNo"], gestoData["source"]["name"])
+
+                html_part = template.render({
+                    "subject": subject,
+                    "gestoData": gestoData,
+                    'HOME_URL': settings.HOME_URL,
+                })
+
+                util.send_email(subject, html_part,
+                                toEmails=util.getCfgVal("client", "notificationEmails"),
+                                # toEmails=["silviu@vectron.ro"],
+                                location=False)
+
+                return True
+        else:
+            tipGest = None
+
         # verify I have all gesto codes and default gestiuni in WinMentor
         if not self.productsAreOK(gestoData, ignoreCodes):
             self.logger.info("Articole cu coduri nesetate sau gestiuni lipsa, nu adaug")
@@ -2807,7 +2832,7 @@ class WinMentor(object):
                 if gestoData["type"] == "reception":
                     subject = "Receptia {} - {} cu probleme in WinMentor".format(gestoData["relatedDocumentNo"], gestoData["source"]["name"])
                 elif gestoData["type"] == "return":
-                    subject = "Returul {} - {} cu probleme in WinMentor".format(gestoData["relatedDocumentNo"], gestoData["source"]["name"])
+                    subject = "Returul {} - {} cu probleme in WinMentor".format(gestoData["documentNo"], gestoData["source"]["name"])
                 html_part = template.render({
                     "subject": subject,
                     "gestoData": gestoData,
