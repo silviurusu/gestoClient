@@ -899,7 +899,7 @@ def getExportWinMentorData():
             if retJSON["report_id"] is not None:
                 if retJSON["report_data"]["data"] == "monetare":
                     ret = winmentor.addMonetare(retJSON["report_data"])
-                elif retJSON["report_data"]["data"] == "intrariDinProductie":
+                elif retJSON["report_data"]["data"] == "intrari_din_productie":
                     report_data = retJSON["report_data"]
 
                     logger.info("verify: {}".format(report_data["verify"]))
