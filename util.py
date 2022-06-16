@@ -4,14 +4,13 @@ from django.core.mail import EmailMessage
 import logging
 import re
 import inspect
-from ConfigParser import SafeConfigParser, NoOptionError, NoSectionError
 import codecs
 from django.template import loader, Context
 import traceback
 import json
 from decimal import Decimal
 import decorators
-
+from configparser import ConfigParser
 
 logger = logging.getLogger(__name__)
 
@@ -38,29 +37,23 @@ def newException(e):
 def getNextDocumentNumber(type):
     import sys
 
-    cfg = SafeConfigParser()
-    cfg.optionxform = str
+    cfg = ConfigParser()
     try:
         import os.path
         documentNumberFolder = getCfgVal("gesto", "documentNumberFolder")
 
         cfg_filename = os.path.join(documentNumberFolder, 'config_documentNo_local.ini')
-        with codecs.open(cfg_filename, 'r', encoding='utf-8') as f:
-            cfg.readfp(f)
+        cfg.read(cfg_filename)
     except:
         logger.exception("Failed to read .ini file")
         sys.exit(1)
 
-    docNo = cfg.getint("documentNumbers", type)
-    cfg.set("documentNumbers", type, str(docNo+1))
-    with open(cfg_filename, 'wb') as configfile:
+    docNo = cfg["documentNumbers"].getint(type)
+    cfg["documentNumbers"][type] = str(docNo+1)
+    with open(cfg_filename, 'w') as configfile:
         cfg.write(configfile)
 
     return docNo
-
-
-def isArray(var):
-    return isinstance(var, collections.Iterable) and (not isinstance(var, basestring))
 
 
 def retToFileArray(ret, filename):
@@ -74,7 +67,7 @@ def retToFileArray(ret, filename):
 
 @decorators.time_log
 def getCfgVal(section, varName, retType=None):
-    cfg = SafeConfigParser()
+    cfg = ConfigParser()
     with codecs.open('config_local.ini', 'r', encoding='utf-8') as f:
         cfg.readfp(f)
 
@@ -98,8 +91,7 @@ def getCfgVal(section, varName, retType=None):
 
 @decorators.time_log
 def getCfgOptsDict(section):
-    cfg = SafeConfigParser()
-    cfg.optionxform = str
+    cfg = ConfigParser()
 
     with codecs.open('config_local.ini', 'r', encoding='utf-8') as f:
         cfg.readfp(f)

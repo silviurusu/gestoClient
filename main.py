@@ -7,15 +7,10 @@ import util
 import settings
 from winmentor import WinMentor
 from datetime import datetime as dt, timedelta
-from itertools import izip
 import logging.config
-from ConfigParser import SafeConfigParser, NoOptionError, NoSectionError
-import codecs
 from util import send_email
-import re
-import traceback
 import inspect
-from django.template import loader, Context
+from django.template import loader
 import django
 from decimal import Decimal
 from django.utils.translation import ngettext
@@ -311,6 +306,10 @@ def getExportedDeliveryNotes(baseURL, startDate, endDate):
                 tot = len(retJSON["data"])
                 for ctr2, op in enumerate(retJSON["data"], start=1):
                     logger.debug("{}, {}, {}".format(ctr2, tot, op["id"]))
+                    if op["itemsCount"] == 0:
+                        logger.info("No product on this operation")
+                        continue
+
                     ret[op["relatedDocumentNo"]] = op
 
     util.log_json(ret.keys())
@@ -736,10 +735,7 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
     else :
         startDate = (endDate - timedelta(days = daysDelta)).replace(hour=0, minute=0, second=0)
 
-    try:
-        branchStartDate = dt.strptime(util.getCfgVal("receptionsStartDate", branch), "%Y-%m-%d")
-    except NoOptionError:
-        branchStartDate = startDate
+    branchStartDate = dt.strptime(util.getCfgVal("receptionsStartDate", branch), "%Y-%m-%d")
 
     logger.debug("startDate: {}".format(startDate))
     logger.debug("branchStartDate: {}".format(branchStartDate))
@@ -987,19 +983,14 @@ def getGestoDocumentsMarkedForWinMentorExport(baseURL, branch):
         totalRecords = retJSON["range"]["totalRecords"]
         logger.info("{} operations".format(totalRecords))
 
-        currentMonth = None
-        currentYear = None
-
         for ctr, op in enumerate(retJSON["data"], start=1):
             logger.debug("{}, {}, {}".format(ctr, totalRecords, op["id"]))
 
             is_exported_OK = True
 
             opDate = dt.utcfromtimestamp(op["documentDate"])
-            if opDate.month != currentMonth and opDate.year != currentYear:
-                winmentor.setLunaLucru(opDate.month, opDate.year)
-                currentMonth = opDate.month
-                currentYear = opDate.year
+
+            # winmentor.setLunaLucru(opDate.month, opDate.year)
 
             if op["type"]== "reception":
                 # Get partener from gesto
@@ -1014,13 +1005,7 @@ def getGestoDocumentsMarkedForWinMentorExport(baseURL, branch):
                 or int(gestoPartener) < 0:
                     winmentor.addReception(op)
                 else:
-                    deliveryNoteReceptionsDate = datetime.datetime.strptime("2018-06-01", "%Y-%m-%d")
-                    opDate = dt.utcfromtimestamp(op["documentDate"])
-                    logger.info("deliveryNoteReceptionsDate = {}".format(deliveryNoteReceptionsDate))
-                    logger.info("opDate = {}".format(opDate))
-
-                    if opDate > deliveryNoteReceptionsDate:
-                        is_exported_OK = winmentor.addWorkOrderFromOperation(op)
+                    is_exported_OK = winmentor.addWorkOrderFromOperation(op)
 
             elif op["type"] == "supplyOrder":
                 if not op["products_missing_category"]:
@@ -1098,12 +1083,6 @@ if __name__ == "__main__":
         setup_logging()
         logger = logging.getLogger(name = __name__)
 
-        # Get Script settings
-        cfg = SafeConfigParser()
-        cfg.optionxform = str
-        with codecs.open('config_local.ini', 'r', encoding='utf-8') as f:
-            cfg.readfp(f)
-
         logger.info(">>> {}()".format(inspect.stack()[0][3]))
         start = dt.now()
 
@@ -1138,8 +1117,6 @@ if __name__ == "__main__":
 
         branches = util.getCfgVal("gesto", "branches")
         branches_monetare = util.getCfgVal("gesto", "branches_monetare")
-
-        branches_default = True
 
         workdate = None
         doExportReceptions = False
@@ -1220,12 +1197,8 @@ if __name__ == "__main__":
                 doExportSummaryBonDeConsum = bool(int(arg))
             elif opt in ("--branches"):
                 branches = [x.strip().replace("_", " ") for x in arg.split(",")]
-                branches_default = False
             elif opt in ("--workDate"):
-                try:
-                    workdate = dt.strptime(arg, "%Y-%m-%d")
-                except NoOptionError as e:
-                    workdate = None
+                workdate = dt.strptime(arg, "%Y-%m-%d")
             elif opt in ("--verify"):
                 doVerify = bool(int(arg))
             elif opt in ("--markedForWinMentorExport"):
@@ -1302,11 +1275,6 @@ if __name__ == "__main__":
                 # if dt.now().hour == 13:
                 #     logger.info(">>> E ora 12, nu prelua receptiile")
                 #     exit()
-
-                if branches_default:
-                    branches = cfg.options("receptionsStartDate")
-
-                logger.info( 'branches: {}'.format(branches))
 
                 excludeCUI = util.getCfgVal("receptions", "excludeCUI")
 

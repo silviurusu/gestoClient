@@ -22,6 +22,12 @@ Urmatoarele {{productsMissingWMCodes|length}} produse nu au coduri in WinMentor:
 {% endfor %}
 {%endif%}
 
+{%if missingWMPrice|length != 0%}
+Urmatoarele {{missingWMPrice|length}} produse nu au preturi in WinMentor:<br/>
+{% for key,p in missingWMPrice.items %}
+    {{key}} - {{p.nume}} {% for doc in p.docs %}, {{doc.cheie}}, {{doc.gestoData.branch}}, {{doc.gestoData.documentDateHuman}}, {{doc.gestoData.documentNo}} {% endfor %}
+{% endfor %}
+{%endif%}
 
 {%if missingWMCodes|length != 0%}
 Urmatoarele {{missingWMCodes|length}} coduri nu apar in WinMentor:<br/>
