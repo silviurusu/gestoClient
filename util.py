@@ -4,13 +4,18 @@ from django.core.mail import EmailMessage
 import logging
 import re
 import inspect
-from ConfigParser import SafeConfigParser, NoOptionError, NoSectionError
+try:
+    from configparser import ConfigParser
+except ImportError:
+    from ConfigParser import SafeConfigParser as ConfigParser
 import codecs
 from django.template import loader, Context
 import traceback
 import json
 from decimal import Decimal
 import decorators
+import traceback
+import os
 
 
 logger = logging.getLogger(__name__)
@@ -38,7 +43,7 @@ def newException(e):
 def getNextDocumentNumber(type):
     import sys
 
-    cfg = SafeConfigParser()
+    cfg = ConfigParser()
     cfg.optionxform = str
     try:
         import os.path
@@ -59,10 +64,6 @@ def getNextDocumentNumber(type):
     return docNo
 
 
-def isArray(var):
-    return isinstance(var, collections.Iterable) and (not isinstance(var, basestring))
-
-
 def retToFileArray(ret, filename):
     ret = ret[0]
     retCnt = len(ret)
@@ -74,7 +75,7 @@ def retToFileArray(ret, filename):
 
 @decorators.time_log
 def getCfgVal(section, varName, retType=None):
-    cfg = SafeConfigParser()
+    cfg = ConfigParser()
     with codecs.open('config_local.ini', 'r', encoding='utf-8') as f:
         cfg.readfp(f)
 
@@ -98,7 +99,7 @@ def getCfgVal(section, varName, retType=None):
 
 @decorators.time_log
 def getCfgOptsDict(section):
-    cfg = SafeConfigParser()
+    cfg = ConfigParser()
     cfg.optionxform = str
 
     with codecs.open('config_local.ini', 'r', encoding='utf-8') as f:
@@ -256,6 +257,16 @@ def fixupCUI(cui):
 
 def log_json(myjson, indent=2):
     # logger.info(myjson)
+    cwd = os.getcwd()
+
+    frames = traceback.extract_stack()
+    for f in frames:
+        if f[0].startswith(cwd) \
+                and not "decorators.py" in f[0] \
+                and not "middlewear.py" in f[0]:
+            logger.info("{}:{}, {}()".format(f[0], f[1], f[2]))
+            break
+
     logger.info(json.dumps(myjson, sort_keys=True, indent=indent, separators=(',', ': '), default=defaultJSON))
 
 

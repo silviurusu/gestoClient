@@ -7,9 +7,11 @@ import util
 import settings
 from winmentor import WinMentor
 from datetime import datetime as dt, timedelta
-from itertools import izip
 import logging.config
-from ConfigParser import SafeConfigParser, NoOptionError, NoSectionError
+try:
+    from configparser import ConfigParser
+except ImportError:
+    from ConfigParser import SafeConfigParser as ConfigParser, NoOptionError
 import codecs
 from util import send_email
 import re
@@ -1097,12 +1099,6 @@ if __name__ == "__main__":
         # Get logger
         setup_logging()
         logger = logging.getLogger(name = __name__)
-
-        # Get Script settings
-        cfg = SafeConfigParser()
-        cfg.optionxform = str
-        with codecs.open('config_local.ini', 'r', encoding='utf-8') as f:
-            cfg.readfp(f)
 
         logger.info(">>> {}()".format(inspect.stack()[0][3]))
         start = dt.now()
