@@ -49,6 +49,9 @@ def getNextDocumentNumber(type):
         sys.exit(1)
 
     docNo = cfg["documentNumbers"].getint(type)
+
+    logger.info("new documentNumbers value {}: {}".format(type, docNo+1))
+
     cfg["documentNumbers"][type] = str(docNo+1)
     with open(cfg_filename, 'w') as configfile:
         cfg.write(configfile)
@@ -248,6 +251,16 @@ def fixupCUI(cui):
 
 def log_json(myjson, indent=2):
     # logger.info(myjson)
+    cwd = os.getcwd()
+
+    frames = traceback.extract_stack()
+    for f in frames:
+        if f[0].startswith(cwd) \
+                and not "decorators.py" in f[0] \
+                and not "middlewear.py" in f[0]:
+            logger.info("{}:{}, {}()".format(f[0], f[1], f[2]))
+            break
+
     logger.info(json.dumps(myjson, sort_keys=True, indent=indent, separators=(',', ': '), default=defaultJSON))
 
 

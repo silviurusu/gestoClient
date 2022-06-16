@@ -1,6 +1,6 @@
 <!-- replaceWithHTMLCodes -->
 {%if missingCodes|length != 0%}
-Urmatoarele {{missingCodes|length}} produse nu au setate coduri in WinMentor:<br/>
+Urmatoarele {{missingCodes|length}} produse nu au setate coduri WinMentor (in Gesto):<br/>
 {% for key,p in missingCodes.items %}
     {{p.item.name}}, {{p.item.code}} --- {{p.details}}
 {% endfor %}
@@ -32,7 +32,7 @@ Urmatoarele {{missingWMPrice|length}} produse nu au preturi in WinMentor:<br/>
 {%if missingWMCodes|length != 0%}
 Urmatoarele {{missingWMCodes|length}} coduri nu apar in WinMentor:<br/>
 {% for key,p in missingWMCodes.items  %}
-    {{p.item.name}}, {{p.item.winMentorCode}} --- {{p.details}}
+    <b>{{key}}</b> --- {{p.item.name}}, {{p.item.winMentorCode}} --- {{p.details}}
 {% endfor %}
 {%endif%}
 
