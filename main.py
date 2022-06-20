@@ -306,7 +306,7 @@ def getExportedDeliveryNotes(baseURL, startDate, endDate):
                 tot = len(retJSON["data"])
                 for ctr2, op in enumerate(retJSON["data"], start=1):
                     logger.debug("{}, {}, {}".format(ctr2, tot, op["id"]))
-                    if op["itemsCount"] == 0:
+                    if "itemsCount" in op and op["itemsCount"] == 0:
                         logger.info("No product on this operation")
                         continue
 

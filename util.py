@@ -251,16 +251,9 @@ def fixupCUI(cui):
 
 
 def log_json(myjson, indent=2):
-    # logger.info(myjson)
-    cwd = os.getcwd()
-
     frames = traceback.extract_stack()
-    for f in frames:
-        if f[0].startswith(cwd) \
-                and not "decorators.py" in f[0] \
-                and not "middlewear.py" in f[0]:
-            logger.info("{}:{}, {}()".format(f[0], f[1], f[2]))
-            break
+    frame = frames[-2]
+    logger.info("{}:{}, {}()".format(frame.filename, frame.lineno, frame.name))
 
     logger.info(json.dumps(myjson, sort_keys=True, indent=indent, separators=(',', ': '), default=defaultJSON))
 

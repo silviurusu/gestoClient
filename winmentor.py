@@ -1538,8 +1538,10 @@ class WinMentor(object):
                 #     # productia nu a fost realizata
                 #     continue
 
-                destination = items[0][:10].lower()
-                if destination not in destinations:
+                # keys are low case
+                destination = items[0][:10]
+
+                if destination.lower() not in destinations:
                     continue
 
                 # self.logger.info(items)
