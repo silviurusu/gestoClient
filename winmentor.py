@@ -964,7 +964,6 @@ class WinMentor(object):
         return ret
 
 
-    @decorators.time_log
     def getGestiuni(self):
         if self.gestiuni is None:
             gestiuni, rc = self._stat.GetListaGestiuni()
@@ -1082,7 +1081,6 @@ class WinMentor(object):
         self.logger.info(self.iesiri)
 
 
-    @decorators.time_log
     def getGestiuneName(self, simbol):
         # make sure we have loaded gestiunile
         self.getGestiuni()
@@ -2524,7 +2522,7 @@ class WinMentor(object):
 
     @decorators.time_log
     def getTransferuri(self, startDate, endDate):
-        self.setLunaLucru(startDate.month, startDate.year)
+        self.setLunaLucru(endDate.month, endDate.year)
 
         startDate = startDate.strftime("%d.%m.%Y")
         endDate = endDate.strftime("%d.%m.%Y")
@@ -2599,7 +2597,6 @@ class WinMentor(object):
                         # only add a code once
                         self.productsMissingWMCodes.append(items[5])
 
-            self.logger.info(self.companyName)
             if items[9] != "": #qty
                 if self.companyName == "Andalusia":
                     opPrice = util.getNumber(items[14])

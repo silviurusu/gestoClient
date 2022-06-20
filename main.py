@@ -267,9 +267,9 @@ def getExportedDeliveryNotes(baseURL, startDate, endDate):
     if companyName == "Andalusia":
         url += "&returnFields=relatedDocumentNo,itemsCount,value,documentNo,documentDate,simbolWinMentorDeliveryNote"
 
-    filterCUI = util.getCfgVal("receptions", "excludeCUI")
-    if filterCUI not in [None, "", ]:
-        url += "&filterCUI={}".format(filterCUI)
+    source_name = util.getCfgVal("deliveryNote", "source_name")
+    if source_name not in [None, "", ]:
+        url += "&source_name={}".format(source_name)
 
     token = util.getCfgVal("winmentor", "companyToken")
     logger.debug("Gesto request token: {}".format(token))
