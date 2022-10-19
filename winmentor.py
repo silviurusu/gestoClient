@@ -1601,8 +1601,17 @@ class WinMentor(object):
             return
 
         if gestoData["simbolWinMentorReception"] in [None, "nil",]:
-            txtMail = "Locatia {} nu are setat un simbol pentru WinMentor".format(gestoData["destination"]["name"])
-            util.send_email(subject=txtMail, msg=txtMail)
+            txtMail = "Locatia {} nu are setat un simbol pentru WinMentor".format(gestoData["source"]["name"])
+
+            ngp_body = {
+                "subject": txtMail,
+                "body": txtMail,
+                "hours": 2
+            }
+
+            baseURL = util.getCfgVal("gesto", "url")
+            r = requests.post(baseURL+"/api/gestoProblems/", json=ngp_body)
+            self.logger.info("{} - {}".format(r.status_code, r.text))
 
             return
 
