@@ -25,13 +25,14 @@ def generateWorkOrders(baseURL, branch, date):
     start = dt.now()
 
     url = baseURL + "/products/summary/?"
-    url += "type=workOrder"
-    verify=True # only for workOrders
+    url += "type=sale"
+    verify=False # only for workOrders
     if verify:
         url += "&verify=1"
 
     url += "&winMentor=1"
-    url += "&excludeListVal=0"
+    # url += "&excludeListVal=0"
+    url += "&excludeCodes=1,2"
 
     # add workOrders for the previous day
     dateEnd = date - timedelta(days = 1)
@@ -46,17 +47,19 @@ def generateWorkOrders(baseURL, branch, date):
 
     retJSON = None
     token = tokens[branch]
+    logger.debug("token: {}".format(token))
+
     r = requests.get(url, headers={'GESTOTOKEN': token})
 
     if r.status_code != 200:
         logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
         logger.error("Gesto request url: {}", url)
-        logger.error("Gesto request token: {}", token)
+
         1/0
     else:
         retJSON = r.json()
 
-        if retJSON["verify"] == "success":
+        if retJSON["verify"] in ["success", "no verify requested", ]:
             # email is sent from Gesto if there is any problem
             winmentor.addWorkOrders(retJSON)
 
@@ -78,6 +81,8 @@ def generateMonetare(baseURL, branch, date):
 
     url += "&winMentor=1"
     url += "&excludeOpVal=0"
+    url += "&excludeCodes=1,2"
+    # url += "&excludeNoStock=1"
 
     # add monetare for the previous day
     dateEnd = date - timedelta(days = 1)
@@ -185,6 +190,8 @@ def importAvize(baseURL, date):
                     if r.status_code != 200:
                         logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
                         1/0
+                    else:
+                        logger.error("Gesto succes: {}".format(r.text))
 
                     # 1/0
                     opStr.pop('documentNo', None)
@@ -385,6 +392,13 @@ if __name__ == "__main__":
             tokens[opt] = str(util.getCfgVal("tokens", opt))
 
         # Connect to winmentor
+        import os
+        cwd = os.getcwd()
+        logger.info("cwd: {}".format(cwd))
+
+        # for f in os.listdir("\\mentor\\winment\\"):
+        #     logger.info(f)
+
         winmentor = WinMentor(firma = util.getCfgVal("winmentor", "firma"), an=start.year, luna=start.month)
         if not winmentor:
             logger.error("Failed to get winmentor object")
@@ -495,6 +509,10 @@ if __name__ == "__main__":
                         )
 
         if doGenerateMonetare:
+            if util.cfg_has_section("monetareCasa"):
+                branches = cfg.options("monetareCasa")
+                logger.info( 'branches: {}'.format(branches))
+
             for branch in branches:
                 gestoData = generateMonetare(
                         baseURL = baseURL,
@@ -503,6 +521,10 @@ if __name__ == "__main__":
                         )
 
         if doGenerateWorkOrders:
+            if util.cfg_has_section("monetareCasa"):
+                branches = cfg.options("monetareCasa")
+                logger.info( 'branches: {}'.format(branches))
+
             for branch in branches:
                 gestoData = generateWorkOrders(
                         baseURL = baseURL,

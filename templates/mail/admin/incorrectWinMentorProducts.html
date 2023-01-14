@@ -1,10 +1,9 @@
 {%if missingCodes|length != 0%}
-Urmatoarele {{missingCodes|length}} produse nu au setate coduri in WinMentor:<br/>
+Urmatoarele {{missingCodes|length}} produse nu au setate coduri WinMentor in Gesto:<br/>
 {% for key,p in missingCodes.items  %}
     {{p.name}}, {{p.code}}
 {% endfor %}
 {%endif%}
-
 
 {%if missingDefaultGest|length != 0%}
 Urmatoarele {{missingDefaultGest|length}} produse nu au gestiuni default in WinMentor:<br/>

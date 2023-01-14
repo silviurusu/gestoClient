@@ -68,6 +68,22 @@ def retToFileArray(ret, filename):
         thefile.write("{}/{} - {}\n".format(ctr, retCnt, r))
 
 
+def cfg_has_option(section, option):
+    cfg = SafeConfigParser()
+    with codecs.open('config_local.ini', 'r', encoding='utf-8') as f:
+        cfg.readfp(f)
+
+    return cfg.has_option(section, option)
+
+
+def cfg_has_section(section):
+    cfg = SafeConfigParser()
+    with codecs.open('config_local.ini', 'r', encoding='utf-8') as f:
+        cfg.readfp(f)
+
+    return cfg.has_section(section)
+
+
 def getCfgVal(section, varName, retType=None):
     logger.info(">>> {0}()".format(inspect.stack()[0][3]))
     start = datetime.datetime.now()
