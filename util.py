@@ -5,7 +5,7 @@ import logging
 import functools
 import re
 import inspect
-from ConfigParser import SafeConfigParser, NoOptionError, NoSectionError
+from configparser import ConfigParser, NoOptionError, NoSectionError
 import codecs
 from django.template import loader, Context
 import traceback
@@ -32,13 +32,13 @@ def newException(e):
         send_email(subject, html_part)
 
     except BaseException as e:
-        logger.exception("{0}, {1}".format(e, e.message))
+        logger.exception(e)
 
     logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], datetime.datetime.now() - start))
 
 
 def getNextDocumentNumber(type):
-    cfg = SafeConfigParser()
+    cfg = ConfigParser()
     cfg.optionxform = str
     try:
         with codecs.open('config_documentNo_local.ini', 'r', encoding='utf-8') as f:
@@ -69,7 +69,7 @@ def retToFileArray(ret, filename):
 
 
 def cfg_has_option(section, option):
-    cfg = SafeConfigParser()
+    cfg = ConfigParser()
     with codecs.open('config_local.ini', 'r', encoding='utf-8') as f:
         cfg.readfp(f)
 
@@ -77,7 +77,7 @@ def cfg_has_option(section, option):
 
 
 def cfg_has_section(section):
-    cfg = SafeConfigParser()
+    cfg = ConfigParser()
     with codecs.open('config_local.ini', 'r', encoding='utf-8') as f:
         cfg.readfp(f)
 
@@ -88,7 +88,7 @@ def getCfgVal(section, varName, retType=None):
     logger.info(">>> {0}()".format(inspect.stack()[0][3]))
     start = datetime.datetime.now()
 
-    cfg = SafeConfigParser()
+    cfg = ConfigParser()
     with codecs.open('config_local.ini', 'r', encoding='utf-8') as f:
         cfg.readfp(f)
 
@@ -162,14 +162,6 @@ def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGes
         logger.exception("{0}, {1}".format(e, e.message))
 
     logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], datetime.datetime.now() - start))
-
-
-def printArray(array):
-    print ""
-    for item in array:
-        print item
-
-    print ""
 
 
 def defaultJSON(obj):

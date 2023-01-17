@@ -48,7 +48,7 @@ class WinMentor(object):
         if self._fdm is None:
             return
 
-        for idx in xrange(0, self._fdm.GetTypeInfoCount()):
+        for idx in range(0, self._fdm.GetTypeInfoCount()):
             fdoc = self._fdm.GetDocumentation(idx)
 
             if fdoc[0] == 'DocImpObject':
@@ -163,7 +163,7 @@ class WinMentor(object):
 
         strData = myStr.split(';')
         count = min(len(strData), len(keys))
-        for i in xrange(0, count):
+        for i in range(0, count):
             vals = strData[i].split("~")
             if len(vals) == 1:
                 myDict[keys[i]] = vals[0]

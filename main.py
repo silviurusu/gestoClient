@@ -4,13 +4,11 @@ import os
 import sys, getopt
 import datetime
 import util
-# from myConfigParser import *
 import settings
 from winmentor import WinMentor
 from datetime import datetime as dt, timedelta
-from itertools import izip
 import logging.config
-from ConfigParser import SafeConfigParser, NoOptionError, NoSectionError
+from configparser import ConfigParser, NoOptionError, NoSectionError
 import codecs
 from util import send_email
 import re
@@ -287,7 +285,7 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
 
         pageSize = 10
         pagesCount = int((totalRecords + pageSize - 1) / pageSize)
-        print "pagesCount: {}".format(pagesCount)
+        print("pagesCount: {}".format(pagesCount))
 
         for ctr in range(1, pagesCount + 1):
             urlPage = url + "&pageSize="+str(pageSize)
@@ -379,10 +377,9 @@ if __name__ == "__main__":
         logger = logging.getLogger(name = __name__)
 
         # Get Script settings
-        cfg = SafeConfigParser()
+        cfg = ConfigParser()
         cfg.optionxform = str
-        with codecs.open('config_local.ini', 'r', encoding='utf-8') as f:
-            cfg.readfp(f)
+        cfg.read_file(open('config_local.ini'))
 
         logger.info(">>> {}()".format(inspect.stack()[0][3]))
         start = dt.now()
@@ -454,11 +451,11 @@ if __name__ == "__main__":
             logger.info(args)
 
         except getopt.GetoptError:
-            print '{} --exportReceptions=<> --generateWorkOrders=<> --generateMonetare=<> --importAvize=<> --branches=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0])
+            print('{} --exportReceptions=<> --generateWorkOrders=<> --generateMonetare=<> --importAvize=<> --branches=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0]))
             sys.exit(2)
         for opt, arg in opts:
             if opt == '-h':
-                print '{} --exportReceptions=<> --generateWorkOrders=<> --generateMonetare=<> --importAvize=<> --branches=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0])
+                print('{} --exportReceptions=<> --generateWorkOrders=<> --generateMonetare=<> --importAvize=<> --branches=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0]))
                 sys.exit()
             elif opt in ("--exportReceptions"):
                 doExportReceptions = bool(int(arg))
@@ -544,7 +541,7 @@ if __name__ == "__main__":
         winmentor.sendIncorrectWinMentorProductsMail()
 
     except Exception as e:
-        print repr(e)
+        print(repr(e))
         logger.exception(repr(e))
         util.newException(e)
 
