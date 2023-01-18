@@ -268,6 +268,7 @@ def getExportedDeliveryNotes(baseURL, startDate, endDate):
         url += "&returnFields=relatedDocumentNo,itemsCount,value,documentNo,documentDate,simbolWinMentorDeliveryNote"
 
     source_name = util.getCfgVal("deliveryNote", "source_name")
+    destinations = util.getCfgVal("deliveryNote", "destinations")
     if source_name not in [None, "", ]:
         url += "&source_name={}".format(source_name)
 
@@ -305,7 +306,12 @@ def getExportedDeliveryNotes(baseURL, startDate, endDate):
 
                 tot = len(retJSON["data"])
                 for ctr2, op in enumerate(retJSON["data"], start=1):
-                    logger.debug("{}, {}, {}".format(ctr2, tot, op["id"]))
+                    logger.debug("{}, {}, {}, {}".format(ctr2, tot, op["id"], op["simbolWinMentorDeliveryNote"]))
+
+                    if op["simbolWinMentorDeliveryNote"] not in destinations:
+                        logger.info("{} not in {}".format(op["simbolWinMentorDeliveryNote"], destinations))
+                        continue
+
                     if "itemsCount" in op and op["itemsCount"] == 0:
                         logger.info("No product on this operation")
                         continue
