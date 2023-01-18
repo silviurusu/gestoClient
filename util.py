@@ -1,11 +1,13 @@
 import datetime
 import collections
+import settings
 from django.core.mail import EmailMessage
+from django.core.mail.backends.smtp import EmailBackend
 import logging
 import functools
 import re
 import inspect
-from configparser import ConfigParser, NoOptionError, NoSectionError
+from configparser import ConfigParser
 import codecs
 from django.template import loader, Context
 import traceback
@@ -152,6 +154,10 @@ def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGes
     try:
         email = EmailMessage(subject, msg, to=toEmails, bcc=bccEmails)
         email.content_subtype = "html"
+
+        backend = EmailBackend(host=settings.AWS_EMAIL_HOST, username=settings.AWS_EMAIL_USER,
+                                   password=settings.AWS_EMAIL_PASS)
+        email.connection = backend
 
         if 1==1:
             email.send()

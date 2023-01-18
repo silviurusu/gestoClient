@@ -8,7 +8,7 @@ import settings
 from winmentor import WinMentor
 from datetime import datetime as dt, timedelta
 import logging.config
-from configparser import ConfigParser, NoOptionError, NoSectionError
+from configparser import ConfigParser, NoOptionError
 import codecs
 from util import send_email
 import re
@@ -70,7 +70,7 @@ def generateMonetare(baseURL, branch, date):
 
     logger.info("Generate monetare for {}, {}".format(branch, tokens[branch]))
 
-    url = baseURL + "/products/summary/?"
+    url = baseURL + "products/summary/?"
     url += "type=sale"
 
     verify=False # only for workOrders

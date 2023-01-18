@@ -1579,7 +1579,7 @@ if __name__ == "__main__":
     # if not rc:
     #     print(repr(winmentor.getListaErori()))
 
-    # for a in xrange(20):
+    # for a in range(20):
     #     rc = winmentor.addProduct(
     #             idArticol = 999000 + a,
     #             denumire = "Mere padurete",
