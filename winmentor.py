@@ -39,7 +39,7 @@ class WinMentor(object):
     missingWMCodes = {}
 
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs):        
         self.logger = logging.getLogger(__name__)
 
         self._fdm = pythoncom.LoadTypeLib('DocImpServer.tlb')
@@ -299,6 +299,7 @@ class WinMentor(object):
 
         produse = []
         for idx, prodStr in enumerate(lista):
+            self.logger.info(prodStr)
             produse.append(self._colonListToDict(keys, prodStr))
 
         ret = { p["CodExternIntern"] : p for p in produse }
@@ -1097,7 +1098,7 @@ class WinMentor(object):
         txtWMDoc += "[Monetar_{}]\n".format(1)
         txtWMDoc += "Operat={}\n".format("N")
         txtWMDoc += "NrDoc={}\n".format(kwargs.get("nrDoc", ""))
-        txtWMDoc += "SimbolCarnet={}\n".format("M_G")
+        txtWMDoc += "SimbolCarnet={}\n".format(kwargs.get("simbolCarnet"))
         txtWMDoc += "Operatie={}\n".format("A")
         txtWMDoc += "CasaDeMarcat={}\n".format("D")
         txtWMDoc += "NumarBonuri={}\n".format(kwargs.get("clientsNo", ""))
@@ -1108,7 +1109,7 @@ class WinMentor(object):
         txtWMDoc += "CEC={}\n".format(payment["bank transfer"] if "bank transfer" in payment else 0)
         txtWMDoc += "CARD={}\n".format(payment["card"] if "card" in payment else 0)
         txtWMDoc += "BONVALORIC={}\n".format(payment["food vouchers"] if "food vouchers" in payment else 0)
-        txtWMDoc += "Observatii={}\n".format("Gesto")
+        txtWMDoc += "Observatii={}\n".format(branch)
         txtWMDoc += "Discount={}\n".format(0)
         txtWMDoc += "TVADiscount={}\n".format(0)
 
@@ -1122,7 +1123,7 @@ class WinMentor(object):
                 "simbGest",
                 )
 
-        if company == "Andalusia":
+        if company in ["Andalusia", "CARMIC IMPEX SRL"]:
             for idx, item in enumerate(items, start=1):
                 txtProd = self._dictToColonList(keys, item)
                 key = item["codExternArticol"][:item["codExternArticol"].rfind("_")]
@@ -1201,7 +1202,7 @@ class WinMentor(object):
         ret = True
 
         for item in gestoData["items"]:
-            if company == "Andalusia":
+            if company in ["Andalusia", "CARMIC IMPEX SRL"]:
                 codExternArticol = item["winMentorCode"]
             else:
                 if item["winMentorCode"].startswith("G_MARF"):
@@ -1219,7 +1220,7 @@ class WinMentor(object):
                 wmArticol = self.getProduct(codExternArticol)
                 # self.logger.info("wmArticol: {}".format(wmArticol))
 
-                if company == "Andalusia":
+                if company in ["Andalusia", "CARMIC IMPEX SRL"]:
                     newItems[codExternArticol] = {
                                     "codExternArticol": codExternArticol,
                                     "um": wmArticol["DenUM"],
@@ -1256,10 +1257,23 @@ class WinMentor(object):
                             }
                         )
 
+            if company in ["CARMIC IMPEX SRL"]:
+                try:
+                    nrDoc = gestoData["cash_register_report"]["last_documentNoFiscal"]
+                except KeyError:
+                    nrDoc = 100000
+
+                simbolCarnet = "{}{}".format(gestoData["branch_winMentorCode"], gestoData["pos_no"])
+
+            else:
+                nrDoc = util.getNextDocumentNumber("MON")
+                simbolCarnet = "M_G"
+
             rc = self.importaMonetare(
                     logOn = util.getCfgVal("winmentor", "userName"),
                     # nrDoc = gestoData["documentNo"],
-                    nrDoc = util.getNextDocumentNumber("MON"),
+                    nrDoc = nrDoc,
+                    simbolCarnet = simbolCarnet,
                     data = opDate,
                     items = articoleWMDoc,
                     payment = gestoData["payment"],
@@ -1417,7 +1431,7 @@ class WinMentor(object):
                     self.productsMissingWMCodes.append(items[5])
 
             if items[6] != "":
-                if company == "Andalusia":
+                if company in ["Andalusia", "CARMIC IMPEX SRL"]:
                     opPrice = float(items[8].replace(",", "."))
                 else:
                     opPrice = float(items[7].replace(",", "."))
@@ -1488,7 +1502,7 @@ class WinMentor(object):
         articoleWMDoc = []
         for item in gestoData["items"]:
             # Adauga produs la lista produse
-            if company == "Andalusia":
+            if company in ["Andalusia", "CARMIC IMPEX SRL"]:
                 simbGest = "DEP_CENTRAL"
                 pret = item["opVal"] / item["qty"]
             else:

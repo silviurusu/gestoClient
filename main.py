@@ -68,6 +68,7 @@ def generateMonetare(baseURL, branch, date):
     logger.info(">>> {}()".format(inspect.stack()[0][3]))
     start = dt.now()
 
+    company = util.getCfgVal("winmentor", "companyName")
     logger.info("Generate monetare for {}, {}".format(branch, tokens[branch]))
 
     url = baseURL + "products/summary/?"
@@ -79,7 +80,11 @@ def generateMonetare(baseURL, branch, date):
 
     url += "&winMentor=1"
     url += "&excludeOpVal=0"
-    url += "&excludeCodes=1,2"
+    
+    if company in ["CARMIC IMPEX SRL",]:
+        url += "&cumulate_poses=0"
+
+    # url += "&excludeCodes=1,2"
     # url += "&excludeNoStock=1"
 
     # add monetare for the previous day
@@ -104,13 +109,16 @@ def generateMonetare(baseURL, branch, date):
         1/0
     else:
         retJSON = r.json()
-
         # logger.debug(retJSON)
-        if not verify or retJSON["verify"] == "success":
-            pass
 
-            # email is sent from Gesto if there is any problem
-            winmentor.addMonetare(retJSON)
+        # email is sent from Gesto if there is any problem   
+        if isinstance(retJSON, dict):
+            if not verify or retJSON["verify"] == "success":           
+                winmentor.addMonetare(retJSON)
+        elif isinstance(retJSON, list):
+            for monetar in retJSON:
+                if not verify or retJSON["verify"] == "success":           
+                    winmentor.addMonetare(monetar)
 
     logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
@@ -322,6 +330,82 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
     logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
 
+
+def getExportWinMentorData():
+    logger.info(">>> {}()".format(inspect.stack()[0][3]))
+    start = dt.now()
+
+    baseURL = util.getCfgVal("gesto", "url")
+    token = util.getCfgVal("winmentor", "companyToken")
+    url = baseURL + "/report/exportWinMentorData/"
+
+    while True:
+        # until no other exported report exists
+        url = baseURL + "/report/exportWinMentorData/"
+
+        r = requests.get(url, headers={'GESTOTOKEN': token})
+
+        if r.status_code != 200:
+            logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
+            break
+        else:
+            retJSON = r.json()
+            util.log_json(retJSON)
+
+            if retJSON["report_id"] is not None:                
+                if isinstance(retJSON["report_data"], list):
+                    # doar monetarele pot veni ca lista
+                    for rd in retJSON["report_data"]:                        
+                        ret = winmentor.addMonetare(rd)
+                elif retJSON["report_data"]["data"] == "monetare":
+                    ret = winmentor.addMonetare(retJSON["report_data"])
+                elif retJSON["report_data"]["data"] == "intrari_din_productie":
+                    report_data = retJSON["report_data"]
+
+                    logger.info("verify: {}".format(report_data["verify"]))
+                    if report_data["verify"] in ["no verify requested", "success", ]:
+                        # email is sent from Gesto if there is any problem
+                        ret = winmentor.addIntrariDinProductie(report_data)
+                    # elif report_data["verify"] == "No Vectron data":
+                    #     ret = True
+                    else:
+                        ret = False
+                elif retJSON["report_data"]["data"] == "transferuri":
+                    report_data = retJSON["report_data"]
+
+                    logger.info("verify: {}".format(report_data["verify"]))
+                    if report_data["verify"] in ["no verify requested", "success", ]:
+                        # email is sent from Gesto if there is any problem
+                        ret = winmentor.addWorkOrders(report_data)
+                    # elif report_data["verify"] == "No Vectron data":
+                    #     ret = True
+                    else:
+                        ret = False
+                elif retJSON["report_data"]["data"] == "bonuri_de_consum":
+                    ret = winmentor.addProductSummary(retJSON["report_data"])
+                else:
+                    1/0
+
+                logger.info("ret: {}".format(ret))
+
+                if ret:
+                    # success
+                    url = baseURL + "/report/exportWinMentorData/{}/exportedWinMentor/".format(retJSON["report_id"])
+                    r = requests.put(url, headers={'GESTOTOKEN': token})
+                    logger.info(r)
+                else:
+                    url = baseURL + "/report/exportWinMentorData/{}/exportProblems/".format(retJSON["report_id"])
+                    r = requests.put(url, headers={'GESTOTOKEN': token})
+                    logger.info(r)
+
+                if retJSON["remaining_reports"] == 0:
+                    logger.info("No more reports to export")
+                    break
+            else:
+                logger.info("report id is null")
+                break
+
+
 def cleanId(name):
     """ Remove spaces and convert a id/name to smallcase, to avoid
     user insert format problems. Example: "31 Vlaicu", "31Vlaicu" all
@@ -437,6 +521,8 @@ if __name__ == "__main__":
         doGenerateWorkOrders = util.getCfgVal("gesto", "generateWorkOrders", "bool")
         doGenerateMonetare = util.getCfgVal("gesto", "generateMonetare", "bool")
         doImportAvize = util.getCfgVal("gesto", "importAvize", "bool")
+        
+        exportWinMentorData = False
 
         try:
             opts, args = getopt.getopt(sys.argv[1:],"h",["exportReceptions=",
@@ -444,6 +530,7 @@ if __name__ == "__main__":
                                      "generateMonetare=",
                                      "importAvize=",
                                      "branches=",
+                                     "exportWinMentorData=",
                                      "workDate="
                                     ])
 
@@ -466,7 +553,9 @@ if __name__ == "__main__":
             elif opt in ("--importAvize"):
                 doImportAvize = bool(int(arg))
             elif opt in ("--branches"):
-                branches = [x.strip() for x in arg.split(",")]
+                branches = [x.strip() for x in arg.split(",")]            
+            elif opt in ("--exportWinMentorData"):
+                exportWinMentorData = bool(int(arg))            
             elif opt in ("--workDate"):
                 try:
                     workdate = dt.strptime(arg, "%Y-%m-%d")
@@ -478,7 +567,8 @@ if __name__ == "__main__":
         logger.info( 'generateMonetare {}'.format(doGenerateMonetare))
         logger.info( 'importAvize {}'.format(doImportAvize))
         logger.info( 'branches: {}'.format(branches))
-
+        
+        logger.info( 'exportWinMentorData {}'.format(exportWinMentorData))
 
         daysDelta = util.getCfgVal("gesto", "daysDelta", "int")
         baseURL = util.getCfgVal("gesto", "url")
@@ -489,51 +579,57 @@ if __name__ == "__main__":
         endDate = workdate.replace(hour=23, minute=59, second=59)
         logger.info("Using end date: {}".format(endDate))
 
-        if doExportReceptions:
-            branches = cfg.options("receptionsStartDate")
-            logger.info( 'branches: {}'.format(branches))
+        if exportWinMentorData:
+            if exportWinMentorData:
+                logger.info( 'exportWinMentorData {}'.format(exportWinMentorData))
+                getExportWinMentorData()
 
-            excludeCUI = util.getCfgVal("receptions", "excludeCUI")
-
-            for branch in branches:
-                gestoData = getGestoDocuments(
-                        baseURL = baseURL,
-                        branch = branch,
-                        operationType="reception",
-                        excludeCUI=excludeCUI,
-                        endDate = endDate,
-                        daysDelta = daysDelta,
-                        )
-
-        if doGenerateMonetare:
-            if util.cfg_has_section("monetareCasa"):
-                branches = cfg.options("monetareCasa")
+        else:
+            if doExportReceptions:
+                branches = cfg.options("receptionsStartDate")
                 logger.info( 'branches: {}'.format(branches))
 
-            for branch in branches:
-                gestoData = generateMonetare(
+                excludeCUI = util.getCfgVal("receptions", "excludeCUI")
+
+                for branch in branches:
+                    gestoData = getGestoDocuments(
+                            baseURL = baseURL,
+                            branch = branch,
+                            operationType="reception",
+                            excludeCUI=excludeCUI,
+                            endDate = endDate,
+                            daysDelta = daysDelta,
+                            )
+
+            if doGenerateMonetare:
+                if util.cfg_has_section("monetareCasa"):
+                    branches = cfg.options("monetareCasa")
+                    logger.info( 'branches: {}'.format(branches))
+
+                for branch in branches:
+                    gestoData = generateMonetare(
+                            baseURL = baseURL,
+                            branch = branch,
+                            date = endDate,
+                            )
+
+            if doGenerateWorkOrders:
+                if util.cfg_has_section("monetareCasa"):
+                    branches = cfg.options("monetareCasa")
+                    logger.info( 'branches: {}'.format(branches))
+
+                for branch in branches:
+                    gestoData = generateWorkOrders(
+                            baseURL = baseURL,
+                            branch = branch,
+                            date = endDate,
+                            )
+
+            if doImportAvize:
+                gestoData = importAvize(
                         baseURL = baseURL,
-                        branch = branch,
                         date = endDate,
                         )
-
-        if doGenerateWorkOrders:
-            if util.cfg_has_section("monetareCasa"):
-                branches = cfg.options("monetareCasa")
-                logger.info( 'branches: {}'.format(branches))
-
-            for branch in branches:
-                gestoData = generateWorkOrders(
-                        baseURL = baseURL,
-                        branch = branch,
-                        date = endDate,
-                        )
-
-        if doImportAvize:
-            gestoData = importAvize(
-                    baseURL = baseURL,
-                    date = endDate,
-                    )
 
         # Send mail with new products and partners
         winmentor.sendNewProductsMail()

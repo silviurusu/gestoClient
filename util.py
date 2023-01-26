@@ -9,8 +9,9 @@ import re
 import inspect
 from configparser import ConfigParser
 import codecs
-from django.template import loader, Context
+from django.template import loader
 import traceback
+import json
 
 
 logger = logging.getLogger(__name__)
@@ -51,14 +52,14 @@ def getNextDocumentNumber(type):
 
     docNo = cfg.getint("documentNumbers", type)
     cfg.set("documentNumbers", type, str(docNo+1))
-    with open('config_documentNo_local.ini', 'wb') as configfile:
+    with open('config_documentNo_local.ini', 'w') as configfile:
         cfg.write(configfile)
 
     return docNo
 
 
 def isArray(var):
-    return isinstance(var, collections.Iterable) and (not isinstance(var, basestring))
+    return isinstance(var, collections.Iterable) and (not isinstance(var, str))
 
 
 def retToFileArray(ret, filename):
@@ -256,3 +257,11 @@ def fixupCUI(cui):
     ret = ret.replace("ro", "")
 
     return ret
+
+
+def log_json(myjson, indent=2):
+    frames = traceback.extract_stack()
+    frame = frames[-2]
+    logger.info("{}:{}, {}()".format(frame.filename, frame.lineno, frame.name))
+
+    logger.info(json.dumps(myjson, sort_keys=True, indent=indent, separators=(',', ': '), default=defaultJSON))
