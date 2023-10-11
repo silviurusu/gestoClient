@@ -440,6 +440,13 @@ def setup_logging(
                             folder,
                             dt.strftime(dt.now(), "%Y_%m_%d__%H_%M.log")
                             )
+
+                    if os.path.exists(path):
+                        path = os.path.join(
+                            folder,
+                            dt.strftime(dt.now(), "%Y_%m_%d__%H_%M__%f.log")
+                            )
+
                     if not os.path.exists(folder):
                         os.mkdir(folder)
                     dhandler["filename"] = path
