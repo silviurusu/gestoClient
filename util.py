@@ -12,6 +12,7 @@ import codecs
 from django.template import loader
 import traceback
 import json
+from decimal import Decimal
 
 
 logger = logging.getLogger(__name__)
@@ -48,7 +49,7 @@ def getNextDocumentNumber(type):
             cfg.readfp(f)
     except:
         logger.exception("Failed to read .ini file")
-        sys.exit(1)
+        1/0
 
     docNo = cfg.getint("documentNumbers", type)
     cfg.set("documentNumbers", type, str(docNo+1))
@@ -56,10 +57,6 @@ def getNextDocumentNumber(type):
         cfg.write(configfile)
 
     return docNo
-
-
-def isArray(var):
-    return isinstance(var, collections.Iterable) and (not isinstance(var, str))
 
 
 def retToFileArray(ret, filename):
@@ -172,8 +169,6 @@ def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGes
 
 
 def defaultJSON(obj):
-    logger.info(obj)
-
     if isinstance(obj, Decimal):
         return float(obj)
     elif isinstance(obj, datetime.datetime):
