@@ -1155,7 +1155,11 @@ class WinMentor(object):
                 if gestoData["source"]["name"] in ["Romancuta", "Albina"]:
                     simbGest = f'MAG_{gestoData["source"]["name"].upper()}'
             else:
-                simbGest = "TR_MAG"
+                if gestoData["source"]["name"] in ["TRANSP_MAGAZINE"]:
+                    simbGest = "TR_MAG"
+                else:
+                    if gestoData["source"]["name"] in ["Romancuta", "Albina"]:
+                        simbGest = f'MAG_{gestoData["source"]["name"].upper()}'
         else:
             simbGest = self.matchGestiune(gestoData["simbolWinMentorDeliveryNote"])
 
@@ -1637,25 +1641,31 @@ class WinMentor(object):
             "[InfoPachet]\n"
             "AnLucru={}\n"
             "LunaLucru={}\n"
-            "Tipdocument={}\n"
-            "TotalNotePredare={}\n"
+            "TipDocument={}\n"
+            # "TotalNote={}\n"
+            "TotalFacturi={}\n"
             "LogOn={}\n"
             "TipDocImpus=7\n"
             "\n"
             ).format(
                 self.an,
                 self.luna,
-                "NOTA PREDARE",
+                # "NOTA PREDARE",
+                "FACTURA INTRARE",
                 1,
                 self.logOn,
             )
 
-        txtWMDoc += "[Nota_{}]\n".format(1)
+        txtWMDoc += "[Factura_{}]\n".format(1)
+        txtWMDoc += "Operatie=A\n"
         txtWMDoc += "SimbolCarnet={}\n".format("NP_G")
         txtWMDoc += "NrDoc={}\n".format(util.getNextDocumentNumber("NP"))
         txtWMDoc += "SimbolCarnetNir={}\n".format("NIR_G")
         txtWMDoc += "NrNIR={}\n".format(util.getNextDocumentNumber("NIR_G"))
+        # txtWMDoc += "DataNir=13.10.2023\n"
         txtWMDoc += "Data={:%d.%m.%Y}\n".format(kwargs.get("data"))
+        # txtWMDoc += "Gestsursa={}\n".format(kwargs.get("gestiune"))
+        # txtWMDoc += "GestDest={}\n".format(kwargs.get("gestiune"))
         txtWMDoc += "GestProd={}\n".format(kwargs.get("gestiune"))
         txtWMDoc += "TotalArticole={}\n".format(len(items))
 
@@ -1679,9 +1689,9 @@ class WinMentor(object):
 
         self._stat.SetDocsData(fact)
 
-        # rc = self._stat.FactIntrareValida()
-        # if rc != 1:
-        #     return False
+        rc = self._stat.FactIntrareValida()
+        if rc != 1:
+            return False
 
         rc = self._stat.ImportaFactIntrare()
         return (rc == 1)
@@ -1903,13 +1913,17 @@ class WinMentor(object):
             - simbolCarnet
         '''
 
-        monetarCasa = util.getCfgVal("winmentor", "monetareCasaDefault")
-
         branch = kwargs.get("branch")
-        self.logger.info("branch: {}".format(branch))
 
-        if util.cfg_has_option("monetareCasa", branch):
-            monetarCasa = util.getCfgVal("monetareCasa", branch)
+        if self.companyName in ["SC Pan Partener Spedition Arg SRL", ]:
+            monetarCasa = f"MAGAZIN {branch.upper()}"
+        else:
+            monetarCasa = util.getCfgVal("winmentor", "monetareCasaDefault")
+
+            self.logger.info("branch: {}".format(branch))
+
+            if util.cfg_has_option("monetareCasa", branch):
+                monetarCasa = util.getCfgVal("monetareCasa", branch)
 
         self.logger.info("monetarCasa: {}".format(monetarCasa))
 
