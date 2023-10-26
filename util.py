@@ -13,6 +13,7 @@ from django.template import loader
 import traceback
 import json
 from decimal import Decimal
+import ssl
 
 
 logger = logging.getLogger(__name__)
@@ -155,6 +156,11 @@ def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGes
 
         backend = EmailBackend(host=settings.AWS_EMAIL_HOST, username=settings.AWS_EMAIL_USER,
                                    password=settings.AWS_EMAIL_PASS)
+
+        if settings.SET_CERT_NONE:
+            backend.ssl_context.check_hostname = False
+            backend.ssl_context.verify_mode=ssl.CERT_NONE
+
         email.connection = backend
 
         if 1==1:
@@ -163,7 +169,19 @@ def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGes
             logger.info(msg)
 
     except BaseException as e:
-        logger.exception("{0}, {1}".format(e, e.message))
+        msg = f"{e}"
+
+        try:
+            msg = f"{msg} {e.message}"
+        except AttributeError:
+            pass
+
+        try:
+            msg = f"{msg} {e.strerror}"
+        except AttributeError:
+            pass
+
+        logger.exception(msg)
 
     logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], datetime.datetime.now() - start))
 

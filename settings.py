@@ -4,6 +4,7 @@ BASE_DIR = os.path.normpath(os.path.dirname(os.path.realpath(__file__)))
 
 SECRET_KEY = ""
 
+SET_CERT_NONE = False
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 DEFAULT_FROM_EMAIL = ""
@@ -27,6 +28,10 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
             ],
             'debug':True,
+            'libraries':{
+                'filters': 'templatetags.filters',
+
+            }
         },
     },
 ]

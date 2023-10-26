@@ -20,9 +20,9 @@ Urmatoarele {{productsMissingWMCodes|length}} produse nu au coduri in WinMentor:
 {%endif%}
 
 {%if missingWMCodes|length != 0%}
-Urmatoarele {{missingWMCodes|length}} coduri nu apar in WinMentor:<br/>
-{% for p in missingWMCodes  %}
-    {{p}}
+Urmatoarele {{missingWMCodes|length}} coduri nu apar in WinMentor:<br />
+{% for key,p in missingWMCodes.items %}
+    <b>{{key}}</b> --- {{p.item.name}}, {{p.item.winMentorCode}} --- {{p.details}}
 {% endfor %}
 {%endif%}
 
