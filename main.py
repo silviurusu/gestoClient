@@ -481,7 +481,7 @@ def getGestoDocumentsMarkedForWinMentorExport(baseURL):
         for ctr, op in enumerate(retJSON["data"], start=1):
             logger.debug("{}, {}, {}".format(ctr, totalRecords, op["id"]))
 
-            is_exported_OK = True
+            is_exported_OK = False
 
             opDate = dt.utcfromtimestamp(op["documentDate"])
 
@@ -507,9 +507,26 @@ def getGestoDocumentsMarkedForWinMentorExport(baseURL):
             elif op["type"] in ["return", "notaConstatareDiferente"]:
                 is_exported_OK = winmentor.addWorkOrderFromOperation(op)
             elif op["type"] in ["scrap"]:
-                add_doc_ret = winmentor.addNotaDiminuareStoc(op)
-                if add_doc_ret == False:
-                    is_exported_OK = False
+                is_exported_OK = winmentor.addNotaModificareStoc(op)
+            elif op["type"] in ["productPriceChange",]:
+                is_exported_OK = winmentor.addModificarePret(op)
+            elif op["type"] == "NotaReglareStoc":
+                items_qty_plus = []
+                items_qty_minus = []
+                for item in op["items"]:
+                    if item["qty"] > 0:
+                        items_qty_plus.append(item)
+                    elif item["qty"] < 0:
+                        items_qty_minus.append(item)
+
+                op["items"] = items_qty_minus
+                is_exported_OK = winmentor.addNotaModificareStoc(op)
+                op["items"] = items_qty_plus
+                is_exported_OK = winmentor.addNotaModificareStoc(op, "Marire")
+
+                is_exported_OK = False
+            else:
+                logger.info(f'!!! {op["type"]} - nu se exporta !!!')
 
             if is_exported_OK:
                 url = baseURL + "/operations/{}/exportedWinMentor/".format(op["id"])
@@ -663,7 +680,7 @@ if __name__ == "__main__":
         logger.info(">>> {}()".format(inspect.stack()[0][3]))
         start = dt.now()
 
-        start = datetime.datetime.strptime("2023-09-25", "%Y-%m-%d")
+        # start = datetime.datetime.strptime("2023-09-25", "%Y-%m-%d")
 
         tokens={}
         for opt in cfg.options("tokens"):

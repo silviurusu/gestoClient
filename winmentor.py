@@ -1783,35 +1783,46 @@ class WinMentor(object):
 
         util.log_json(items)
 
+        Tipdocument = kwargs.get("Tipdocument")
+
+        if Tipdocument == "DIMINUARE DE STOC":
+            total_text = "TotalDiminuari"
+            param = 0
+        else:
+            total_text = "TotalMariri"
+            param = 1
+
         # Header
         txtWMDoc = (
             "[InfoPachet]\n"
             "AnLucru={}\n"
             "LunaLucru={}\n"
             "Tipdocument={}\n"
-            "TotalDiminuari={}\n"
+            "{}=1\n"
             "LogOn={}\n"
             "\n"
             ).format(
                 self.an,
                 self.luna,
-                "DIMINUARE DE STOC",
-                1,
+                Tipdocument,
+                total_text,
                 self.logOn,
                 )
 
         simbolCarnet = kwargs.get("simbolCarnet")
         # Transfer
         txtWMDoc += "[PV_{}]\n".format(1)
-        txtWMDoc += "SimbolCarnet={}\n".format(simbolCarnet)
+        txtWMDoc += "Operat={}\n".format(kwargs.get("operat"))
         txtWMDoc += "NrDoc={}\n".format(kwargs.get("nrDoc", ""))
+        txtWMDoc += "SimbolCarnet={}\n".format(simbolCarnet)
+        txtWMDoc += "Operatie={}\n".format("A")
         txtWMDoc += "Data={:%d.%m.%Y}\n".format(kwargs.get("data"))
         # txtWMDoc += "GestDest={}\n".format(kwargs.get("gestiune"))
-        txtWMDoc += "Operatie={}\n".format("A")
-        txtWMDoc += "Operat={}\n".format(kwargs.get("operat"))
         txtWMDoc += "TotalArticole={}\n".format(len(items))
-        txtWMDoc += "SimbolCarnetLivr={}\n".format("DL_G")
-        txtWMDoc += "NrLivr={}\n".format(util.getNextDocumentNumber("LIV"))
+
+        # txtWMDoc += "SimbolCarnetLivr={}\n".format("DL_G")
+        # txtWMDoc += "NrLivr={}\n".format(util.getNextDocumentNumber("LIV"))
+
         # txtWMDoc += "SimbolCarnetNir={}\n".format(kwargs.get("simbol_carnet_NIR"))
         # txtWMDoc += "NrNIR={}\n".format(util.getNextDocumentNumber("NIR"))
         txtWMDoc += "Observatii={}\n".format(kwargs.get("observatii", ""))
@@ -1842,12 +1853,12 @@ class WinMentor(object):
         # 1 = marire inventar
         # 0 = diminuare inventar
 
-        rc = self._stat.ReglareInventarValida(0)
+        rc = self._stat.ReglareInventarValida(param)
         if rc != 1:
             # print(self.getListaErori())
             return False
 
-        rc = self._stat.ImportaReglareInventar(0)
+        rc = self._stat.ImportaReglareInventar(param)
         if rc != 1:
             # print(self.getListaErori())
             return False
@@ -2002,14 +2013,13 @@ class WinMentor(object):
 
 
     @decorators.time_log
-    def addNotaDiminuareStoc(self, gestoData):
+    def addNotaModificareStoc(self, gestoData, modif_type="Diminuare"):
         # gestoData["items"][0]["winMentorCode"] = "G_1005"
 
         if len(gestoData["items"]) == 0:
-            self.logger.info("Nu am nici un produs pe rebut")
+            self.logger.info(f'Nu am nici un produs pe {gestoData["type"]}')
             return True
 
-        branch_code = gestoData["branch"]
         # Get gestiune in WinMentor
 
         if self.companyName == "Panemar morarit si panificatie SRL":
@@ -2071,13 +2081,13 @@ class WinMentor(object):
             wmArticol = self.getProduct(item["name2"])
             self.logger.debug("wmArticol: \n{}".format(wmArticol))
 
-            # pret = round(item["listVal"]/item["qty"]/((100.0+item["vat"]) /100), 2)
-            pret = wmArticol[campPret]
+            pret = item["listPrice"]
+            # pret = wmArticol[campPret]
 
             articoleWMDoc.append({
                         "codExternArticol": item["name2"],
                         "um": wmArticol["DenUM"],
-                        "cant": item["qty"],
+                        "cant": abs(item["qty"]),
                         "pret": pret,
                         "simbGest": simbGest
                     })
@@ -2097,9 +2107,18 @@ class WinMentor(object):
         else:
             nrDoc = int(gestoData["branch"][:2]) * 10000000 + gestoData["documentNo"]
 
+        if modif_type=="Diminuare":
+            Tipdocument = "DIMINUARE DE STOC"
+            simbolCarnet = "DS_G"
+
+        else:
+            Tipdocument = "MARIRE DE STOC"
+            simbolCarnet = "MS_G"
+
         rc = self.importaReglareInventar(
-                nrDoc=nrDoc,
-                simbolCarnet = "DS_G",
+                Tipdocument = Tipdocument,
+                nrDoc = nrDoc,
+                simbolCarnet = simbolCarnet,
                 data = opDate,
                 gestiune = wmGestiune,
                 items = articoleWMDoc,
@@ -2109,7 +2128,7 @@ class WinMentor(object):
                 )
 
         if rc:
-            self.logger.info("SUCCESS: Adaugare diminuare stoc")
+            self.logger.info("SUCCESS: Adaugare modificare stoc")
         else:
             self.logger.error(repr(self.getListaErori()))
             return False
