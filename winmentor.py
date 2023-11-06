@@ -1987,15 +1987,37 @@ class WinMentor(object):
                         "simbGest": wmGestiune
                     })
 
-        # Creaza transferul
-        rc = self.ImportaNotePredare(
+        if self.companyName == 'SC Pan Partener Spedition Arg SRL':
+            Tipdocument = 'MARIRE DE STOC'
+            simbolCarnet = 'MS_G'
+            # folosim numarul local doar pentru maririre de stoc pe baza intrarilor din productie
+            # pentru notele de reglare stoc se creeaza numarul pe baza documentului sursa
+            nrDoc = util.getNextDocumentNumber(simbolCarnet)
+            simbol_carnet_NIR = 'NIR_G'
+            observatii = gestoData["branch"]
+
+            # Creeaza marire de stoc
+            rc = self.importaReglareInventar(
+                Tipdocument = Tipdocument,
+                nrDoc = nrDoc,
+                simbolCarnet = simbolCarnet,
                 data = opDate,
                 gestiune = wmGestiune,
-                items = articoleWMDoc
-                )
+                items = articoleWMDoc,
+                operat = 'D',
+                simbol_carnet_NIR = simbol_carnet_NIR,
+                observatii = observatii
+            )
+        else:
+            # Creaza transferul
+            rc = self.ImportaNotePredare(
+                    data = opDate,
+                    gestiune = wmGestiune,
+                    items = articoleWMDoc
+                    )
 
         if rc:
-            self.logger.info("SUCCESS: Adaugare nota predare/ nota intrare din productie")
+            self.logger.info("SUCCESS: Adaugare nota predare/ nota intrare din productie/ marire de stoc")
             ret = True
         else:
             errors = repr(self.getListaErori())
