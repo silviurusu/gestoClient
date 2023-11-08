@@ -43,18 +43,19 @@ def newException(e):
 
 
 def getNextDocumentNumber(type):
+    cfg_file_name = 'config_documentNo_local.ini'
     cfg = ConfigParser()
     cfg.optionxform = str
-    try:
-        with codecs.open('config_documentNo_local.ini', 'r', encoding='utf-8') as f:
-            cfg.readfp(f)
+    try:        
+        cfg.read(cfg_file_name)
     except:
-        logger.exception("Failed to read .ini file")
+        logger.exception(f"Failed to read {cfg_file_name} file")
         1/0
 
     docNo = cfg.getint("documentNumbers", type)
     cfg.set("documentNumbers", type, str(docNo+1))
-    with open('config_documentNo_local.ini', 'w') as configfile:
+    
+    with open(cfg_file_name, 'w') as configfile:
         cfg.write(configfile)
 
     return docNo
@@ -70,17 +71,19 @@ def retToFileArray(ret, filename):
 
 
 def cfg_has_option(section, option):
-    cfg = ConfigParser()
-    with codecs.open('config_local.ini', 'r', encoding='utf-8') as f:
-        cfg.readfp(f)
+    cfg_file_name = 'config_local.ini'
+    
+    cfg = ConfigParser()    
+    cfg.read(cfg_file_name)
 
     return cfg.has_option(section, option)
 
 
 def cfg_has_section(section):
-    cfg = ConfigParser()
-    with codecs.open('config_local.ini', 'r', encoding='utf-8') as f:
-        cfg.readfp(f)
+    cfg_file_name = 'config_local.ini'
+
+    cfg = ConfigParser()    
+    cfg.read(cfg_file_name)
 
     return cfg.has_section(section)
 
@@ -89,9 +92,10 @@ def getCfgVal(section, varName, retType=None):
     logger.info(">>> {0}()".format(inspect.stack()[0][3]))
     start = datetime.datetime.now()
 
+    cfg_file_name = 'config_local.ini'
+
     cfg = ConfigParser()
-    with codecs.open('config_local.ini', 'r', encoding='utf-8') as f:
-        cfg.readfp(f)
+    cfg.read(cfg_file_name)
 
     if retType == "int":
         ret = cfg.getint(section, varName)
@@ -229,7 +233,7 @@ def fixupCUI2(cui):
 
     """
     # Incearca CUI
-    x = re.match("^\s*([A-z]{2})?\s*([0-9]{7,9})\s*$", cui)
+    x = re.match("^\\s*([A-z]{2})?\\s*([0-9]{7,9})\\s*$", cui)
     if x:
         pref, no = x.groups()
         if no:
@@ -239,7 +243,7 @@ def fixupCUI2(cui):
             return (True, pref + no)
 
     # Incearca CNP
-    x = re.match("^\s*([0-9]{13})\s*$", cui)
+    x = re.match("^\\s*([0-9]{13})\\s*$", cui)
     if x:
         no, = x.groups()
         if no:
@@ -248,7 +252,7 @@ def fixupCUI2(cui):
             return (True, no)
 
     # Incearca Serie/Nr
-    x = re.match("^\s*([A-z]{2})?\s*([0-9]{6})?\s*$", cui)
+    x = re.match("^\\s*([A-z]{2})?\\s*([0-9]{6})?\\s*$", cui)
     if x:
         serie, nr = x.groups()
         if nr:

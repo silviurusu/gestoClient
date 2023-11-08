@@ -17,8 +17,7 @@ import inspect
 from django.template import loader, Context
 import django
 import decorators
-from decimal import Decimal
-
+from decimal import Decimal, ROUND_HALF_UP
 
 def generateWorkOrders(baseURL, branch, date):
     logger.info(">>> {}()".format(inspect.stack()[0][3]))
@@ -251,7 +250,7 @@ def importAvize(baseURL, date):
                     if documentNo in exported_delivery_notes:
                         exported_document = exported_delivery_notes[documentNo]
                         exp_val = Decimal("{:.2f}".format(exported_document["value"]))
-                        val4_val = Decimal("{:.2f}".format(val4["value"]))
+                        val4_val = Decimal("{:.3f}".format(val4["value"])).quantize(Decimal('.01'), rounding=ROUND_HALF_UP)
 
                         logger.info("count: {} - {}, value: {} - {}, date: {} - {}, destination: {} - {}".format(
                                                             exported_document["itemsCount"],
@@ -487,7 +486,7 @@ def getGestoDocumentsMarkedForWinMentorExport(baseURL):
 
             # winmentor.setLunaLucru(opDate.month, opDate.year)
 
-            if op["type"]== "reception":
+            if op["type"] == "reception":
                 # Get partener from gesto
                 gestoPartener = util.fixupCUI(op["source"]["code"])
                 if gestoPartener == '':
@@ -520,11 +519,12 @@ def getGestoDocumentsMarkedForWinMentorExport(baseURL):
                         items_qty_minus.append(item)
 
                 op["items"] = items_qty_minus
-                is_exported_OK = winmentor.addNotaModificareStoc(op)
+                is_exported_OK_diminuare = winmentor.addNotaModificareStoc(op)
                 op["items"] = items_qty_plus
-                is_exported_OK = winmentor.addNotaModificareStoc(op, "Marire")
+                is_exported_OK_marire = winmentor.addNotaModificareStoc(op, "Marire")
 
-                is_exported_OK = False
+                if all([is_exported_OK_diminuare, is_exported_OK_marire]):
+                    is_exported_OK = True
             else:
                 logger.info(f'!!! {op["type"]} - nu se exporta !!!')
 

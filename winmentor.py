@@ -20,6 +20,7 @@ from django.template import loader
 import decorators
 import math
 import requests
+from decimal import Decimal, ROUND_HALF_UP
 
 
 class WinMentor(object):
@@ -29,9 +30,10 @@ class WinMentor(object):
     companyName = util.getCfgVal("winmentor", "companyName")
     logOn = util.getCfgVal("winmentor", "userName")
 
-    parteneri = None
+    
     multiplePartenerIDs = {}
     multiplePartenerIDsForEmail = []
+    parteneri = None
     products = None
     gestiuni = None
     intrari = {}
@@ -101,10 +103,7 @@ class WinMentor(object):
         self.missingDefaultGest = {}
         self.productsMissingWMCodes =[]
         self.missingWMCodes = {}
-        self.allowMissingDefaultGest = util.getCfgVal("products", "allowMissingDefaultGest")
-
-        self.parteneri = self.getListaParteneri()
-        self.products = self.getNomenclatorArticole()
+        self.allowMissingDefaultGest = util.getCfgVal("products", "allowMissingDefaultGest")        
 
 
     def isDrink(self, productCode):
@@ -224,8 +223,9 @@ class WinMentor(object):
                             "details": details
                         }
 
-            elif self.getProduct(item["winMentorCode"])["GestImplicita"] == "" \
-            and item["winMentorCode"] not in self.allowMissingDefaultGest:
+            elif self.companyName != "SC Pan Partener Spedition Arg SRL" \
+                    and self.getProduct(item["winMentorCode"])["GestImplicita"] == "" \
+                    and item["winMentorCode"] not in self.allowMissingDefaultGest:
                 ret = False
                 if item["code"] not in self.missingDefaultGest:
                     # only add a code once
@@ -287,7 +287,7 @@ class WinMentor(object):
         self.logger.debug("partners count: {}".format(len(retParteneri)))
         # self.logger.debug("partners : {}".format(retParteneri))
 
-        return retParteneri
+        self.parteneri = retParteneri
 
 
     def getNomenclatorArticole(self):
@@ -330,23 +330,29 @@ class WinMentor(object):
             1/0
             return None
 
-        produse = []
+        products = []
         for idx, prodStr in enumerate(lista):
             self.logger.info(prodStr)
-            produse.append(self._colonListToDict(keys, prodStr))
+            products.append(self._colonListToDict(keys, prodStr))
 
-        ret = { p["CodExternIntern"] : p for p in produse }
+        ret = { p["CodExternIntern"] : p for p in products }
         self.logger.debug("products count: {}".format(len(ret)))
-        # self.logger.info("products: {}".format(ret))
 
-        return ret
+        self.products = ret
+        # self.logger.info(f"products: {products}")        
 
 
     def getProducts(self):
+        if self.products is None:
+            self.getNomenclatorArticole()
+
         return self.products
 
 
     def getProduct(self, id):
+        if self.products is None:
+            self.getNomenclatorArticole()
+
         return self.products[id]
 
 
@@ -355,6 +361,9 @@ class WinMentor(object):
         start = dt.now()
 
         self.logger.info("partenerID: {}".format(partenerID))
+
+        if self.parteneri is None:
+            self.getListaParteneri()
 
         if partenerID not in self.parteneri:
             ret = False
@@ -371,6 +380,9 @@ class WinMentor(object):
         start = dt.now()
 
         self.logger.info("partenerID: {}".format(partenerID))
+
+        if self.parteneri is None:
+            self.getListaParteneri()
 
         if partenerID not in self.parteneri:
             ret = None
@@ -420,6 +432,9 @@ class WinMentor(object):
 
 
     def productExists(self, code):
+        if self.products is None:
+            self.getNomenclatorArticole()
+
         if code not in self.products:
             return False
         else:
@@ -580,7 +595,7 @@ class WinMentor(object):
                     )
 
         # Get again lista articole
-        self.products = self.getNomenclatorArticole()
+        self.getNomenclatorArticole()
 
         return (rc == 1)
 
@@ -634,7 +649,7 @@ class WinMentor(object):
                     )
 
             # Get again lista parteneri
-            self.parteneri = self.getListaParteneri()
+            self.getListaParteneri()
         else:
             self.logger.error(repr(self.getListaErori()))
             self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
@@ -882,7 +897,7 @@ class WinMentor(object):
         simbolGestiuneSearch = name
         # simbolGestiuneSearch = "SEDIU"
 
-        matchStr = '^\s*([0-9]{1,4})\s*' #+"{}".format(tipGestiune)
+        matchStr = '^\\s*([0-9]{1,4})\\s*' #+"{}".format(tipGestiune)
         x = re.match(matchStr, name)
         if x:
             no = x.group(1)
@@ -894,7 +909,7 @@ class WinMentor(object):
         self.logger.debug("simbolGestiuneSearch: {}".format(simbolGestiuneSearch))
 
         for gestiune in gestiuni:
-            # regex = r"^\s*" + re.escape(no) + "\s*Magazin"
+            # regex = r"^\\s*" + re.escape(no) + "\\s*Magazin"
             # found = re.match(regex, gestiune["simbol"], re.IGNORECASE)
             # if found:
             #     result.append(gestiune)
@@ -951,8 +966,11 @@ class WinMentor(object):
 
         # eliminate strings at begin and end of relatedDocumentNo, fvz123, FCT-312
         rdnFormats = [
-                {"f":'^([^0-9]*)([0-9]*)([^0-9]*)$', "i":1},
-                {"f":'^([^-]*)(-)(.*)$', "i":2},
+                {"f":'^([^0-9]*)([0-9]*)([^0-9]*)$', "i": 1},
+                {"f":'^([^-]*)(-)(.*)$', "i": 2},
+                {"f": '.* (\\d+)$', 'i': 0},
+                {"f": '.*?(\\d+)$', 'i': 0}
+                
             ]
 
         found = False
@@ -961,9 +979,10 @@ class WinMentor(object):
                 gestoData["relatedDocumentNo"] = re.match(rdnf["f"], gestoData["relatedDocumentNo"]).groups()
                 gestoData["relatedDocumentNo"] = gestoData["relatedDocumentNo"][rdnf["i"]]
                 gestoData["relatedDocumentNo"] = gestoData["relatedDocumentNo"][-9:]
+                gestoData["relatedDocumentNo"] = str(int(gestoData["relatedDocumentNo"]))
                 found = True
                 break
-            except AttributeError:
+            except (AttributeError, ValueError):
                 pass
 
         if not found:
@@ -1456,7 +1475,7 @@ class WinMentor(object):
 
             gestDest = "{}".format(gestoData["simbolWinMentorDeliveryNote"])
 
-            nrDoc = int(gestoData["simbolWinMentorReception"]) * 100000 + int(str(gestoData["documentNo"])[-5:])
+            nrDoc = int(gestoData["simbolWinMentorReception"]) * 1000000 + int(str(gestoData["documentNo"])[-5:])
 
             self.logger.info("nrDoc: {}".format(nrDoc))
 
@@ -1650,7 +1669,7 @@ class WinMentor(object):
         # txtWMDoc += "NrDoc={}\n".format(util.getNextDocumentNumber("COM"))
         txtWMDoc += "Operatie=A\n"
         txtWMDoc += "NrDoc={}\n".format(kwargs.get("nrDoc", ""))
-        txtWMDoc += "Agent=92\n"
+        txtWMDoc += "Agent=212\n"
         client = kwargs.get("client", "")
         if client != "":
             txtWMDoc += f"CodClient={client}\n"
@@ -2179,6 +2198,7 @@ class WinMentor(object):
         '''
 
         branch = kwargs.get("branch")
+        pos = kwargs.get("pos")
 
         if self.companyName in ["SC Pan Partener Spedition Arg SRL", ]:
             monetarCasa = f"MAGAZIN {branch.upper()}"
@@ -2224,9 +2244,19 @@ class WinMentor(object):
         txtWMDoc += "TotalArticole={}\n".format(len(items))
         payment = kwargs.get("payment")
         txtWMDoc += "CEC={}\n".format(payment["bank transfer"] if "bank transfer" in payment else 0)
-        txtWMDoc += "CARD={}\n".format(payment["card"] if "card" in payment else 0)
+        
+        card_sum = 0
+        for key, value in payment.items():
+            if 'card' in key.lower():
+                card_sum += value
+
+        txtWMDoc += "CARD={}\n".format(card_sum)
         txtWMDoc += "BONVALORIC={}\n".format(payment["food vouchers"] if "food vouchers" in payment else 0)
-        txtWMDoc += "Observatii={}\n".format(branch)
+        
+        if self.companyName in ["SC Pan Partener Spedition Arg SRL", ]:
+            txtWMDoc += "Observatii={}\n".format(pos)
+        else:
+            txtWMDoc += "Observatii={}\n".format(branch)
         txtWMDoc += "Discount={}\n".format(0)
         txtWMDoc += "TVADiscount={}\n".format(0)
 
@@ -2404,6 +2434,7 @@ class WinMentor(object):
                     items = articoleWMDoc,
                     payment = gestoData["payment"],
                     branch = gestoData["branch"],
+                    pos = gestoData["pos_name"],
                     clientsNo = gestoData["clientsNo"] if gestoData["clientsNo"] not in ("nil", None) else 0,
                     )
 
@@ -2610,9 +2641,12 @@ class WinMentor(object):
                 else:
                     opPrice = float(items[7].replace(",", "."))
 
-                qty = float(items[6].replace(",","."))
+                qty = float(items[6].replace(",","."))               
 
-                deliveryNotes[source][date][destination][transferNo]["value"] += opPrice * qty
+                val_add = opPrice * qty
+                val_add = Decimal("{:.3f}".format(val_add)).quantize(Decimal('.01'), rounding=ROUND_HALF_UP)
+
+                deliveryNotes[source][date][destination][transferNo]["value"] += val_add
                 deliveryNotes[source][date][destination][transferNo]["items"].append({
                                 "winMentorCode": productCode,
                                 "name": productName,
@@ -2755,9 +2789,9 @@ class WinMentor(object):
                 "cant",
                 "pret",
                 "simbGest",
-                "pret",
-                "pret",
-                "pret",
+                # "pret",
+                # "pret",
+                # "pret",
                 )
 
         for idx, item in enumerate(items, start=1):
@@ -2846,7 +2880,7 @@ class WinMentor(object):
             self.logger.debug("wmArticol: {}".format(wmArticol))
 
             pret = wmArticol["PretReferinta"]
-            if pret == "":
+            if self.companyName == "SC Pan Partener Spedition Arg SRL" or pret == "":
                 pret = item["listVal"]
 
             articoleWMDoc.append({
@@ -2867,7 +2901,7 @@ class WinMentor(object):
                 gestiune = wmGestiune,
                 items = articoleWMDoc,
                 operat = operat
-                )
+            )
 
         if rc:
             self.logger.info("SUCCESS: Adaugare BonConsum")

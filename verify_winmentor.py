@@ -64,7 +64,7 @@ def delete_older_winmentor(days_ago):
     cutoff_date = start_time - datetime.timedelta(days=days_ago)
     logging.info(f"Cutoff date: {cutoff_date}.")
 
-    paths_in_which_to_delete = ['c:\WME\Vectron\gestoClientWME\debug']
+    paths_in_which_to_delete = ['c:\\WME\\Vectron\\gestoClientWME\\debug']
 
     for folder_path in paths_in_which_to_delete:
         files = os.listdir(folder_path)
@@ -92,7 +92,7 @@ def verify_winmentor():
     cutoff_date = dt.now() - datetime.timedelta(minutes=10)
     logging.info(f"Cutoff date: {cutoff_date}.")
 
-    paths_in_which_to_search = ['d:\Vectron\gestoClient\debug']
+    paths_in_which_to_search = ['d:\\Vectron\\gestoClient\\debug']
 
     found = False
 
