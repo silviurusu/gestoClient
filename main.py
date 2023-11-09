@@ -16,7 +16,8 @@ import traceback
 import inspect
 from django.template import loader, Context
 import django
-
+import decorators
+from decimal import Decimal, ROUND_HALF_UP
 
 def generateWorkOrders(baseURL, branch, date):
     logger.info(">>> {}()".format(inspect.stack()[0][3]))
@@ -71,7 +72,7 @@ def generateMonetare(baseURL, branch, date):
     company = util.getCfgVal("winmentor", "companyName")
     logger.info("Generate monetare for {}, {}".format(branch, tokens[branch]))
 
-    url = baseURL + "products/summary/?"
+    url = baseURL + "/products/summary/?"
     url += "type=sale"
 
     verify=False # only for workOrders
@@ -80,7 +81,7 @@ def generateMonetare(baseURL, branch, date):
 
     url += "&winMentor=1"
     url += "&excludeOpVal=0"
-    
+
     if company in ["CARMIC IMPEX SRL",]:
         url += "&cumulate_poses=0"
 
@@ -111,31 +112,100 @@ def generateMonetare(baseURL, branch, date):
         retJSON = r.json()
         # logger.debug(retJSON)
 
-        # email is sent from Gesto if there is any problem   
+        # email is sent from Gesto if there is any problem
         if isinstance(retJSON, dict):
-            if not verify or retJSON["verify"] == "success":           
+            if not verify or retJSON["verify"] == "success":
                 winmentor.addMonetare(retJSON)
         elif isinstance(retJSON, list):
             for monetar in retJSON:
-                if not verify or retJSON["verify"] == "success":           
+                if not verify or retJSON["verify"] == "success":
                     winmentor.addMonetare(monetar)
 
     logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+
+
+@decorators.time_log
+def getExportedDeliveryNotes(baseURL, startDate, endDate):
+    operationType = "reception,receptionImported"
+    url = baseURL + "/operations/?"
+    url += "&type=" + operationType
+
+    url += "&dateBegin={}".format(util.getTimestamp(startDate - timedelta(days = 1)))
+    url += "&dateEnd={}".format(util.getTimestamp(endDate))
+
+    companyName = util.getCfgVal("winmentor", "companyName")
+
+    url += "&returnFields=relatedDocumentNo,itemsCount,value,documentNo,documentDate,simbolWinMentorDeliveryNote"
+
+    source_name = util.getCfgVal("deliveryNote", "source_name")
+    if source_name not in [None, "", ]:
+        url += "&source_name={}".format(source_name)
+
+    token = util.getCfgVal("winmentor", "companyToken")
+    logger.debug("Gesto request token: {}".format(token))
+
+    urlPage = url + "&pageSize=1"
+    logger.info(urlPage)
+
+    r = requests.get(urlPage, headers={'GESTOTOKEN': token})
+
+    ret = {}
+
+    if r.status_code != 200:
+        logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
+        1/0
+    else:
+        retJSON = r.json()
+        util.log_json(retJSON)
+
+        totalRecords = retJSON["range"]["totalRecords"]
+        logger.info("{} {}".format(totalRecords, operationType))
+
+        if totalRecords != 0:
+            pageSize = 500
+            pagesCount = int((totalRecords + pageSize - 1) / pageSize)
+
+            for ctr in range(1, pagesCount + 1):
+                urlPage = url + "&pageSize="+str(pageSize)
+                urlPage += "&page="+str(ctr)
+                logger.debug("{}, {}, {}".format(ctr, pagesCount, urlPage))
+
+                r = requests.get(urlPage, headers={'GESTOTOKEN': token})
+                retJSON = r.json()
+
+                tot = len(retJSON["data"])
+                for ctr2, op in enumerate(retJSON["data"], start=1):
+                    logger.debug("{}, {}, {}".format(ctr2, tot, op["id"]))
+                    if "itemsCount" in op and op["itemsCount"] == 0:
+                        logger.info("No product on this operation")
+                        continue
+
+                    ret[op["relatedDocumentNo"]] = op
+
+    util.log_json(ret.keys())
+
+    return ret
 
 
 def importAvize(baseURL, date):
     logger.info(">>> {}()".format(inspect.stack()[0][3]))
     start = dt.now()
 
+    exported_delivery_notes = getExportedDeliveryNotes(baseURL, date, date)
+
     deliveryNotes = winmentor.getTransferuri(date)
+
+    company = util.getCfgVal("winmentor", "companyName")
 
     opStr = {
         "version": "1.0",
         "type": "reception",
-        "company": util.getCfgVal("winmentor", "companyName"),
+        "company": company,
     }
 
     hour = util.getCfgVal("deliveryNote", "hour", "int")
+
+    winMentorDocumentNos = []
 
     for (source, val1) in deliveryNotes.items():
         opStr["source"] = {
@@ -143,7 +213,6 @@ def importAvize(baseURL, date):
                             "type": "company",
                             "winMentorcode": source,
                         }
-
         for (date, val2) in val1.items():
             date = [int(x) for x in date.split(".")]
             date = datetime.datetime(date[2], date[1], date[0])
@@ -161,49 +230,87 @@ def importAvize(baseURL, date):
             else:
                 documentDate = date.replace(hour=hour)
 
-            opStr["documentDate"] = util.getTimestamp(documentDate)
-            opStr["documentDateHuman"] = documentDate.strftime("%d/%m/%Y %H:%M:%S")
-
             for (destination, val3) in val2.items():
+                if company in ["SC Pan Partener Spedition Arg SRL"]:
+                    dest_name = destination
+                else:
+                    dest_name = winmentor.getGestiuneName(destination),
+
                 opStr["destination"] = {
-                            "name": winmentor.getGestiuneName(destination),
+                            "name": dest_name,
                             "type": "warehouse",
                             "winMentorcode": destination,
                         }
 
                 for (documentNo, val4) in val3.items():
-                    opStr["relatedDocumentNo"] = documentNo
+                    winMentorDocumentNos.append(documentNo)
+                    opStr["documentDate"] = util.getTimestamp(documentDate)
+                    opStr["documentDateHuman"] = documentDate.strftime("%d/%m/%Y %H:%M:%S")
 
+                    if documentNo in exported_delivery_notes:
+                        exported_document = exported_delivery_notes[documentNo]
+                        exp_val = Decimal("{:.2f}".format(exported_document["value"]))
+                        val4_val = Decimal("{:.3f}".format(val4["value"])).quantize(Decimal('.01'), rounding=ROUND_HALF_UP)
+
+                        logger.info("count: {} - {}, value: {} - {}, date: {} - {}, destination: {} - {}".format(
+                                                            exported_document["itemsCount"],
+                                                            len(val4["items"]),
+                                                            exp_val,
+                                                            val4_val,
+                                                            datetime.datetime.utcfromtimestamp(exported_document["documentDate"]).date(),
+                                                            documentDate.date(),
+                                                            destination,
+                                                            exported_document["simbolWinMentorDeliveryNote"]
+                                                            ))
+
+                        if destination == exported_document["simbolWinMentorDeliveryNote"] \
+                        and datetime.datetime.utcfromtimestamp(exported_document["documentDate"]).date() == documentDate.date()\
+                        and exported_document["itemsCount"] == len(val4["items"]) \
+                        and exp_val == val4_val:
+                            logger.info("Receptia {} exista".format(documentNo))
+                            continue
+                        else:
+                            logger.info("Receptia {} a fost modificata".format(documentNo))
+                            logger.info("gesto-wm ... count: {} - {}, value: {} - {}, date: {} - {}, destination: {} - {}".format(
+                                                            exported_document["itemsCount"],
+                                                            len(val4["items"]),
+                                                            exp_val,
+                                                            val4_val,
+                                                            datetime.datetime.utcfromtimestamp(exported_document["documentDate"]).date(),
+                                                            documentDate.date(),
+                                                            destination,
+                                                            exported_document["simbolWinMentorDeliveryNote"]
+                                                            ))
+
+                            opStr["operation_id"] = exported_document["id"]
+                            opStr["documentNo"] = exported_document["documentNo"]
+
+                    else:
+                        logger.info("Receptia {} nu exista".format(documentNo))
+
+
+                    opStr["relatedDocumentNo"] = documentNo
                     opStr["items"] = []
 
-                    for item in val4:
+                    for item in val4["items"]:
                         opStr["items"].append(item)
 
-                    opStrText = json.dumps(
-                        opStr,
-                        sort_keys=True,
-                        indent=4,
-                        separators=(',', ': '),
-                        default=util.defaultJSON
-                        )
-                    logger.info(opStrText)
-                    opStrText = json.dumps(
-                        opStr,
-                        default=util.defaultJSON
-                        )
+                    util.log_json(opStr)
+
+                    opStrText = json.dumps(opStr, default=util.defaultJSON)
 
                     r = requests.post(baseURL+"/importOperation/", data = opStrText)
+                    logger.info("Gesto response: %d, %s", r.status_code, r.text)
                     if r.status_code != 200:
                         logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
                         1/0
-                    else:
-                        logger.error("Gesto succes: {}".format(r.text))
 
                     # 1/0
                     opStr.pop('documentNo', None)
                     opStr.pop('items', None)
+                    opStr.pop('operation_id', None)
+                    opStr.pop('documentDate', None)
                 opStr.pop('destination', None)
-            opStr.pop('date', None)
         opStr.pop('source', None)
 
     logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
@@ -226,6 +333,7 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
         endDate = endDate.replace(hour=23, minute=59, second=59)
 
     startDate = (endDate - timedelta(days = daysDelta)).replace(hour=0, minute=0, second=0)
+    start = datetime.datetime.strptime("2023-09-29", "%Y-%m-%d")
     branchStartDate = dt.strptime(util.getCfgVal("receptionsStartDate", branch), "%Y-%m-%d")
     logger.debug("startDate: {}".format(branchStartDate))
     startDate = max([startDate, branchStartDate])
@@ -317,7 +425,6 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
                 logger.debug("{}, {}, {}".format(ctr2, tot, op["id"]))
 
                 # gestoData = retJSON["data"]
-                # if util.isArray(gestoData) and len(gestoData) >= 1:
                 if operationType == "reception":
                     # Get partener from gesto
                     gestoPartener = util.fixupCUI(op["source"]["code"])
@@ -330,6 +437,104 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
     logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
 
+def getGestoDocumentsMarkedForWinMentorExport(baseURL):
+    """
+    @param branch: Gesto branch used for request
+    """
+
+    logger.info("Getting all operations marked for WinMentorExport")
+    url = baseURL + "/operations/?"
+    url += "&markedForWinMentorExport=1"
+    url += "&onlyKeepStockProducts=1"
+    logger.debug(url)
+
+    token = util.getCfgVal("winmentor", "companyToken")
+    logger.debug("Gesto request token: {}".format(token))
+
+    r = requests.get(url, headers={'GESTOTOKEN': token})
+
+    if r.status_code != 200:
+        logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
+    else:
+        retJSON = r.json()
+        util.log_json(retJSON)
+
+        totalRecords = retJSON["range"]["totalRecords"]
+        logger.info("{} operations".format(totalRecords))
+        if totalRecords == 0:
+            return
+
+        if retJSON["data"][0]["simbolWinMentorReception"] in [None, "nil",]:
+            txtMail = "Locatia {} nu are setat un simbol pentru WinMentor".format(retJSON["data"][0]["destination"]["name"])
+
+            send_email(
+                    subject = txtMail,
+                    msg = txtMail
+                    )
+
+            return
+
+        totalRecords = retJSON["range"]["totalRecords"]
+        logger.info("{} operations".format(totalRecords))
+
+        for ctr, op in enumerate(retJSON["data"], start=1):
+            logger.debug("{}, {}, {}".format(ctr, totalRecords, op["id"]))
+
+            is_exported_OK = False
+
+            opDate = dt.utcfromtimestamp(op["documentDate"])
+
+            # winmentor.setLunaLucru(opDate.month, opDate.year)
+
+            if op["type"] == "reception":
+                # Get partener from gesto
+                gestoPartener = util.fixupCUI(op["source"]["code"])
+                if gestoPartener == '':
+                    gestoPartener = util.fixupCUI(op["source"]["ro"])
+
+                logger.info("gestoPartener = {}".format(gestoPartener))
+
+                # op["items"] = op["items"]
+                if int(gestoPartener) > 1500 \
+                or int(gestoPartener) < 0:
+                    is_exported_OK = winmentor.addReception(op)
+                else:
+                    is_exported_OK = winmentor.addWorkOrderFromOperation(op)
+            elif op["type"] == "supplyOrder":
+                if not op["products_missing_category"]:
+                    is_exported_OK = winmentor.addSupplyOrder(op)
+            elif op["type"] in ["return", "notaConstatareDiferente"]:
+                is_exported_OK = winmentor.addWorkOrderFromOperation(op)
+            elif op["type"] in ["scrap"]:
+                is_exported_OK = winmentor.addNotaModificareStoc(op)
+            elif op["type"] in ["productPriceChange",]:
+                is_exported_OK = winmentor.addModificarePret(op)
+            elif op["type"] == "NotaReglareStoc":
+                items_qty_plus = []
+                items_qty_minus = []
+                for item in op["items"]:
+                    if item["qty"] > 0:
+                        items_qty_plus.append(item)
+                    elif item["qty"] < 0:
+                        items_qty_minus.append(item)
+
+                op["items"] = items_qty_minus
+                is_exported_OK_diminuare = winmentor.addNotaModificareStoc(op)
+                op["items"] = items_qty_plus
+                is_exported_OK_marire = winmentor.addNotaModificareStoc(op, "Marire")
+
+                if all([is_exported_OK_diminuare, is_exported_OK_marire]):
+                    is_exported_OK = True
+            else:
+                logger.info(f'!!! {op["type"]} - nu se exporta !!!')
+
+            if is_exported_OK:
+                url = baseURL + "/operations/{}/exportedWinMentor/".format(op["id"])
+                r = requests.put(url, headers={'GESTOTOKEN': token})
+                logger.info(r)
+
+            # if ctr==1:
+            #     1/0
 
 def getExportWinMentorData():
     logger.info(">>> {}()".format(inspect.stack()[0][3]))
@@ -352,10 +557,10 @@ def getExportWinMentorData():
             retJSON = r.json()
             util.log_json(retJSON)
 
-            if retJSON["report_id"] is not None:                
+            if retJSON["report_id"] is not None:
                 if isinstance(retJSON["report_data"], list):
                     # doar monetarele pot veni ca lista
-                    for rd in retJSON["report_data"]:                        
+                    for rd in retJSON["report_data"]:
                         ret = winmentor.addMonetare(rd)
                 elif retJSON["report_data"]["data"] == "monetare":
                     ret = winmentor.addMonetare(retJSON["report_data"])
@@ -440,6 +645,13 @@ def setup_logging(
                             folder,
                             dt.strftime(dt.now(), "%Y_%m_%d__%H_%M.log")
                             )
+
+                    if os.path.exists(path):
+                        path = os.path.join(
+                            folder,
+                            dt.strftime(dt.now(), "%Y_%m_%d__%H_%M__%f.log")
+                            )
+
                     if not os.path.exists(folder):
                         os.mkdir(folder)
                     dhandler["filename"] = path
@@ -468,6 +680,8 @@ if __name__ == "__main__":
         logger.info(">>> {}()".format(inspect.stack()[0][3]))
         start = dt.now()
 
+        # start = datetime.datetime.strptime("2023-09-25", "%Y-%m-%d")
+
         tokens={}
         for opt in cfg.options("tokens"):
             tokens[opt] = str(util.getCfgVal("tokens", opt))
@@ -485,27 +699,7 @@ if __name__ == "__main__":
             logger.error("Failed to get winmentor object")
             1/0
 
-        # # TODO here for testing
-        # intrari, rc = winmentor._stat.GetIntrari()
-        # result = []
-        # keys = (
-        #        "partenerId",
-        #        "data",
-        #        "nrDoc",
-        #        "idArticol",
-        #        "cant", # cantitate
-        #        "um",
-        #        "pret",
-        #        "simbGest",
-        #        "_"
-        #        )
-        # if (rc == 0) and util.isArray(intrari):
-        #     for intrare in intrari:
-        #         val = winmentor._colonListToDict(keys, intrare)
-        #         print(repr(val))
-
-        # sys.exit(0)
-        # # TODO -- END TESTING --
+        # TODO -- END TESTING --
 
         logger.info("START")
 
@@ -521,7 +715,8 @@ if __name__ == "__main__":
         doGenerateWorkOrders = util.getCfgVal("gesto", "generateWorkOrders", "bool")
         doGenerateMonetare = util.getCfgVal("gesto", "generateMonetare", "bool")
         doImportAvize = util.getCfgVal("gesto", "importAvize", "bool")
-        
+
+        markedForWinMentorExport = False
         exportWinMentorData = False
 
         try:
@@ -531,6 +726,7 @@ if __name__ == "__main__":
                                      "importAvize=",
                                      "branches=",
                                      "exportWinMentorData=",
+                                     "markedForWinMentorExport=",
                                      "workDate="
                                     ])
 
@@ -553,9 +749,11 @@ if __name__ == "__main__":
             elif opt in ("--importAvize"):
                 doImportAvize = bool(int(arg))
             elif opt in ("--branches"):
-                branches = [x.strip() for x in arg.split(",")]            
+                branches = [x.strip() for x in arg.split(",")]
+            elif opt in ("--markedForWinMentorExport"):
+                markedForWinMentorExport = bool(int(arg))
             elif opt in ("--exportWinMentorData"):
-                exportWinMentorData = bool(int(arg))            
+                exportWinMentorData = bool(int(arg))
             elif opt in ("--workDate"):
                 try:
                     workdate = dt.strptime(arg, "%Y-%m-%d")
@@ -567,7 +765,8 @@ if __name__ == "__main__":
         logger.info( 'generateMonetare {}'.format(doGenerateMonetare))
         logger.info( 'importAvize {}'.format(doImportAvize))
         logger.info( 'branches: {}'.format(branches))
-        
+
+        logger.info( 'markedForWinMentorExport {}'.format(markedForWinMentorExport))
         logger.info( 'exportWinMentorData {}'.format(exportWinMentorData))
 
         daysDelta = util.getCfgVal("gesto", "daysDelta", "int")
@@ -579,7 +778,13 @@ if __name__ == "__main__":
         endDate = workdate.replace(hour=23, minute=59, second=59)
         logger.info("Using end date: {}".format(endDate))
 
-        if exportWinMentorData:
+        if markedForWinMentorExport or exportWinMentorData:
+            if markedForWinMentorExport:
+                logger.info( 'markedForWinMentorExport {}'.format(markedForWinMentorExport))
+                getGestoDocumentsMarkedForWinMentorExport(
+                                baseURL = baseURL,
+                            )
+
             if exportWinMentorData:
                 logger.info( 'exportWinMentorData {}'.format(exportWinMentorData))
                 getExportWinMentorData()

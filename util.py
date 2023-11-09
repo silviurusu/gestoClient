@@ -12,6 +12,8 @@ import codecs
 from django.template import loader
 import traceback
 import json
+from decimal import Decimal
+import ssl
 
 
 logger = logging.getLogger(__name__)
@@ -41,25 +43,22 @@ def newException(e):
 
 
 def getNextDocumentNumber(type):
+    cfg_file_name = 'config_documentNo_local.ini'
     cfg = ConfigParser()
     cfg.optionxform = str
-    try:
-        with codecs.open('config_documentNo_local.ini', 'r', encoding='utf-8') as f:
-            cfg.readfp(f)
+    try:        
+        cfg.read(cfg_file_name)
     except:
-        logger.exception("Failed to read .ini file")
-        sys.exit(1)
+        logger.exception(f"Failed to read {cfg_file_name} file")
+        1/0
 
     docNo = cfg.getint("documentNumbers", type)
     cfg.set("documentNumbers", type, str(docNo+1))
-    with open('config_documentNo_local.ini', 'w') as configfile:
+    
+    with open(cfg_file_name, 'w') as configfile:
         cfg.write(configfile)
 
     return docNo
-
-
-def isArray(var):
-    return isinstance(var, collections.Iterable) and (not isinstance(var, str))
 
 
 def retToFileArray(ret, filename):
@@ -72,17 +71,19 @@ def retToFileArray(ret, filename):
 
 
 def cfg_has_option(section, option):
-    cfg = ConfigParser()
-    with codecs.open('config_local.ini', 'r', encoding='utf-8') as f:
-        cfg.readfp(f)
+    cfg_file_name = 'config_local.ini'
+    
+    cfg = ConfigParser()    
+    cfg.read(cfg_file_name)
 
     return cfg.has_option(section, option)
 
 
 def cfg_has_section(section):
-    cfg = ConfigParser()
-    with codecs.open('config_local.ini', 'r', encoding='utf-8') as f:
-        cfg.readfp(f)
+    cfg_file_name = 'config_local.ini'
+
+    cfg = ConfigParser()    
+    cfg.read(cfg_file_name)
 
     return cfg.has_section(section)
 
@@ -91,9 +92,10 @@ def getCfgVal(section, varName, retType=None):
     logger.info(">>> {0}()".format(inspect.stack()[0][3]))
     start = datetime.datetime.now()
 
+    cfg_file_name = 'config_local.ini'
+
     cfg = ConfigParser()
-    with codecs.open('config_local.ini', 'r', encoding='utf-8') as f:
-        cfg.readfp(f)
+    cfg.read(cfg_file_name)
 
     if retType == "int":
         ret = cfg.getint(section, varName)
@@ -158,6 +160,11 @@ def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGes
 
         backend = EmailBackend(host=settings.AWS_EMAIL_HOST, username=settings.AWS_EMAIL_USER,
                                    password=settings.AWS_EMAIL_PASS)
+
+        if settings.SET_CERT_NONE:
+            backend.ssl_context.check_hostname = False
+            backend.ssl_context.verify_mode=ssl.CERT_NONE
+
         email.connection = backend
 
         if 1==1:
@@ -166,14 +173,24 @@ def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGes
             logger.info(msg)
 
     except BaseException as e:
-        logger.exception("{0}, {1}".format(e, e.message))
+        msg = f"{e}"
+
+        try:
+            msg = f"{msg} {e.message}"
+        except AttributeError:
+            pass
+
+        try:
+            msg = f"{msg} {e.strerror}"
+        except AttributeError:
+            pass
+
+        logger.exception(msg)
 
     logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], datetime.datetime.now() - start))
 
 
 def defaultJSON(obj):
-    logger.info(obj)
-
     if isinstance(obj, Decimal):
         return float(obj)
     elif isinstance(obj, datetime.datetime):
@@ -216,7 +233,7 @@ def fixupCUI2(cui):
 
     """
     # Incearca CUI
-    x = re.match("^\s*([A-z]{2})?\s*([0-9]{7,9})\s*$", cui)
+    x = re.match("^\\s*([A-z]{2})?\\s*([0-9]{7,9})\\s*$", cui)
     if x:
         pref, no = x.groups()
         if no:
@@ -226,7 +243,7 @@ def fixupCUI2(cui):
             return (True, pref + no)
 
     # Incearca CNP
-    x = re.match("^\s*([0-9]{13})\s*$", cui)
+    x = re.match("^\\s*([0-9]{13})\\s*$", cui)
     if x:
         no, = x.groups()
         if no:
@@ -235,7 +252,7 @@ def fixupCUI2(cui):
             return (True, no)
 
     # Incearca Serie/Nr
-    x = re.match("^\s*([A-z]{2})?\s*([0-9]{6})?\s*$", cui)
+    x = re.match("^\\s*([A-z]{2})?\\s*([0-9]{6})?\\s*$", cui)
     if x:
         serie, nr = x.groups()
         if nr:

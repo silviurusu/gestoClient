@@ -1,10 +1,12 @@
+{% load filters %}
+
 <html>
 <head>
 <title>{{subject}}</title>
 </head>
 <body>
 <pre>
-    - {{exception.message}}
+    - {{exception|get_item:'message'}} {{exception|get_item:'strerror'}}
     - {{exceptionType}}
     - {{traceback}}
 </pre>
