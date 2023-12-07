@@ -9,7 +9,6 @@ from winmentor import WinMentor
 from datetime import datetime as dt, timedelta
 import logging.config
 from configparser import ConfigParser, NoOptionError
-import codecs
 from util import send_email
 import re
 import traceback
@@ -135,7 +134,7 @@ def getExportedDeliveryNotes(baseURL, startDate, endDate):
 
     companyName = util.getCfgVal("winmentor", "companyName")
 
-    url += "&returnFields=relatedDocumentNo,itemsCount,value,documentNo,documentDate,simbolWinMentorDeliveryNote"
+    url += "&returnFields=relatedDocumentNo,itemsCount,value,type,documentNo,documentDate,simbolWinMentorDeliveryNote"
 
     source_name = util.getCfgVal("deliveryNote", "source_name")
     if source_name not in [None, "", ]:
@@ -182,7 +181,7 @@ def getExportedDeliveryNotes(baseURL, startDate, endDate):
 
                     ret[op["relatedDocumentNo"]] = op
 
-    util.log_json(ret.keys())
+    util.log_json(ret)
 
     return ret
 
@@ -270,6 +269,28 @@ def importAvize(baseURL, date):
                             logger.info("Receptia {} exista".format(documentNo))
                             continue
                         else:
+                            if company in ["SC Pan Partener Spedition Arg SRL"]:
+                                if exported_document["type"] == "reception":
+                                    opStr["confirmed"] = True
+
+                            if abs(exp_val-val4_val) < 1:
+                                msg = f"Receptia {documentNo} a fost modificata - {company}"
+
+                                ngp_body = {
+                                    "subject": msg,
+                                    "body": msg,
+                                    "emails": ["rusu.silviu@gmail.com", ],
+                                    "hours": 2
+                                }
+
+                                logger.info(ngp_body)
+
+                                baseURL = util.getCfgVal("gesto", "url")
+                                r = requests.post(baseURL+"/api/gestoProblems/", json=ngp_body)
+                                logger.info("{} - {}".format(r.status_code, r.text))
+
+                                continue
+
                             logger.info("Receptia {} a fost modificata".format(documentNo))
                             logger.info("gesto-wm ... count: {} - {}, value: {} - {}, date: {} - {}, destination: {} - {}".format(
                                                             exported_document["itemsCount"],
@@ -287,7 +308,6 @@ def importAvize(baseURL, date):
 
                     else:
                         logger.info("Receptia {} nu exista".format(documentNo))
-
 
                     opStr["relatedDocumentNo"] = documentNo
                     opStr["items"] = []
@@ -307,9 +327,12 @@ def importAvize(baseURL, date):
 
                     # 1/0
                     opStr.pop('documentNo', None)
+                    opStr.pop('relatedDocumentNo', None)
                     opStr.pop('items', None)
+                    opStr.pop('confirmed', None)
                     opStr.pop('operation_id', None)
                     opStr.pop('documentDate', None)
+                    opStr.pop('documentDateHuman', None)
                 opStr.pop('destination', None)
         opStr.pop('source', None)
 

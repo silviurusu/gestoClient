@@ -8,7 +8,6 @@ Facade (wrapper) for WinMentor OLE wrapper
 import pythoncom, win32com.client
 from datetime import datetime as dt, timedelta
 from numbers import Number
-import collections
 import logging
 import util
 import traceback
@@ -30,7 +29,7 @@ class WinMentor(object):
     companyName = util.getCfgVal("winmentor", "companyName")
     logOn = util.getCfgVal("winmentor", "userName")
 
-    
+
     multiplePartenerIDs = {}
     multiplePartenerIDsForEmail = []
     parteneri = None
@@ -103,7 +102,7 @@ class WinMentor(object):
         self.missingDefaultGest = {}
         self.productsMissingWMCodes =[]
         self.missingWMCodes = {}
-        self.allowMissingDefaultGest = util.getCfgVal("products", "allowMissingDefaultGest")        
+        self.allowMissingDefaultGest = util.getCfgVal("products", "allowMissingDefaultGest")
 
 
     def isDrink(self, productCode):
@@ -212,9 +211,9 @@ class WinMentor(object):
                     if "source" in gestoData:
                         details_arr.append(gestoData["source"]["name"])
                     if "relatedDocumentNo" in gestoData:
-                        details_arr.append.append(gestoData["relatedDocumentNo"])
+                        details_arr.append(gestoData["relatedDocumentNo"])
                     if "documentNo" in gestoData:
-                        details_arr.append.append(gestoData["documentNo"])
+                        details_arr.append(gestoData["documentNo"])
 
                     details = " - ".join([d for d in details_arr if d not in [None, "nil", ""]])
 
@@ -223,7 +222,7 @@ class WinMentor(object):
                             "details": details
                         }
 
-            elif self.companyName != "SC Pan Partener Spedition Arg SRL" \
+            elif self.companyName not in ["SC Pan Partener Spedition Arg SRL"] \
                     and self.getProduct(item["winMentorCode"])["GestImplicita"] == "" \
                     and item["winMentorCode"] not in self.allowMissingDefaultGest:
                 ret = False
@@ -339,7 +338,7 @@ class WinMentor(object):
         self.logger.debug("products count: {}".format(len(ret)))
 
         self.products = ret
-        # self.logger.info(f"products: {products}")        
+        # self.logger.info(f"products: {products}")
 
 
     def getProducts(self):
@@ -970,7 +969,7 @@ class WinMentor(object):
                 {"f":'^([^-]*)(-)(.*)$', "i": 2},
                 {"f": '.* (\\d+)$', 'i': 0},
                 {"f": '.*?(\\d+)$', 'i': 0}
-                
+
             ]
 
         found = False
@@ -1111,10 +1110,7 @@ class WinMentor(object):
             # self.logger.info("wmArticol: {}".format(wmArticol))
 
             if self.companyName == "SC Pan Partener Spedition Arg SRL":
-                if gestoData["destination"]["name"] in ["Romancuta", "Albina"]:
-                    simbGest = f'MAG_{gestoData["destination"]["name"].upper()}'
-                else:
-                    1/0
+                simbGest = f"MAG_{gestoData['simbolWinMentorDeliveryNote']}"
             else:
                 simbGest = wmArticol["GestImplicita"]
 
@@ -1153,6 +1149,8 @@ class WinMentor(object):
                 )
         if rc:
             self.logger.info("SUCCESS: Adaugare factura")
+
+            return True
         else:
             self.logger.error(repr(self.getListaErori()))
             1/0
@@ -1160,6 +1158,7 @@ class WinMentor(object):
         self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
 
+    @decorators.time_log
     def addWorkOrderFromOperation(self, gestoData):
         if len(gestoData["items"]) == 0:
             self.logger.info("Nu am nici un produs pe operatie")
@@ -1221,16 +1220,15 @@ class WinMentor(object):
             simbGest = self.matchGestiune(gestoData["source"]["name"], tipGest)
         elif self.companyName == "SC Pan Partener Spedition Arg SRL":
             if gestoData["type"] == "return":
-                if gestoData["source"]["name"] in ["Romancuta", "Albina"]:
-                    simbGest = f'MAG_{gestoData["source"]["name"].upper()}'
+                simbGest = f"MAG_{gestoData['simbolWinMentorDeliveryNote']}"
             else:
                 if gestoData["source"]["name"] in ["TRANSP_MAGAZINE"]:
                     simbGest = "TR_MAG"
                 else:
-                    if gestoData["source"]["name"] in ["Romancuta", "Albina"]:
-                        simbGest = f'MAG_{gestoData["source"]["name"].upper()}'
+                    simbGest = f'MAG_{gestoData["simbolWinMentorDeliveryNote"]}'
         else:
-            simbGest = self.matchGestiune(gestoData["simbolWinMentorDeliveryNote"])
+
+            simbGest = self.matchGestiune(f"MAG_{gestoData['simbolWinMentorDeliveryNote']}")
 
         if simbGest is None:
             self.logger.info("Nu am gasit gestiunea")
@@ -1250,7 +1248,7 @@ class WinMentor(object):
             if self.companyName == "Panemar morarit si panificatie SRL":
                 wmGestiune = self.matchGestiune(gestoData["branch"], tipGest)
             else:
-                wmGestiune = self.matchGestiune(gestoData["simbolWinMentorDeliveryNote"])
+                wmGestiune = self.matchGestiune(f"MAG_{gestoData['simbolWinMentorDeliveryNote']}")
 
         # Get lista articole from gesto, create array of articole pentru workOrders
         articoleWMDoc = []
@@ -1334,7 +1332,7 @@ class WinMentor(object):
             simbol_carnet_NIR = "NIR_G"
 
             if gestoData["type"] == "return":
-                observatii = self.getGestiuneName(gestoData["simbolWinMentorDeliveryNote"])
+                observatii = self.getGestiuneName(f"MAG_{gestoData['simbolWinMentorDeliveryNote']}")
                 observatii = f'Retur {observatii} - {gestoData["documentNo"]}'
             else:
                 observatii = self.gestiuni[wmGestiune]
@@ -1516,12 +1514,11 @@ class WinMentor(object):
             client_id = ""
 
             if self.companyName in ["SC Pan Partener Spedition Arg SRL"]:
-                client_ids = {
-                    "Romancuta": 3317,
-                    "Albina": 1315
-                }
-
-                client_id = client_ids[gestoData["source"]["name"]]
+                if gestoData["destination"]["name"] == "BRUTARIE TRIVALE":
+                    # "BRUTARIE TRIVALE": 1317
+                    client_id = 1317
+                else:
+                    client_id = gestoData['simbolWinMentorDeliveryNote']
 
             if len(articoleWMDoc) > 0:
                 # Creaza comanda
@@ -1594,7 +1591,11 @@ class WinMentor(object):
                 wmArticol = self.getProduct(item["winMentorCode"])
                 self.logger.info("wmArticol: {}".format(wmArticol))
 
-                simbGest = wmArticol["GestImplicita"]
+                if self.companyName not in ["SC Pan Partener Spedition Arg SRL"]:
+                    simbGest = wmArticol["GestImplicita"]
+                else:
+                    simbGest = f"MAG_{gestoData['simbolWinMentorDeliveryNote']}"
+
                 # Adauga produs la lista produse comanda
                 articoleWMDoc.append(
                         {
@@ -1611,15 +1612,15 @@ class WinMentor(object):
                 # if item["productType_name"] == "Marfa":
                 #         observatii += "; "+item["name"]
 
-            client_id = ""
+            # client_id = ""
 
-            if self.companyName in ["SC Pan Partener Spedition Arg SRL"]:
-                client_ids = {
-                    "Romancuta": 3317,
-                    "Albina": 1315
-                }
+            # if self.companyName in ["SC Pan Partener Spedition Arg SRL"]:
+            #     client_ids = {
+            #         "Romancuta": 3317,
+            #         "Albina": 1315
+            #     }
 
-                client_id = client_ids[gestoData["source"]["name"]]
+            #     client_id = client_ids[gestoData["source"]["name"]]
 
             if len(articoleWMDoc) > 0:
                 # Creaza comanda
@@ -1629,7 +1630,7 @@ class WinMentor(object):
                         data = opDate,
                         observatii= observatii,
                         items = articoleWMDoc,
-                        client = client_id,
+                        # client = client_id,
                     )
                 if rc:
                     self.logger.info("SUCCESS: Adaugare modificare pret")
@@ -1960,7 +1961,7 @@ class WinMentor(object):
         # wmGestiune = self.matchGestiune(gestoData["branch"])
 
         if self.companyName == "SC Pan Partener Spedition Arg SRL":
-            simbGest = f'MAG_{gestoData["branch"].upper()}'
+            simbGest = f"MAG_{gestoData['branch_winMentorCode']}"
         else:
             1/0
 
@@ -2068,7 +2069,7 @@ class WinMentor(object):
             simbGest = "Magazin {}P".format(gestoData["branch"][:2])
         elif self.companyName == "SC Pan Partener Spedition Arg SRL":
             campPret = "PretReferinta"
-            simbGest = f'MAG_{gestoData["branch"].upper()}'
+            simbGest = f"MAG_{gestoData['simbolWinMentorDeliveryNote']}"
         else:
             1/0
 
@@ -2244,7 +2245,7 @@ class WinMentor(object):
         txtWMDoc += "TotalArticole={}\n".format(len(items))
         payment = kwargs.get("payment")
         txtWMDoc += "CEC={}\n".format(payment["bank transfer"] if "bank transfer" in payment else 0)
-        
+
         card_sum = 0
         for key, value in payment.items():
             if 'card' in key.lower():
@@ -2252,7 +2253,7 @@ class WinMentor(object):
 
         txtWMDoc += "CARD={}\n".format(card_sum)
         txtWMDoc += "BONVALORIC={}\n".format(payment["food vouchers"] if "food vouchers" in payment else 0)
-        
+
         if self.companyName in ["SC Pan Partener Spedition Arg SRL", ]:
             txtWMDoc += "Observatii={}\n".format(pos)
         else:
@@ -2381,8 +2382,7 @@ class WinMentor(object):
                     if self.companyName not in ["SC Pan Partener Spedition Arg SRL"]:
                         newItems[codExternArticol]["simbGest"] = wmArticol["GestImplicita"]
                     else:
-                        if gestoData["branch"] in ["Romancuta", "Albina"]:
-                            newItems[codExternArticol]["simbGest"] = f'MAG_{gestoData["branch"].upper()}'
+                        newItems[codExternArticol]["simbGest"] = f"MAG_{gestoData['branch_winMentorCode']}"
                 else:
                     if codExternArticol not in newItems:
                         newItems[codExternArticol] = {
@@ -2583,33 +2583,33 @@ class WinMentor(object):
                 if transferNo_int < 10000:
                     1/0
                 elif transferNo_int < 20000:
-                    destination = "MAG_ROMANCUTA"
+                    destination = "3317"
                 elif transferNo_int < 30000:
-                    destination = "MAG_TRIVALE1"
+                    destination = "1307"
                 elif transferNo_int < 40000:
-                    destination = "MAG_TRIVALE2"
+                    destination = "1308"
                 elif transferNo_int < 50000:
-                    destination = "MAG_IZVOR"
+                    destination = "1312"
                 elif transferNo_int < 60000:
-                    destination = "MAG_PIATA_TRIVALE"
+                    destination = "1892"
                 elif transferNo_int < 70000:
-                    destination = "MAG_EREMIA"
+                    destination = "1314"
                 elif transferNo_int < 80000:
-                    destination = "MAG_CEAIR"
+                    destination = "CEAIR"
                 elif transferNo_int < 90000:
-                    destination = "MAG_EXERCITIU_POSTA"
+                    destination = "1326"
                 elif transferNo_int < 100000:
-                    destination = "MAG_EXERCITIU2"
+                    destination = "1310"
                 elif transferNo_int < 110000:
-                    destination = "MAG_ALBINA"
+                    destination = "1315"
                 elif transferNo_int < 120000:
-                    destination = "MAG_PIATA_GAVANA"
+                    destination = "2091"
                 elif transferNo_int < 130000:
-                    destination = "MAG_BERE"
+                    destination = "1309"
                 elif transferNo_int < 140000:
-                    destination = "MAG_MIOVENI"
+                    destination = "1316"
                 elif transferNo_int < 150000:
-                    destination = "MAG_COSTESTI"
+                    destination = "1306"
                 else:
                     1/0
 
@@ -2641,7 +2641,7 @@ class WinMentor(object):
                 else:
                     opPrice = float(items[7].replace(",", "."))
 
-                qty = float(items[6].replace(",","."))               
+                qty = float(items[6].replace(",","."))
 
                 val_add = opPrice * qty
                 val_add = Decimal("{:.3f}".format(val_add)).quantize(Decimal('.01'), rounding=ROUND_HALF_UP)
@@ -2822,7 +2822,7 @@ class WinMentor(object):
         # Get gestiune in WinMentor
 
         if self.companyName == "SC Pan Partener Spedition Arg SRL":
-            simbGest = f'MAG_{gestoData["branch"].upper()}'
+            simbGest = f"MAG_{gestoData['branch_winMentorCode']}"
         else:
             1/0
 
@@ -2856,7 +2856,7 @@ class WinMentor(object):
             simbolCarnet = "BC_G"
             operat="D"
             if self.companyName == "SC Pan Partener Spedition Arg SRL":
-                simbGest = f'MAG_{gestoData["branch"].upper()}'
+                simbGest = f"MAG_{gestoData['branch_winMentorCode']}"
 
         # Get lista articole from gesto, create array of articole pentru workOrders
         articoleWMDoc = []
