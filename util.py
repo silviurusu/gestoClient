@@ -1,22 +1,63 @@
 import datetime
-import collections
 import settings
-from django.core.mail import EmailMessage
-from django.core.mail.backends.smtp import EmailBackend
 import logging
 import functools
 import re
 import inspect
 from configparser import ConfigParser
-import codecs
 from django.template import loader
 import traceback
 import json
 from decimal import Decimal
-import ssl
+import requests
+import decorators
+import os
+from datetime import datetime as dt
 
 
 logger = logging.getLogger(__name__)
+
+
+def setup_logging(
+        default_path='logging.json',
+        default_level=logging.INFO,
+        env_key='LOG_CFG',
+        log_details=None
+        ):
+    """ Setup logging configuration
+
+    """
+    path = default_path
+    value = os.getenv(env_key, None)
+    if value:
+        path = value
+    if os.path.exists(path):
+        with open(path, 'rt') as f:
+            config = json.load(f)
+
+            # Search for hadlers with "folder" and set the
+            # .. log file with current date in that folder
+            for _, dhandler in config["handlers"].items():
+                folder = dhandler.pop("folder", None)
+                if folder:
+                    path = os.path.join(
+                            folder,
+                            dt.strftime(dt.now(), f"%Y_%m_%d__%H_%M") + (f"__{log_details}" if log_details is not None else "") + ".log"
+                            )
+
+                    if os.path.exists(path):
+                        path = os.path.join(
+                            folder,
+                            dt.strftime(dt.now(), f"%Y_%m_%d__%H_%M__%f") + (f"__{log_details}" if log_details is not None else "") + ".log"
+                            )
+
+                    if not os.path.exists(folder):
+                        os.mkdir(folder)
+                    dhandler["filename"] = path
+
+        logging.config.dictConfig(config)
+    else:
+        logging.basicConfig(level=default_level)
 
 
 def newException(e):
@@ -46,7 +87,7 @@ def getNextDocumentNumber(type):
     cfg_file_name = 'config_documentNo_local.ini'
     cfg = ConfigParser()
     cfg.optionxform = str
-    try:        
+    try:
         cfg.read(cfg_file_name)
     except:
         logger.exception(f"Failed to read {cfg_file_name} file")
@@ -54,7 +95,7 @@ def getNextDocumentNumber(type):
 
     docNo = cfg.getint("documentNumbers", type)
     cfg.set("documentNumbers", type, str(docNo+1))
-    
+
     with open(cfg_file_name, 'w') as configfile:
         cfg.write(configfile)
 
@@ -72,8 +113,8 @@ def retToFileArray(ret, filename):
 
 def cfg_has_option(section, option):
     cfg_file_name = 'config_local.ini'
-    
-    cfg = ConfigParser()    
+
+    cfg = ConfigParser()
     cfg.read(cfg_file_name)
 
     return cfg.has_option(section, option)
@@ -82,7 +123,7 @@ def cfg_has_option(section, option):
 def cfg_has_section(section):
     cfg_file_name = 'config_local.ini'
 
-    cfg = ConfigParser()    
+    cfg = ConfigParser()
     cfg.read(cfg_file_name)
 
     return cfg.has_section(section)
@@ -116,14 +157,8 @@ def getCfgVal(section, varName, retType=None):
     return ret
 
 
+@decorators.time_log
 def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGestoProblem=False):
-    logger.info(">>> {0}()".format(inspect.stack()[0][3]))
-    start = datetime.datetime.now()
-
-    logger.info("subject: {}".format(subject))
-    logger.info("toEmails: {}".format(toEmails))
-    logger.info("bccEmails: {}".format(bccEmails))
-
     if not isGestoProblem:
         callersFrame = inspect.stack()[1][0]
     else:
@@ -152,42 +187,22 @@ def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGes
             logger.info("toEmails: {0}".format(toEmails))
         elif bccEmails is None:
             bccEmails = bccEmailsCfg
-            logger.info("bccEmails: {0}".format(bccEmails))
+            logger.info(f"bccEmails: {bccEmails}")
 
-    try:
-        email = EmailMessage(subject, msg, to=toEmails, bcc=bccEmails)
-        email.content_subtype = "html"
+    email_body = {
+        "subject": subject,
+        "body": msg,
+        "emails": toEmails,
+        "from_email": settings.DEFAULT_FROM_EMAIL,
+    }
 
-        backend = EmailBackend(host=settings.AWS_EMAIL_HOST, username=settings.AWS_EMAIL_USER,
-                                   password=settings.AWS_EMAIL_PASS)
+    logger.info(email_body)
 
-        if settings.SET_CERT_NONE:
-            backend.ssl_context.check_hostname = False
-            backend.ssl_context.verify_mode=ssl.CERT_NONE
+    baseURL = getCfgVal("gesto", "url")
+    token = getCfgVal("winmentor", "companyToken")
 
-        email.connection = backend
-
-        if 1==1:
-            email.send()
-        else:
-            logger.info(msg)
-
-    except BaseException as e:
-        msg = f"{e}"
-
-        try:
-            msg = f"{msg} {e.message}"
-        except AttributeError:
-            pass
-
-        try:
-            msg = f"{msg} {e.strerror}"
-        except AttributeError:
-            pass
-
-        logger.exception(msg)
-
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], datetime.datetime.now() - start))
+    r = requests.post(baseURL+"/api/email/", json=email_body, headers={'GESTOTOKEN': token})
+    logger.info("{} - {}".format(r.status_code, r.text))
 
 
 def defaultJSON(obj):
