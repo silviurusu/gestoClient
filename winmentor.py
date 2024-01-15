@@ -93,9 +93,11 @@ class WinMentor(object):
 
         # TODO check this values ...
         self._stat.SetIDPartField('CodFiscal')
-        # self._stat.SetIDPartField('CodIntern')
-        # self._stat.SetIDArtField('CodExtern')
-        self._stat.SetIDArtField('CodIntern')
+        # self._stat.SetIDPartField('CodIntern')        
+        if self.companyName in ["SC Pan Partener Spedition Arg SRL", ]:
+            self._stat.SetIDArtField('CodIntern')
+        else:
+            self._stat.SetIDArtField('CodExtern')
 
         self._newProducts = []
         self.missingPartners = {}
@@ -2233,7 +2235,7 @@ class WinMentor(object):
 
         # Transfer
         txtWMDoc += "[Monetar_{}]\n".format(1)
-        txtWMDoc += "Operat={}\n".format("D")
+        txtWMDoc += "Operat={}\n".format("N")
         txtWMDoc += "NrDoc={}\n".format(kwargs.get("nrDoc", ""))
         txtWMDoc += "SimbolCarnet={}\n".format(kwargs.get("simbolCarnet"))
         txtWMDoc += "Operatie={}\n".format("A")
