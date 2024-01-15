@@ -94,7 +94,10 @@ class WinMentor(object):
         self._stat.SetIDPartField('CodFiscal')
         # self._stat.SetIDPartField('CodIntern')
         # self._stat.SetIDArtField('CodExtern')
-        self._stat.SetIDArtField('CodIntern')
+        if self.companyName in ["SC Pan Partener Spedition Arg SRL", ]:
+            self._stat.SetIDArtField('CodIntern')
+        else:
+            self._stat.SetIDArtField('CodExtern')
 
         self._newProducts = []
         self.missingPartners = {}
@@ -215,7 +218,9 @@ class WinMentor(object):
                     if "documentNo" in gestoData:
                         details_arr.append(gestoData["documentNo"])
 
-                    details = " - ".join([d for d in details_arr if d not in [None, "nil", ""]])
+                    # self.logger.info(f"{details_arr=}")
+
+                    details = " - ".join([str(d) for d in details_arr if d not in [None, "nil", ""]])
 
                     self.missingWMCodes[item["code"]] = {
                             "item": item,
@@ -393,6 +398,7 @@ class WinMentor(object):
         return ret
 
 
+    @decorators.time_log
     def transferExists(self, nrDoc, documentDate):
         """ @return daca transferul exista sau nu in Mentor
         """
@@ -418,6 +424,8 @@ class WinMentor(object):
             self.logger.info("{} transferuri pe {}".format(len(self.transfers[workDate]), workDate))
             self.logger.info(self.transfers[workDate])
             # 1/0
+
+        self.logger.info(f"{nrDoc=}")
 
         if str(nrDoc) not in self.transfers[workDate]:
             self.logger.info("Transferul nu exista in WinMentor")
@@ -681,21 +689,13 @@ class WinMentor(object):
         return ret
 
 
+    @decorators.time_log
     def getFactura(self, partenerId, serie, nr, data):
         """ @return array de articole from Winmentor care corespund facturii
 
         """
 
-        self.logger.info(">>> {}()".format(inspect.stack()[0][3]))
-        start = dt.now()
-
-        self.logger.info("partenerId: {}".format(partenerId))
-        self.logger.info("serie: {}".format(serie))
-        self.logger.info("nr: {}".format(nr))
-        self.logger.info("data: {}".format(data))
-
         if not self.existaFacturaIntrare(partenerId, serie, nr):
-            self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
             return None
 
         # make sure we have loaded the existing intrari
@@ -717,7 +717,6 @@ class WinMentor(object):
                             ret,
                             sort_keys=True, indent=4, separators=(',', ': '), default=util.defaultJSON))
 
-        self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
         return ret
 
 
@@ -896,14 +895,15 @@ class WinMentor(object):
         simbolGestiuneSearch = name
         # simbolGestiuneSearch = "SEDIU"
 
-        matchStr = '^\\s*([0-9]{1,4})\\s*' #+"{}".format(tipGestiune)
-        x = re.match(matchStr, name)
-        if x:
-            no = x.group(1)
-            self.logger.debug(repr(no))
+        if self.companyName != "SC Pan Partener Spedition Arg SRL":
+            matchStr = '^\\s*([0-9]{1,4})\\s*' #+"{}".format(tipGestiune)
+            x = re.match(matchStr, name)
+            if x:
+                no = x.group(1)
+                self.logger.debug(repr(no))
 
-            # Find a "gestiune" that matches
-            simbolGestiuneSearch = "Magazin {:d}P".format(int(no))
+                # Find a "gestiune" that matches
+                simbolGestiuneSearch = "Magazin {:d}P".format(int(no))
 
         self.logger.debug("simbolGestiuneSearch: {}".format(simbolGestiuneSearch))
 
@@ -945,13 +945,6 @@ class WinMentor(object):
                             default=util.defaultJSON
                             )
                         )
-
-        self.logger.info("documentNo: {}".format(gestoData["documentNo"]))
-        self.logger.info("operationID: {}".format(gestoData["id"]))
-        self.logger.info("source: {}".format(gestoData["source"]["name"]))
-        self.logger.info("destination: {}".format(gestoData["destination"]["name"]))
-        self.logger.info("simbolWinMentorReception: {}".format(gestoData["simbolWinMentorReception"]))
-        self.logger.info("relatedDocumentNo: {}".format(gestoData["relatedDocumentNo"]))
 
         if gestoData["relatedDocumentNo"] == "nil":
             msg = "Factura {}, {} nu are document de legatura.".format(gestoData["documentNo"], gestoData["destination"]["name"])
@@ -1066,11 +1059,27 @@ class WinMentor(object):
         if lstArt and (len(lstArt) != 0):
             self.logger.info("Gasit intrare in winmentor.")
             if len(lstArt) != len(gestoData["items"]):
-                self.logger.error("Product list from gesto is different than product list from winmentor")
-                subject = "Factura {} importata incorect in Winmentor".format(gestoData["documentNo"])
+                msg = "Product list from gesto is different than product list from winmentor"
 
-                msg = "wmPartenerID:{}, documentNo:{}, relatedDocumentNo:{}".format(wmPartenerID, gestoData["documentNo"], gestoData["relatedDocumentNo"])
-                send_email(subject, msg)
+                subject = "Factura {} importata incorect in Winmentor".format(gestoData["documentNo"])
+                msg += "\nwmPartenerID:{}, documentNo:{}, relatedDocumentNo:{}".format(wmPartenerID, gestoData["documentNo"], gestoData["relatedDocumentNo"])
+
+                ngp_body = {
+                    "subject": subject,
+                    "body": msg,
+                    "hours": 2
+                }
+
+                self.logger.info(ngp_body)
+
+                baseURL = util.getCfgVal("gesto", "url")
+                r = requests.post(baseURL+"/api/gestoProblems/", json=ngp_body)
+                self.logger.info("{} - {}".format(r.status_code, r.text))
+                resp = r.json()
+                self.logger.info(f"{resp}")
+
+                if resp["ngp"]:
+                    send_email(subject, msg)
 
                 self.logger.error(msg)
                 self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
@@ -1225,7 +1234,7 @@ class WinMentor(object):
                 if gestoData["source"]["name"] in ["TRANSP_MAGAZINE"]:
                     simbGest = "TR_MAG"
                 else:
-                    simbGest = f'MAG_{gestoData["simbolWinMentorDeliveryNote"]}'
+                    simbGest = f'MAG_{gestoData["source"]["simbolWinMentorDeliveryNote"]}'
         else:
 
             simbGest = self.matchGestiune(f"MAG_{gestoData['simbolWinMentorDeliveryNote']}")
@@ -2234,7 +2243,11 @@ class WinMentor(object):
 
         # Transfer
         txtWMDoc += "[Monetar_{}]\n".format(1)
-        txtWMDoc += "Operat={}\n".format("D")
+        if self.companyName in ["CARMIC IMPEX SRL", ]:
+            operat = "N"
+        else:
+            operat = "D"
+        txtWMDoc += f"Operat={operat}\n"
         txtWMDoc += "NrDoc={}\n".format(kwargs.get("nrDoc", ""))
         txtWMDoc += "SimbolCarnet={}\n".format(kwargs.get("simbolCarnet"))
         txtWMDoc += "Operatie={}\n".format("A")
@@ -2442,7 +2455,20 @@ class WinMentor(object):
                 self.logger.info("SUCCESS: Adaugare monetar")
                 ret = True
             else:
-                self.logger.error(repr(self.getListaErori()))
+                subject = f'Eroare export monetar {gestoData["branch"]}'
+
+                ngp_body = {
+                    "subject": subject,
+                    "body": repr(self.getListaErori()),
+                    "hours": 2
+                }
+
+                self.logger.info(ngp_body)
+
+                baseURL = util.getCfgVal("gesto", "url")
+                r = requests.post(baseURL+"/api/gestoProblems/", json=ngp_body)
+                self.logger.info("{} - {}".format(r.status_code, r.text))
+
                 ret = False
 
         self.logger.info("ret: {}".format(ret))
@@ -2595,7 +2621,7 @@ class WinMentor(object):
                 elif transferNo_int < 70000:
                     destination = "1314"
                 elif transferNo_int < 80000:
-                    destination = "CEAIR"
+                    destination = "1313"
                 elif transferNo_int < 90000:
                     destination = "1326"
                 elif transferNo_int < 100000:
@@ -2637,14 +2663,15 @@ class WinMentor(object):
 
             if items[6] != "":
                 if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "SC Pan Partener Spedition Arg SRL"]:
-                    opPrice = float(items[8].replace(",", "."))
+                    opPrice = Decimal(items[8].replace(",", "."))
                 else:
-                    opPrice = float(items[7].replace(",", "."))
+                    opPrice = Decimal(items[7].replace(",", "."))
 
-                qty = float(items[6].replace(",","."))
+                qty = Decimal(items[6].replace(",","."))
 
                 val_add = opPrice * qty
-                val_add = Decimal("{:.3f}".format(val_add)).quantize(Decimal('.01'), rounding=ROUND_HALF_UP)
+                # val_add = Decimal("{:.3f}".format(val_add)).quantize(Decimal('.01'), rounding=ROUND_HALF_UP)
+                val_add = val_add.quantize(Decimal('.01'), rounding=ROUND_HALF_UP)
 
                 deliveryNotes[source][date][destination][transferNo]["value"] += val_add
                 deliveryNotes[source][date][destination][transferNo]["items"].append({

@@ -11,8 +11,53 @@ import json
 from decimal import Decimal
 import requests
 import decorators
+import os
+from datetime import datetime as dt
+
 
 logger = logging.getLogger(__name__)
+
+
+def setup_logging(
+        default_path='logging.json',
+        default_level=logging.INFO,
+        env_key='LOG_CFG',
+        log_details=None
+        ):
+    """ Setup logging configuration
+
+    """
+    path = default_path
+    value = os.getenv(env_key, None)
+    if value:
+        path = value
+    if os.path.exists(path):
+        with open(path, 'rt') as f:
+            config = json.load(f)
+
+            # Search for hadlers with "folder" and set the
+            # .. log file with current date in that folder
+            for _, dhandler in config["handlers"].items():
+                folder = dhandler.pop("folder", None)
+                if folder:
+                    path = os.path.join(
+                            folder,
+                            dt.strftime(dt.now(), f"%Y_%m_%d__%H_%M") + (f"__{log_details}" if log_details is not None else "") + ".log"
+                            )
+
+                    if os.path.exists(path):
+                        path = os.path.join(
+                            folder,
+                            dt.strftime(dt.now(), f"%Y_%m_%d__%H_%M__%f") + (f"__{log_details}" if log_details is not None else "") + ".log"
+                            )
+
+                    if not os.path.exists(folder):
+                        os.mkdir(folder)
+                    dhandler["filename"] = path
+
+        logging.config.dictConfig(config)
+    else:
+        logging.basicConfig(level=default_level)
 
 
 def newException(e):

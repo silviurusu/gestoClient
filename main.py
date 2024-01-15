@@ -4,7 +4,6 @@ import os
 import sys, getopt
 import datetime
 import util
-import settings
 from winmentor import WinMentor
 from datetime import datetime as dt, timedelta
 import logging.config
@@ -179,6 +178,8 @@ def getExportedDeliveryNotes(baseURL, startDate, endDate):
                         logger.info("No product on this operation")
                         continue
 
+                    op["value"] = Decimal("{:.2f}".format(op["value"]))
+
                     ret[op["relatedDocumentNo"]] = op
 
     util.log_json(ret)
@@ -242,14 +243,24 @@ def importAvize(baseURL, date):
                         }
 
                 for (documentNo, val4) in val3.items():
+                    opStr.pop('documentNo', None)
+                    opStr.pop('relatedDocumentNo', None)
+                    opStr.pop('items', None)
+                    opStr.pop('confirmed', None)
+                    opStr.pop('operation_id', None)
+                    opStr.pop('documentDate', None)
+                    opStr.pop('documentDateHuman', None)
+
                     winMentorDocumentNos.append(documentNo)
                     opStr["documentDate"] = util.getTimestamp(documentDate)
                     opStr["documentDateHuman"] = documentDate.strftime("%d/%m/%Y %H:%M:%S")
 
                     if documentNo in exported_delivery_notes:
                         exported_document = exported_delivery_notes[documentNo]
-                        exp_val = Decimal("{:.2f}".format(exported_document["value"]))
-                        val4_val = Decimal("{:.3f}".format(val4["value"])).quantize(Decimal('.01'), rounding=ROUND_HALF_UP)
+                        # exp_val = Decimal("{:.2f}".format(exported_document["value"]))
+                        exp_val = exported_document["value"]
+                        # val4_val = Decimal("{:.3f}".format(val4["value"])).quantize(Decimal('.01'), rounding=ROUND_HALF_UP)
+                        val4_val = val4["value"]
 
                         logger.info("count: {} - {}, value: {} - {}, date: {} - {}, destination: {} - {}".format(
                                                             exported_document["itemsCount"],
@@ -289,6 +300,12 @@ def importAvize(baseURL, date):
                                 r = requests.post(baseURL+"/api/gestoProblems/", json=ngp_body)
                                 logger.info("{} - {}".format(r.status_code, r.text))
 
+                                resp = r.json()
+                                logger.info(f"{resp=}")
+
+                                if resp["ngp"]:
+                                    send_email(msg, msg, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
+
                                 continue
 
                             logger.info("Receptia {} a fost modificata".format(documentNo))
@@ -326,13 +343,6 @@ def importAvize(baseURL, date):
                         1/0
 
                     # 1/0
-                    opStr.pop('documentNo', None)
-                    opStr.pop('relatedDocumentNo', None)
-                    opStr.pop('items', None)
-                    opStr.pop('confirmed', None)
-                    opStr.pop('operation_id', None)
-                    opStr.pop('documentDate', None)
-                    opStr.pop('documentDateHuman', None)
                 opStr.pop('destination', None)
         opStr.pop('source', None)
 
@@ -487,21 +497,21 @@ def getGestoDocumentsMarkedForWinMentorExport(baseURL):
         if totalRecords == 0:
             return
 
-        if retJSON["data"][0]["simbolWinMentorReception"] in [None, "nil",]:
-            txtMail = "Locatia {} nu are setat un simbol pentru WinMentor".format(retJSON["data"][0]["destination"]["name"])
-
-            send_email(
-                    subject = txtMail,
-                    msg = txtMail
-                    )
-
-            return
-
         totalRecords = retJSON["range"]["totalRecords"]
         logger.info("{} operations".format(totalRecords))
 
         for ctr, op in enumerate(retJSON["data"], start=1):
             logger.debug("{}, {}, {}".format(ctr, totalRecords, op["id"]))
+
+            if op["simbolWinMentorReception"] in [None, "nil",]:
+                txtMail = f'Locatia {op["branch"]} nu are setat campul simbolWinMentorReception'
+
+                send_email(
+                        subject = txtMail,
+                        msg = txtMail
+                        )
+
+                continue
 
             is_exported_OK = False
 
@@ -643,56 +653,16 @@ def cleanId(name):
     return "".join(name.lower().split())
 
 
-def setup_logging(
-        default_path='logging.json',
-        default_level=logging.INFO,
-        env_key='LOG_CFG'
-        ):
-    """ Setup logging configuration
-
-    """
-    path = default_path
-    value = os.getenv(env_key, None)
-    if value:
-        path = value
-    if os.path.exists(path):
-        with open(path, 'rt') as f:
-            config = json.load(f)
-
-            # Search for hadlers with "folder" and set the
-            # .. log file with current date in that folder
-            for _, dhandler in config["handlers"].items():
-                folder = dhandler.pop("folder", None)
-                if folder:
-                    path = os.path.join(
-                            folder,
-                            dt.strftime(dt.now(), "%Y_%m_%d__%H_%M.log")
-                            )
-
-                    if os.path.exists(path):
-                        path = os.path.join(
-                            folder,
-                            dt.strftime(dt.now(), "%Y_%m_%d__%H_%M__%f.log")
-                            )
-
-                    if not os.path.exists(folder):
-                        os.mkdir(folder)
-                    dhandler["filename"] = path
-
-        logging.config.dictConfig(config)
-    else:
-        logging.basicConfig(level=default_level)
-
-
 if __name__ == "__main__":
     try:
+        logger = None
 
         # Set DJANGO for email support
         os.environ.setdefault("DJANGO_SETTINGS_MODULE", "settings")
         django.setup()
 
         # Get logger
-        setup_logging()
+        util.setup_logging()
         logger = logging.getLogger(name = __name__)
 
         # Get Script settings
@@ -759,6 +729,7 @@ if __name__ == "__main__":
         except getopt.GetoptError:
             print('{} --exportReceptions=<> --generateWorkOrders=<> --generateMonetare=<> --importAvize=<> --branches=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0]))
             sys.exit(2)
+
         for opt, arg in opts:
             if opt == '-h':
                 print('{} --exportReceptions=<> --generateWorkOrders=<> --generateMonetare=<> --importAvize=<> --branches=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0]))
@@ -866,8 +837,11 @@ if __name__ == "__main__":
 
     except Exception as e:
         print(repr(e))
-        logger.exception(repr(e))
+        if logger is not None:
+            logger.exception(repr(e))
+
         util.newException(e)
 
-    logger.info("END")
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+    if logger is not None:
+        logger.info("END")
+        logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))

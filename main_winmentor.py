@@ -13,48 +13,6 @@ import decorators
 
 # logging.basicConfig(filename='delete_older_winmentor.log', level=logging.INFO)
 
-LOG_DETAILS="verify_WM"
-
-def setup_logging(
-        default_path='logging.json',
-        default_level=logging.INFO,
-        env_key='LOG_CFG'
-        ):
-    """ Setup logging configuration
-
-    """
-    path = default_path
-    value = os.getenv(env_key, None)
-    if value:
-        path = value
-    if os.path.exists(path):
-        with open(path, 'rt') as f:
-            config = json.load(f)
-
-            # Search for hadlers with "folder" and set the
-            # .. log file with current date in that folder
-            for _, dhandler in config["handlers"].items():
-                folder = dhandler.pop("folder", None)
-                if folder:
-                    path = os.path.join(
-                            folder,
-                            dt.strftime(dt.now(), f"%Y_%m_%d__%H_%M__{LOG_DETAILS}.log")
-                            )
-
-                    if os.path.exists(path):
-                        path = os.path.join(
-                            folder,
-                            dt.strftime(dt.now(), f"%Y_%m_%d__%H_%M__%f__{LOG_DETAILS}.log")
-                            )
-
-                    if not os.path.exists(folder):
-                        os.mkdir(folder)
-                    dhandler["filename"] = path
-
-        logging.config.dictConfig(config)
-    else:
-        logging.basicConfig(level=default_level)
-
 
 @decorators.time_log
 def delete_older_winmentor(days_ago):
@@ -64,7 +22,7 @@ def delete_older_winmentor(days_ago):
     cutoff_date = start_time - datetime.timedelta(days=days_ago)
     logging.info(f"Cutoff date: {cutoff_date}.")
 
-    paths_in_which_to_delete = ['c:\\WME\\Vectron\\gestoClientWME\\debug']
+    paths_in_which_to_delete = ['d:\\Vectron\\gestoClient\\debug']
 
     for folder_path in paths_in_which_to_delete:
         files = os.listdir(folder_path)
@@ -130,47 +88,60 @@ def verify_winmentor():
 
 if __name__ == "__main__":
     try:
+        logger = None
         # Run
         os.environ.setdefault("DJANGO_SETTINGS_MODULE", "settings")
         django.setup()
 
-        setup_logging()
+        util.setup_logging(log_details="verify_WM")
         logger = logging.getLogger(name = __name__)
 
         logger.info(">>> {}()".format(inspect.stack()[0][3]))
         start = dt.now()
 
         days_ago = 100
+        do_verify_winmentor = 0
+        do_delete_older_winmentor = 0
 
         try:
             # logger.info(sys.argv)
-            opts, args = getopt.getopt(sys.argv[1:],"h",["days_ago=",
-                                    ])
+            opts, args = getopt.getopt(sys.argv[1:],"h",["verify_winmentor=",
+                                     "delete_older_winmentor=",
+                                     "days_ago=",])
 
             logger.info(opts)
             logger.info(args)
 
         except getopt.GetoptError:
-            print('{} --days_ago=<>'.format(sys.argv[0]))
+            print('{} --verify_winmentor=<> --delete_older_winmentor=<> --days_ago=<>'.format(sys.argv[0]))
             sys.exit(2)
+
         for opt, arg in opts:
             if opt == '-h':
-                print('{} --days_ago=<>'.format(sys.argv[0]))
+                print('{} --verify_winmentor=<> --delete_older_winmentor=<> --days_ago=<>'.format(sys.argv[0]))
                 sys.exit()
+            elif opt in ("--verify_winmentor"):
+                do_verify_winmentor = bool(int(arg))
+            elif opt in ("--delete_older_winmentor"):
+                do_delete_older_winmentor = bool(int(arg))
             elif opt in ("--days_ago"):
                 days_ago = int(arg)
 
-        # delete_older_winmentor(days_ago)
-        verify_winmentor()
+        logger.info(opts)
+        logger.info(args)
+
+        if do_delete_older_winmentor:
+            delete_older_winmentor(days_ago)
+        elif do_verify_winmentor:
+            verify_winmentor()
 
     except Exception as e:
         print(repr(e))
-        logger.exception(repr(e))
+        if logger is not None:
+            logger.exception(repr(e))
         util.newException(e)
 
     finally:
-        logger.info("END")
-        logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
-
-
-
+        if logger is not None:
+            logger.info("END")
+            logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
