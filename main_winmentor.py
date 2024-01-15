@@ -22,7 +22,12 @@ def delete_older_winmentor(days_ago):
     cutoff_date = start_time - datetime.timedelta(days=days_ago)
     logging.info(f"Cutoff date: {cutoff_date}.")
 
-    paths_in_which_to_delete = ['d:\\Vectron\\gestoClient\\debug']
+    # paths_in_which_to_delete = ['d:\\Vectron\\gestoClient\\debug']
+
+    paths_in_which_to_delete = None
+
+    if paths_in_which_to_delete is None:
+        paths_in_which_to_delete = [util.getCfgVal("gesto", "trace_folder")]
 
     for folder_path in paths_in_which_to_delete:
         files = os.listdir(folder_path)
