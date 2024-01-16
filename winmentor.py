@@ -5,13 +5,7 @@ Facade (wrapper) for WinMentor OLE wrapper
 @author Radu Cucu
 '''
 
-# test 5
 
-# test 6
-
-# test silviu
-
-# test silviu 323
 
 import pythoncom, win32com.client
 from datetime import datetime as dt, timedelta
@@ -29,13 +23,6 @@ import math
 import requests
 from decimal import Decimal, ROUND_HALF_UP
 
-# test silviu 3
-
-# test silviu 6
-
-# test silviu 7
-
-# test 8
 
 class WinMentor(object):
     ''' classdocs
@@ -52,8 +39,6 @@ class WinMentor(object):
     gestiuni = None
     intrari = {}
     transfers = {}
-
-    #test aiurea
 
     productCodesBauturi = [[1005, 1006], [700, 728], [731, 798],]
     productCodesSdwSalate = [[799, 882], [1100, 1150],]
