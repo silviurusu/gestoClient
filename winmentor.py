@@ -24,6 +24,7 @@ import math
 import requests
 from decimal import Decimal, ROUND_HALF_UP
 
+# test silviu 3
 
 class WinMentor(object):
     ''' classdocs
