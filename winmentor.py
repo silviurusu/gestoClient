@@ -29,6 +29,8 @@ from decimal import Decimal, ROUND_HALF_UP
 
 # test silviu 3
 
+# test silviu 6
+
 class WinMentor(object):
     ''' classdocs
     '''
