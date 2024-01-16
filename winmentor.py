@@ -7,6 +7,8 @@ Facade (wrapper) for WinMentor OLE wrapper
 
 # test 5
 
+# test 6
+
 # test silviu
 
 # test silviu 323
