@@ -22,14 +22,12 @@ def delete_older_winmentor(days_ago):
     cutoff_date = start_time - datetime.timedelta(days=days_ago)
     logging.info(f"Cutoff date: {cutoff_date}.")
 
-    # paths_in_which_to_delete = ['d:\\Vectron\\gestoClient\\debug']
-
-    paths_in_which_to_delete = None
-
-    if paths_in_which_to_delete is None:
-        paths_in_which_to_delete = [util.getCfgVal("gesto", "trace_folder")]
-
-    for folder_path in paths_in_which_to_delete:
+    # trace_folders = ['d:\\Vectron\\gestoClient\\debug']
+    trace_folders = None
+    if trace_folders is None:
+        trace_folders = [util.getCfgVal("gesto", "trace_folder")]
+    
+    for folder_path in trace_folders:
         files = os.listdir(folder_path)
         tot = len(files)
         logging.info(f"{tot} files in folder")
@@ -51,15 +49,18 @@ def delete_older_winmentor(days_ago):
 
 
 @decorators.time_log
-def verify_winmentor():
+def verify_winmentor(log_details="verify_WM"):
     cutoff_date = dt.now() - datetime.timedelta(minutes=10)
     logging.info(f"Cutoff date: {cutoff_date}.")
 
-    paths_in_which_to_search = ['d:\\Vectron\\gestoClient\\debug']
+    # trace_folders = ['d:\\Vectron\\gestoClient\\debug']
+    trace_folders = None
+    if trace_folders is None:
+        trace_folders = [util.getCfgVal("gesto", "trace_folder")]
 
-    found = False
+    found = False 
 
-    for folder_path in paths_in_which_to_search:
+    for folder_path in trace_folders:
         files = os.listdir(folder_path)
         tot = len(files)
         logging.info(f"{tot} files in folder")
@@ -69,7 +70,7 @@ def verify_winmentor():
         logging.info(f"{tot} files in folder")
 
         for file in files_sorted:
-            if LOG_DETAILS in file:
+            if log_details in file:
                 continue
             else:
                 break
@@ -138,7 +139,7 @@ if __name__ == "__main__":
         if do_delete_older_winmentor:
             delete_older_winmentor(days_ago)
         elif do_verify_winmentor:
-            verify_winmentor()
+            verify_winmentor(log_details="verify_WM")
 
     except Exception as e:
         print(repr(e))
