@@ -51,6 +51,8 @@ class WinMentor(object):
     intrari = {}
     transfers = {}
 
+    #test aiurea
+
     productCodesBauturi = [[1005, 1006], [700, 728], [731, 798],]
     productCodesSdwSalate = [[799, 882], [1100, 1150],]
 
