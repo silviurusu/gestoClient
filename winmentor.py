@@ -8,6 +8,8 @@ Facade (wrapper) for WinMentor OLE wrapper
 
 # test silviu
 
+# test silviu 323
+
 import pythoncom, win32com.client
 from datetime import datetime as dt, timedelta
 from numbers import Number
