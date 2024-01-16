@@ -5,6 +5,9 @@ Facade (wrapper) for WinMentor OLE wrapper
 @author Radu Cucu
 '''
 
+
+# test silviu
+
 import pythoncom, win32com.client
 from datetime import datetime as dt, timedelta
 from numbers import Number
@@ -92,7 +95,7 @@ class WinMentor(object):
 
         # TODO check this values ...
         self._stat.SetIDPartField('CodFiscal')
-        # self._stat.SetIDPartField('CodIntern')        
+        # self._stat.SetIDPartField('CodIntern')
         if self.companyName in ["SC Pan Partener Spedition Arg SRL", ]:
             self._stat.SetIDArtField('CodIntern')
         else:
