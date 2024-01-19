@@ -213,19 +213,20 @@ class WinMentor(object):
                     if "source" in gestoData:
                         details_arr.append(gestoData["source"]["name"])
                     if "relatedDocumentNo" in gestoData:
-                        details_arr.append.append(gestoData["relatedDocumentNo"])
+                        details_arr.append(gestoData["relatedDocumentNo"])
                     if "documentNo" in gestoData:
-                        details_arr.append.append(gestoData["documentNo"])
+                        details_arr.append(gestoData["documentNo"])
 
-                    details = " - ".join([d for d in details_arr if d not in [None, "nil", ""]])
+                    details = " - ".join([str(d) for d in details_arr if d not in [None, "nil", ""]])
 
                     self.missingWMCodes[item["code"]] = {
                             "item": item,
                             "details": details
                         }
 
-            elif self.getProduct(item["winMentorCode"])["GestImplicita"] == "" \
-            and item["winMentorCode"] not in self.allowMissingDefaultGest:
+            elif self.companyName not in ['S.C. Kattana Black SRL'] \
+                 and self.getProduct(item["winMentorCode"])["GestImplicita"] == "" \
+                 and item["winMentorCode"] not in self.allowMissingDefaultGest:
                 ret = False
                 if item["code"] not in self.missingDefaultGest:
                     # only add a code once
@@ -1134,6 +1135,8 @@ class WinMentor(object):
                 )
         if rc:
             self.logger.info("SUCCESS: Adaugare factura")
+
+            return True
         else:
             self.logger.error(repr(self.getListaErori()))
             1/0
@@ -1942,6 +1945,8 @@ class WinMentor(object):
 
         if self.companyName == "SC Pan Partener Spedition Arg SRL":
             simbGest = f'MAG_{gestoData["branch"].upper()}'
+        elif self.companyName == 'S.C. Kattana Black SRL':
+            simbGest = 'ARIES'
         else:
             1/0
 
@@ -2218,7 +2223,7 @@ class WinMentor(object):
                 "simbGest",
                 )
 
-        if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "SC Pan Partener Spedition Arg SRL"]:
+        if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "SC Pan Partener Spedition Arg SRL", "S.C. Kattana Black SRL"]:
             for idx, item in enumerate(items, start=1):
                 txtProd = self._dictToColonList(keys, item)
                 key = item["codExternArticol"][:item["codExternArticol"].rfind("_")]
@@ -2293,7 +2298,7 @@ class WinMentor(object):
         ret = True
 
         for item in gestoData["items"]:
-            if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "SC Pan Partener Spedition Arg SRL"]:
+            if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "SC Pan Partener Spedition Arg SRL", 'S.C. Kattana Black SRL']:
                 codExternArticol = item["winMentorCode"]
             else:
                 if item["winMentorCode"].startswith("G_MARF"):
@@ -2318,7 +2323,8 @@ class WinMentor(object):
                 wmArticol = self.getProduct(codExternArticol)
                 # self.logger.info("wmArticol: {}".format(wmArticol))
 
-                if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "SC Pan Partener Spedition Arg SRL"]:
+                if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "SC Pan Partener Spedition Arg SRL", \
+                                        "S.C. Kattana Black SRL"]:
                     newItems[codExternArticol] = {
                                     "codExternArticol": codExternArticol,
                                     "um": wmArticol["DenUM"],
@@ -2326,9 +2332,12 @@ class WinMentor(object):
                                     "pret": item["opVal"] / item["qty"],
                                 }
 
-                    if self.companyName not in ["SC Pan Partener Spedition Arg SRL"]:
+                    if self.companyName not in ["SC Pan Partener Spedition Arg SRL", "S.C. Kattana Black SRL"]:
                         newItems[codExternArticol]["simbGest"] = wmArticol["GestImplicita"]
-                    else:
+
+                    elif self.companyName in ['S.C. Kattana Black SRL']:
+                        newItems[codExternArticol]["simbGest"] = 'ARIES'
+                    elif self.companyName in ['"SC Pan Partener Spedition Arg SRL']:
                         if gestoData["branch"] in ["Romancuta", "Albina"]:
                             newItems[codExternArticol]["simbGest"] = f'MAG_{gestoData["branch"].upper()}'
                 else:
@@ -2767,6 +2776,8 @@ class WinMentor(object):
 
         if self.companyName == "SC Pan Partener Spedition Arg SRL":
             simbGest = f'MAG_{gestoData["branch"].upper()}'
+        elif self.companyName == 'S.C. Kattana Black SRL':
+            simbGest = 'ARIES'
         else:
             1/0
 
