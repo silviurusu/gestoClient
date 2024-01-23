@@ -227,7 +227,7 @@ class WinMentor(object):
                             "details": details
                         }
 
-            elif self.companyName not in ["SC Pan Partener Spedition Arg SRL"] \
+            elif self.companyName not in ["SC Pan Partener Spedition Arg SRL", 'S.C. Kattana Black SRL'] \
                     and self.getProduct(item["winMentorCode"])["GestImplicita"] == "" \
                     and item["winMentorCode"] not in self.allowMissingDefaultGest:
                 ret = False
@@ -1971,6 +1971,8 @@ class WinMentor(object):
 
         if self.companyName == "SC Pan Partener Spedition Arg SRL":
             simbGest = f"MAG_{gestoData['branch_winMentorCode']}"
+        elif self.companyName == 'S.C. Kattana Black SRL':
+            simbGest = 'ARIES'
         else:
             1/0
 
@@ -2284,7 +2286,7 @@ class WinMentor(object):
                 "simbGest",
                 )
 
-        if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "SC Pan Partener Spedition Arg SRL"]:
+        if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "SC Pan Partener Spedition Arg SRL", "S.C. Kattana Black SRL"]:
             for idx, item in enumerate(items, start=1):
                 txtProd = self._dictToColonList(keys, item)
                 key = item["codExternArticol"][:item["codExternArticol"].rfind("_")]
@@ -2359,7 +2361,7 @@ class WinMentor(object):
         ret = True
 
         for item in gestoData["items"]:
-            if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "SC Pan Partener Spedition Arg SRL"]:
+            if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "SC Pan Partener Spedition Arg SRL", 'S.C. Kattana Black SRL']:
                 codExternArticol = item["winMentorCode"]
             else:
                 if item["winMentorCode"].startswith("G_MARF"):
@@ -2384,7 +2386,8 @@ class WinMentor(object):
                 wmArticol = self.getProduct(codExternArticol)
                 # self.logger.info("wmArticol: {}".format(wmArticol))
 
-                if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "SC Pan Partener Spedition Arg SRL"]:
+                if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "SC Pan Partener Spedition Arg SRL", \
+                                        "S.C. Kattana Black SRL"]:
                     newItems[codExternArticol] = {
                                     "codExternArticol": codExternArticol,
                                     "um": wmArticol["DenUM"],
@@ -2392,10 +2395,12 @@ class WinMentor(object):
                                     "pret": item["opVal"] / item["qty"],
                                 }
 
-                    if self.companyName not in ["SC Pan Partener Spedition Arg SRL"]:
-                        newItems[codExternArticol]["simbGest"] = wmArticol["GestImplicita"]
-                    else:
+                    if self.companyName in ['S.C. Kattana Black SRL']:
+                        newItems[codExternArticol]["simbGest"] = 'ARIES'
+                    elif self.companyName in ['"SC Pan Partener Spedition Arg SRL']:
                         newItems[codExternArticol]["simbGest"] = f"MAG_{gestoData['branch_winMentorCode']}"
+                    else:
+                        newItems[codExternArticol]["simbGest"] = wmArticol["GestImplicita"]
                 else:
                     if codExternArticol not in newItems:
                         newItems[codExternArticol] = {
@@ -2850,6 +2855,8 @@ class WinMentor(object):
 
         if self.companyName == "SC Pan Partener Spedition Arg SRL":
             simbGest = f"MAG_{gestoData['branch_winMentorCode']}"
+        elif self.companyName == 'S.C. Kattana Black SRL':
+            simbGest = 'ARIES'
         else:
             1/0
 
