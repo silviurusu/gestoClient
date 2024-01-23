@@ -16,6 +16,8 @@ from django.template import loader, Context
 import django
 import decorators
 from decimal import Decimal, ROUND_HALF_UP
+from pywintypes import com_error
+
 
 def generateWorkOrders(baseURL, branch, date):
     logger.info(">>> {}()".format(inspect.stack()[0][3]))
@@ -501,6 +503,9 @@ def getGestoDocumentsMarkedForWinMentorExport(baseURL):
         logger.info("{} operations".format(totalRecords))
 
         for ctr, op in enumerate(retJSON["data"], start=1):
+            # if op["type"] in  ["reception", "return"]:
+            #     continue
+
             logger.debug("{}, {}, {}".format(ctr, totalRecords, op["id"]))
 
             if op["simbolWinMentorReception"] in [None, "nil",]:
@@ -772,7 +777,7 @@ if __name__ == "__main__":
         endDate = workdate.replace(hour=23, minute=59, second=59)
         logger.info("Using end date: {}".format(endDate))
 
-        if markedForWinMentorExport or exportWinMentorData:
+        if markedForWinMentorExport or exportWinMentorData or doImportAvize:
             if markedForWinMentorExport:
                 logger.info( 'markedForWinMentorExport {}'.format(markedForWinMentorExport))
                 getGestoDocumentsMarkedForWinMentorExport(
@@ -782,6 +787,12 @@ if __name__ == "__main__":
             if exportWinMentorData:
                 logger.info( 'exportWinMentorData {}'.format(exportWinMentorData))
                 getExportWinMentorData()
+
+            if doImportAvize:
+                gestoData = importAvize(
+                        baseURL = baseURL,
+                        date = endDate,
+                        )
 
         else:
             if doExportReceptions:
@@ -824,16 +835,43 @@ if __name__ == "__main__":
                             date = endDate,
                             )
 
-            if doImportAvize:
-                gestoData = importAvize(
-                        baseURL = baseURL,
-                        date = endDate,
-                        )
-
         # Send mail with new products and partners
         winmentor.sendNewProductsMail()
         winmentor.sendPartnersMail()
         winmentor.sendIncorrectWinMentorProductsMail()
+
+    except com_error as e:
+        exp_repr = repr(e)
+        print(exp_repr)
+        logger.info(exp_repr)
+
+        util.newException(e, send_email=False)
+
+        if e.hresult == -2147023170:
+            # pywintypes.com_error: (-2147023170, 'The remote procedure call failed.', None, None)
+            if logger is not None:
+                logger.exception(exp_repr)
+        else:
+            company = util.getCfgVal("winmentor", "companyName")
+            msg = f"Exceptie la {company}"
+
+            ngp_body = {
+                "subject": msg,
+                "body": exp_repr,
+                "hours": 1
+            }
+
+            logger.info(ngp_body)
+
+            baseURL = util.getCfgVal("gesto", "url")
+            r = requests.post(baseURL+"/api/gestoProblems/", json=ngp_body)
+            logger.info("{} - {}".format(r.status_code, r.text))
+
+            resp = r.json()
+            logger.info(f"{resp=}")
+
+            if resp["ngp"]:
+                send_email(msg, ngp_body)
 
     except Exception as e:
         print(repr(e))

@@ -60,11 +60,9 @@ def setup_logging(
         logging.basicConfig(level=default_level)
 
 
-def newException(e):
+@decorators.time_log
+def newException(e, send_email=True):
     try:
-        logger.info(">>> {0}()".format(inspect.stack()[0][3]))
-        start = datetime.datetime.now()
-
         # new Exception for today
         template = loader.get_template("mail/admin/exception.html")
         subject = "Exception at {0}()".format(inspect.stack()[1][3])
@@ -75,12 +73,15 @@ def newException(e):
             "exceptionType": type(e),
             "traceback": traceback.format_exc()
         })
-        send_email(subject, html_part)
+
+        if send_email:
+            send_email(subject, html_part)
+        else:
+            logger.info(subject)
+            logger.info(html_part)
 
     except BaseException as e:
         logger.exception(e)
-
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], datetime.datetime.now() - start))
 
 
 def getNextDocumentNumber(type):
