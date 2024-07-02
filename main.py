@@ -772,9 +772,18 @@ if __name__ == "__main__":
                 getExportWinMentorData()
 
             if doImportAvize:
-                gestoData = importAvize(
+                max_day = 1
+                if dt.now().minute == 15:
+                    max_day = 6
+
+                for i in range(0, max_day):
+                    w_date = endDate - timedelta(days = i)
+
+                    logger.info(f'{w_date=}')
+
+                    gestoData = importAvize(
                         baseURL = baseURL,
-                        date = endDate,
+                        date = w_date,
                         )
 
         else:
