@@ -130,10 +130,8 @@ def cfg_has_section(section):
     return cfg.has_section(section)
 
 
+@decorators.time_log
 def getCfgVal(section, varName, retType=None):
-    logger.info(">>> {0}()".format(inspect.stack()[0][3]))
-    start = datetime.datetime.now()
-
     cfg_file_name = 'config_local.ini'
 
     cfg = ConfigParser()
@@ -154,7 +152,7 @@ def getCfgVal(section, varName, retType=None):
         ret = [x.strip() for x in ret.split(",")]
 
     logger.info("{}: {}".format(varName, ret))
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], datetime.datetime.now() - start))
+
     return ret
 
 

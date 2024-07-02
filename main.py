@@ -19,10 +19,8 @@ from decimal import Decimal, ROUND_HALF_UP
 from pywintypes import com_error
 
 
+@decorators.time_log
 def generateWorkOrders(baseURL, branch, date):
-    logger.info(">>> {}()".format(inspect.stack()[0][3]))
-    start = dt.now()
-
     url = baseURL + "/products/summary/?"
     url += "type=sale"
     verify=False # only for workOrders
@@ -62,13 +60,10 @@ def generateWorkOrders(baseURL, branch, date):
             # email is sent from Gesto if there is any problem
             winmentor.addWorkOrders(retJSON)
 
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
 
+@decorators.time_log
 def generateMonetare(baseURL, branch, date):
-    logger.info(">>> {}()".format(inspect.stack()[0][3]))
-    start = dt.now()
-
     company = util.getCfgVal("winmentor", "companyName")
     logger.info("Generate monetare for {}, {}".format(branch, tokens[branch]))
 
@@ -120,8 +115,6 @@ def generateMonetare(baseURL, branch, date):
             for monetar in retJSON:
                 if not verify or retJSON["verify"] == "success":
                     winmentor.addMonetare(monetar)
-
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
 
 @decorators.time_log
@@ -189,10 +182,8 @@ def getExportedDeliveryNotes(baseURL, startDate, endDate):
     return ret
 
 
+@decorators.time_log
 def importAvize(baseURL, date):
-    logger.info(">>> {}()".format(inspect.stack()[0][3]))
-    start = dt.now()
-
     exported_delivery_notes = getExportedDeliveryNotes(baseURL, date, date)
 
     deliveryNotes = winmentor.getTransferuri(date)
@@ -348,9 +339,8 @@ def importAvize(baseURL, date):
                 opStr.pop('destination', None)
         opStr.pop('source', None)
 
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
-
+@decorators.time_log
 def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate = None, daysDelta = 7):
     """
     @param branch: Gesto branch used for request
@@ -359,8 +349,6 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
     @return processed json if successfull, None otherwise
 
     """
-    logger.info(">>> {}()".format(inspect.stack()[0][3]))
-    start = dt.now()
 
     logger.info("Getting receptie from Gesto for {}, {}".format(branch, tokens[branch]))
     if endDate is None:
@@ -417,7 +405,6 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
         totalRecords = retJSON["range"]["totalRecords"]
         if totalRecords == 0:
             logger.info("{} {}".format(totalRecords, operationType))
-            logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
             return
 
         if retJSON["data"][0]["simbolWinMentorReception"] in [None, "nil",]:
@@ -428,7 +415,6 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
                     msg = txtMail
                     )
 
-            logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
             return
 
         totalRecords = retJSON["range"]["totalRecords"]
@@ -468,8 +454,6 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
 
                 # if ctr2==2:
                 #     1/0
-
-    logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
 
 def getGestoDocumentsMarkedForWinMentorExport(baseURL):
@@ -522,7 +506,7 @@ def getGestoDocumentsMarkedForWinMentorExport(baseURL):
 
             opDate = dt.utcfromtimestamp(op["documentDate"])
 
-            # winmentor.setLunaLucru(opDate.month, opDate.year)
+            # winmentor.setLunaLucru(opDate.year, opDate.month)
 
             if op["type"] == "reception":
                 # Get partener from gesto
@@ -574,10 +558,9 @@ def getGestoDocumentsMarkedForWinMentorExport(baseURL):
             # if ctr==1:
             #     1/0
 
-def getExportWinMentorData():
-    logger.info(">>> {}()".format(inspect.stack()[0][3]))
-    start = dt.now()
 
+@decorators.time_log
+def getExportWinMentorData():
     baseURL = util.getCfgVal("gesto", "url")
     token = util.getCfgVal("winmentor", "companyToken")
     url = baseURL + "/report/exportWinMentorData/"
