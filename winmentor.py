@@ -1019,6 +1019,14 @@ class WinMentor(object):
             #     return False
 
         wmPartenerID = self.getPartener(gestoPartener)["idPartener"]
+        scadenta = opDate
+
+        if 'invoice_due_days' in gestoData["source"] \
+           and gestoData["source"]["invoice_due_days"] not in [None, '', 'nil', 'None', 0]:
+            scadenta += timedelta(days = gestoData["source"]["invoice_due_days"])
+        else:
+            scadenta += timedelta(days = 1)
+
         self.logger.info("wmPartenerID: {}".format(wmPartenerID))
 
         # Cauta daca exista deja o factura in Winmentor cu intrarea din gesto
@@ -1062,7 +1070,8 @@ class WinMentor(object):
                     send_email(subject, msg)
 
                 self.logger.error(msg)
-                self.logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+                self.logger.info(f"{len(lstArt)} != {len(gestoData['items'])}")
+
                 return False
             else:
                 # Verifica toate produsele din factura daca corespund cu cele din gesto
@@ -1129,7 +1138,7 @@ class WinMentor(object):
                 simbolCarnet="NIR_G",
                 data = opDate,
                 dataNir = dt.fromtimestamp(gestoData["relatedDocumentDate"]) if gestoData["relatedDocumentDate"] not in ("nil", None) else opDate,
-                scadenta = opDate + timedelta(days = 1),
+                scadenta = scadenta,
                 codFurnizor = wmPartenerID,
                 observatii= observatii,
                 observatiiNIR=gestoData["destination"]["name"],
