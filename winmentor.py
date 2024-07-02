@@ -530,9 +530,9 @@ class WinMentor(object):
                 "termenGarantie"
                 )
 
-        for idx, item in enumerate(items):
+        for idx, item in enumerate(items, start=1):
             txtProd = self._dictToColonList(keys, item)
-            txtWMDoc += "Item_{}={}\n".format(idx + 1, txtProd) # articolele incep de la 1
+            txtWMDoc += "Item_{}={}\n".format(idx, txtProd)
 
         self.logger.debug("txtWMDoc: \n{}".format(txtWMDoc))
 
@@ -746,7 +746,7 @@ class WinMentor(object):
                 # self.logger.info(intrariItems)
                 # 1/0
 
-                for item in intrariItems:
+                for idx, item in enumerate(intrariItems):
                     val = self._colonListToDict(keys, item)
                     # self.logger.info(val)
                     # 1/0
@@ -830,7 +830,23 @@ class WinMentor(object):
                 "missingPartners": self.missingPartners,
                 "multiplePartenerIDsForEmail": self.multiplePartenerIDsForEmail,
             })
-            send_email(subject, html_part, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
+
+            ngp_body = {
+                "subject": subject,
+                "body": html_part,
+                "hours": 2
+            }
+
+            self.logger.info(ngp_body)
+
+            baseURL = util.getCfgVal("gesto", "url")
+            r = requests.post(baseURL+"/api/gestoProblems/", json=ngp_body)
+            self.logger.info("{} - {}".format(r.status_code, r.text))
+            resp = r.json()
+            self.logger.info(f"{resp}")
+
+            if resp["ngp"]:
+                send_email(subject, html_part, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
 
 
     def genNrNir(self):
@@ -937,7 +953,22 @@ class WinMentor(object):
             msg += "\nLocatie: {}".format(gestoData["destination"]["name"])
             msg += "\nNumarul: {}".format(gestoData["relatedDocumentNo"])
 
-            send_email(subject, msg, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
+            ngp_body = {
+                "subject": subject,
+                "body": msg,
+                "hours": 1
+            }
+
+            self.logger.info(ngp_body)
+
+            baseURL = util.getCfgVal("gesto", "url")
+            r = requests.post(baseURL+"/api/gestoProblems/", json=ngp_body)
+            self.logger.info("{} - {}".format(r.status_code, r.text))
+            resp = r.json()
+            self.logger.info(f"{resp}")
+
+            if resp["ngp"]:
+                send_email(subject, msg, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
 
             self.logger.error(msg)
             return False
@@ -2593,6 +2624,8 @@ class WinMentor(object):
                     destination = "1316"
                 elif transferNo_int < 150000:
                     destination = "1306"
+                elif transferNo_int < 160000:
+                    destination = "3732"
                 else:
                     1/0
 
