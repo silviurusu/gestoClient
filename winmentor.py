@@ -85,10 +85,7 @@ class WinMentor(object):
         self.logger.info("luna: {}".format(self.luna))
 
         if self.an and self.luna:
-            rc = self._stat.SetLunaLucru(self.an, self.luna)
-            self.logger.info("SetLunaLucru rc = {}".format(rc))
-            if rc != 1:
-                self.logger.error(repr(self.getListaErori()))
+            if not self.setLunaLucru(self.an, self.luna):
                 1/0
 
         # TODO check this values ...
@@ -1125,7 +1122,8 @@ class WinMentor(object):
         # Seteaza luna si anul in WinMentor
         opDate = dt.utcfromtimestamp(gestoData["documentDate"])
 
-        self.setLunaLucru(opDate.month, opDate.year)
+        if not self.setLunaLucru(opDate.year, opDate.month):
+            return False
 
         if self.companyName == "Panemar morarit si panificatie SRL":
             nrDoc = int(gestoData["branch"][:2]) * 10000000 + gestoData["documentNo"]
@@ -1346,7 +1344,8 @@ class WinMentor(object):
 
         # Seteaza luna si anul in WinMentor
         opDate = dt.utcfromtimestamp(gestoData["documentDate"])
-        self.setLunaLucru(opDate.month, opDate.year)
+        if not self.setLunaLucru(opDate.year, opDate.month):
+            return False
 
         if self.companyName == "Panemar morarit si panificatie SRL":
             # Get lista articole from gesto, create array of articole pentru comanda
@@ -1522,7 +1521,8 @@ class WinMentor(object):
 
         # Seteaza luna si anul in WinMentor
         opDate = dt.utcfromtimestamp(gestoData["documentDate"])
-        self.setLunaLucru(opDate.month, opDate.year)
+        if not self.setLunaLucru(opDate.year, opDate.month):
+            return False
 
         if self.companyName == "SC Pan Partener Spedition Arg SRL":
             articoleWMDoc = []
@@ -1934,7 +1934,8 @@ class WinMentor(object):
 
         # Seteaza luna si anul in WinMentor
         opDate = dt.utcfromtimestamp(gestoData["dateBegin"])
-        self.setLunaLucru(opDate.month, opDate.year)
+        if not self.setLunaLucru(opDate.year, opDate.month):
+            return False
 
         ignoreCodes = []
         if self.companyName == "Panemar morarit si panificatie SRL":
@@ -2042,7 +2043,8 @@ class WinMentor(object):
 
         # Seteaza luna si anul in WinMentor
         opDate = dt.utcfromtimestamp(gestoData["documentDate"])
-        self.setLunaLucru(opDate.month, opDate.year)
+        if not self.setLunaLucru(opDate.year, opDate.month):
+            return False
 
         ignoreCodes = []
 
@@ -2294,7 +2296,8 @@ class WinMentor(object):
 
         # Seteaza luna si anul in WinMentor
         opDate = dt.fromtimestamp(gestoData["dateBegin"])
-        self.setLunaLucru(opDate.month, opDate.year)
+        if not self.setLunaLucru(opDate.year, opDate.month):
+            return False
 
         # verify I have all gesto codes and default gestiuni in WinMentor
         # if not self.productsAreOK(gestoData):
@@ -2812,7 +2815,8 @@ class WinMentor(object):
         if opDate is None:
             opDate = dt.utcfromtimestamp(gestoData["dateBegin"])
 
-        self.setLunaLucru(opDate.month, opDate.year)
+        if not self.setLunaLucru(opDate.year, opDate.month):
+            return False
 
         ignoreCodes = []
         if self.companyName == "Panemar morarit si panificatie SRL":
