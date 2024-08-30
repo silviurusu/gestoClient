@@ -26,7 +26,7 @@ def delete_older_winmentor(days_ago):
     trace_folders = None
     if trace_folders is None:
         trace_folders = [util.getCfgVal("gesto", "trace_folder")]
-    
+
     for folder_path in trace_folders:
         files = os.listdir(folder_path)
         tot = len(files)
@@ -48,31 +48,63 @@ def delete_older_winmentor(days_ago):
     logging.info(f"Duration: {end_time-start_time}")
 
 
+
+def read_last_line(filepath, block_size=1024):
+    logging.info(f"{filepath=}")
+
+    with open(filepath, 'rb') as file:
+        file.seek(0, 2)  # Move to the end of the file
+        file_size = file.tell()
+        buffer = b''
+        position = file_size
+        while position >= 0:
+            offset = max(0, position - block_size)
+            file.seek(offset)
+            chunk = file.read(position - offset)
+            buffer = chunk + buffer
+            lines = buffer.split(b'\n')
+            if len(lines) > 1:
+                return lines[-2].decode('utf-8')
+            position -= block_size
+        return buffer.decode('utf-8') if buffer else None
+
+
 @decorators.time_log
 def verify_winmentor(log_details="verify_WM"):
     cutoff_date = dt.now() - datetime.timedelta(minutes=10)
-    logging.info(f"Cutoff date: {cutoff_date}.")
+    logging.info(f"{cutoff_date=}")
 
     # trace_folders = ['d:\\Vectron\\gestoClient\\debug']
     trace_folders = None
     if trace_folders is None:
         trace_folders = [util.getCfgVal("gesto", "trace_folder")]
 
-    found = False 
+    found = False
 
     for folder_path in trace_folders:
         files = os.listdir(folder_path)
         tot = len(files)
         logging.info(f"{tot} files in folder")
 
-        files_sorted = sorted(files, reverse=True)
+        current_prefix = dt.now().strftime('%Y_%m_%d__%H_%M')
+        logging.info(f"{current_prefix=}")
 
-        logging.info(f"{tot} files in folder")
+        files_sorted = sorted(files, reverse=True)
 
         for file in files_sorted:
             if log_details in file:
                 continue
             else:
+                if file.startswith(current_prefix):
+                    continue
+
+                last_line = read_last_line(f"{folder_path}\\{file}")
+                logging.info(last_line)
+
+                if "<<< <module>()" not in last_line:
+                    logging.info("Taskul NU s-a terminat cu succes")
+                    continue
+
                 break
 
         logging.info(file)
