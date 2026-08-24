@@ -1,5 +1,6 @@
 import datetime
 import settings
+import datetime
 import logging
 import functools
 import re
@@ -12,7 +13,6 @@ from decimal import Decimal
 import requests
 import decorators
 import os
-from datetime import datetime as dt
 
 
 logger = logging.getLogger(__name__)
@@ -42,13 +42,13 @@ def setup_logging(
                 if folder:
                     path = os.path.join(
                             folder,
-                            dt.strftime(dt.now(), f"%Y_%m_%d__%H_%M") + (f"__{log_details}" if log_details is not None else "") + ".log"
+                            datetime.datetime.strftime(datetime.datetime.now(), f"%Y_%m_%d__%H_%M") + (f"__{log_details}" if log_details is not None else "") + ".log"
                             )
 
                     if os.path.exists(path):
                         path = os.path.join(
                             folder,
-                            dt.strftime(dt.now(), f"%Y_%m_%d__%H_%M__%f") + (f"__{log_details}" if log_details is not None else "") + ".log"
+                            datetime.datetime.strftime(datetime.datetime.now(), f"%Y_%m_%d__%H_%M__%f") + (f"__{log_details}" if log_details is not None else "") + ".log"
                             )
 
                     if not os.path.exists(folder):
@@ -61,7 +61,7 @@ def setup_logging(
 
 
 @decorators.time_log
-def newException(e, send_email=True):
+def newException(e, do_send_email=True):
     try:
         # new Exception for today
         template = loader.get_template("mail/admin/exception.html")
@@ -74,7 +74,7 @@ def newException(e, send_email=True):
             "traceback": traceback.format_exc()
         })
 
-        if send_email:
+        if do_send_email:
             send_email(subject, html_part)
         else:
             logger.info(subject)
@@ -296,3 +296,21 @@ def log_json(myjson, indent=2):
     logger.info("{}:{}, {}()".format(frame.filename, frame.lineno, frame.name))
 
     logger.info(json.dumps(myjson, sort_keys=True, indent=indent, separators=(',', ': '), default=defaultJSON))
+
+
+@decorators.time_log
+def send_push_notification(title, message, email=False, channel="gesto-push-general"):
+    # tags can be all from here: https://docs.ntfy.sh/emojis/
+    import requests
+    headers = {
+        "Title": title,
+        "Priority": "urgent",
+        "Tags": "warning"
+    }
+    URL = "https://ntfy.sh/" + channel
+    message = message.replace("<br>", "\n")
+
+    if email:
+        send_email(title, message)
+
+    requests.post(url=URL, data=message, headers=headers)

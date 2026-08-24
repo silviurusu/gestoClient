@@ -5,8 +5,6 @@ import datetime
 import logging
 import logging.config
 import settings
-import json
-from datetime import datetime as dt
 import util
 import inspect
 import decorators
@@ -71,7 +69,7 @@ def read_last_line(filepath, block_size=1024):
 
 @decorators.time_log
 def verify_winmentor(log_details="verify_WM"):
-    cutoff_date = dt.now() - datetime.timedelta(minutes=10)
+    cutoff_date = datetime.datetime.now() - datetime.timedelta(minutes=10)
     logging.info(f"{cutoff_date=}")
 
     # trace_folders = ['d:\\Vectron\\gestoClient\\debug']
@@ -86,7 +84,7 @@ def verify_winmentor(log_details="verify_WM"):
         tot = len(files)
         logging.info(f"{tot} files in folder")
 
-        current_prefix = dt.now().strftime('%Y_%m_%d__%H_%M')
+        current_prefix = datetime.datetime.now().strftime('%Y_%m_%d__%H_%M')
         logging.info(f"{current_prefix=}")
 
         files_sorted = sorted(files, reverse=True)
@@ -97,6 +95,12 @@ def verify_winmentor(log_details="verify_WM"):
             else:
                 if file.startswith(current_prefix):
                     continue
+
+                with open(f"{folder_path}\\{file}", 'r') as f:
+                    content = f.read()
+                    if settings.DOC_IMP_SERVER_RUNNING in content:
+                        logging.info(f"{settings.DOC_IMP_SERVER_RUNNING}, mesajul e in log")
+                        continue
 
                 last_line = read_last_line(f"{folder_path}\\{file}")
                 logging.info(last_line)
@@ -121,7 +125,7 @@ def verify_winmentor(log_details="verify_WM"):
         company = util.getCfgVal("winmentor", "companyName")
         txtMail = f"WinMentor blocat la - {company}"
 
-        util.send_email(subject = txtMail, msg = txtMail)
+        util.send_push_notification(txtMail, txtMail, True)
 
 
 if __name__ == "__main__":
@@ -135,7 +139,7 @@ if __name__ == "__main__":
         logger = logging.getLogger(name = __name__)
 
         logger.info(">>> {}()".format(inspect.stack()[0][3]))
-        start = dt.now()
+        start = datetime.datetime.now()
 
         days_ago = 100
         do_verify_winmentor = 0
@@ -182,4 +186,4 @@ if __name__ == "__main__":
     finally:
         if logger is not None:
             logger.info("END")
-            logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+            logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], datetime.datetime.now() - start))

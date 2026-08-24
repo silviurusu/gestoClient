@@ -7,20 +7,25 @@ Facade (wrapper) for WinMentor OLE wrapper
 
 
 import pythoncom, win32com.client
-from datetime import datetime as dt, timedelta
+from datetime import timedelta
 from numbers import Number
+import datetime
 import logging
 import util
-import traceback
 import inspect
 import re
 import json
+import os
+import subprocess
+import time
 from util import send_email
 from django.template import loader
 import decorators
 import math
 import requests
 from decimal import Decimal, ROUND_HALF_UP
+from pywintypes import com_error
+import settings
 
 
 class WinMentor(object):
@@ -51,6 +56,14 @@ class WinMentor(object):
     def __init__(self, **kwargs):
         self.logger = logging.getLogger(__name__)
 
+        for proc in win32com.client.GetObject('winmgmts:').InstancesOf('win32_process'):
+            # self.logger.info(proc.Name)
+
+            if (proc.Name == "DocImpServer.exe"):
+                self.logger.info(settings.DOC_IMP_SERVER_RUNNING)
+                # las exceptie ca sa prinda scriptul de verificare
+                1/0
+
         self._fdm = pythoncom.LoadTypeLib('DocImpServer.tlb')
         self._stat = None
 
@@ -62,7 +75,9 @@ class WinMentor(object):
 
             if fdoc[0] == 'DocImpObject':
                 type_iid = self._fdm.GetTypeInfo(idx).GetTypeAttr().iid
+                self.logger.info("Before Dispatch()")
                 self._stat = win32com.client.Dispatch(type_iid)
+                self.logger.info("After Dispatch()")
 
         if self._stat is None:
             return
@@ -267,6 +282,7 @@ class WinMentor(object):
 
         parteneri = []
         for idx, partenerStr in enumerate(lista):
+            self.logger.debug(f"{idx} -- {partenerStr}")
             parteneri.append(self._colonListToDict(keys, partenerStr))
 
         self.multiplePartenerIDs = {}
@@ -274,7 +290,17 @@ class WinMentor(object):
         for p in parteneri:
             id = util.fixupCUI(p["idPartener"])
             # self.logger.debug("{} - {} ".format(p["idPartener"], id))
+
+            if (id in ['12106375', 12106375]
+                and p['denumire'] not in ['DADDA COMPUTER 2000 SRL DEPOZITELOR 22 C']
+            ):
+                continue
+
             if id in retParteneri:
+                if id in ["6287579", 6287579]:
+                    # matra apare de mai multe ori
+                    continue
+
                 if id not in self.multiplePartenerIDs:
                     self.multiplePartenerIDs[id] = p
             else:
@@ -440,7 +466,7 @@ class WinMentor(object):
                 # It's an iterable type (ex: array, tuple), iterate it and separate with "~"
                 nKeys = range(len(val))
                 val = self._dictToColonList(nKeys, val, "~")
-            elif isinstance(val, dt):
+            elif isinstance(val, datetime.datetime):
                 val = "{:%d.%m.%Y}".format(val)
 
             elif isinstance(val, float):
@@ -503,9 +529,9 @@ class WinMentor(object):
             txtWMDoc += "NrNIR={}\n".format(kwargs.get("nrNir"))
         if kwargs.get("simbolCarnet"):
             txtWMDoc += "SimbolCarnetNir={}\n".format(kwargs.get("simbolCarnet"))
-        txtWMDoc += "Data={:%d.%m.%Y}\n".format(kwargs.get("data", dt.now()))
+        txtWMDoc += "Data={:%d.%m.%Y}\n".format(kwargs.get("data", datetime.datetime.now()))
         txtWMDoc += "DataNir={:%d.%m.%Y}\n".format(kwargs.get("dataNir", None))
-        txtWMDoc += "Scadenta={:%d.%m.%Y}\n".format(kwargs.get("scadenta", dt.now()))
+        txtWMDoc += "Scadenta={:%d.%m.%Y}\n".format(kwargs.get("scadenta", datetime.datetime.now()))
         txtWMDoc += "TotalArticole={}\n".format(len(items))
         txtWMDoc += "CodFurnizor={}\n".format(kwargs.get("codFurnizor", ""))
         if kwargs.get("TVAINCASARE") is True:
@@ -530,9 +556,14 @@ class WinMentor(object):
                 "termenGarantie"
                 )
 
+        tipContabil = kwargs.get("tipContabil", None)
+
         for idx, item in enumerate(items, start=1):
             txtProd = self._dictToColonList(keys, item)
+            # txtProd += "TC_1314;"
             txtWMDoc += "Item_{}={}\n".format(idx, txtProd)
+            if tipContabil is not None:
+                txtWMDoc += f"Item_{idx}_TipContabil={tipContabil}\n"
 
         self.logger.debug("txtWMDoc: \n{}".format(txtWMDoc))
 
@@ -544,7 +575,37 @@ class WinMentor(object):
         if rc != 1:
             return False
 
-        rc = self._stat.ImportaFactIntrare()
+        try:
+            rc = self._stat.ImportaFactIntrare()
+        except com_error as e:
+            exp_repr = repr(e)
+
+            self.logger.info(exp_repr)
+
+            company = util.getCfgVal("winmentor", "companyName")
+            msg = f"Exceptie la {company}"
+
+            ngp_body = {
+                "subject": msg,
+                "body": exp_repr,
+                "emails": ["silviu@vectron.ro", ],
+                "hours": 2
+            }
+
+            self.logger.info(ngp_body)
+
+            baseURL = util.getCfgVal("gesto", "url")
+            r = requests.post(baseURL+"/api/gestoProblems/", json=ngp_body)
+            self.logger.info("{} - {}".format(r.status_code, r.text))
+
+            resp = r.json()
+            self.logger.info(f"{resp=}")
+
+            if resp["ngp"]:
+                send_email(msg, msg, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
+
+            return False
+
         return (rc == 1)
 
 
@@ -721,10 +782,8 @@ class WinMentor(object):
         return self.gestiuni
 
 
+    @decorators.time_log
     def getIntrari(self, month):
-        self.logger.info(">>> {}()".format(inspect.stack()[0][3]))
-        start = dt.now()
-
         if month not in self.intrari:
             self.intrari[month]={}
             # Salveaza toate intrarile pentru factura respectiva
@@ -747,8 +806,8 @@ class WinMentor(object):
                 # 1/0
 
                 for idx, item in enumerate(intrariItems):
+                    self.logger.info(f"{idx} -- {item}")
                     val = self._colonListToDict(keys, item)
-                    # self.logger.info(val)
                     # 1/0
                     if val["partenerId"] not in self.intrari[month]:
                         self.intrari[month][val["partenerId"]]={}
@@ -996,7 +1055,7 @@ class WinMentor(object):
             return False
 
         # Seteaza luna si anul in WinMentor
-        opDate = dt.fromtimestamp(gestoData["documentDate"])
+        opDate = datetime.datetime.fromtimestamp(gestoData["documentDate"])
         if not self.setLunaLucru(opDate.year, opDate.month):
             return False
 
@@ -1070,7 +1129,7 @@ class WinMentor(object):
                     send_email(subject, msg)
 
                 self.logger.error(msg)
-                self.logger.info(f"{len(lstArt)} != {len(gestoData['items'])}")
+                self.logger.info(f"mentor {len(lstArt)} != gesto {len(gestoData['items'])}")
 
                 return False
             else:
@@ -1129,6 +1188,9 @@ class WinMentor(object):
 
         if self.companyName == "SC Pan Partener Spedition Arg SRL":
             observatii = gestoData["destination"]["name"]
+            tipContabil = f"TC_{gestoData['simbolWinMentorDeliveryNote']}"
+        else:
+            tipContabil = None
 
         # Creaza factura import
         rc = self.importaFactIntrare(
@@ -1137,20 +1199,24 @@ class WinMentor(object):
                 nrNir = util.getNextDocumentNumber("NIR_G"),
                 simbolCarnet="NIR_G",
                 data = opDate,
-                dataNir = dt.fromtimestamp(gestoData["relatedDocumentDate"]) if gestoData["relatedDocumentDate"] not in ("nil", None) else opDate,
+                dataNir = datetime.datetime.fromtimestamp(gestoData["relatedDocumentDate"]) if gestoData["relatedDocumentDate"] not in ("nil", None) else opDate,
                 scadenta = scadenta,
                 codFurnizor = wmPartenerID,
                 observatii= observatii,
                 observatiiNIR=gestoData["destination"]["name"],
-                items = articoleWMDoc
+                items = articoleWMDoc,
+                tipContabil = tipContabil
                 )
         if rc:
             self.logger.info("SUCCESS: Adaugare factura")
 
             return True
         else:
-            self.logger.error(repr(self.getListaErori()))
-            1/0
+            errors = self.getListaErori()
+            self.logger.error(errors)
+
+            self.logger.info("EROARE: Probleme la  adaugarea facturii")
+            return False
 
 
     @decorators.time_log
@@ -1160,7 +1226,7 @@ class WinMentor(object):
             return True
 
         # Seteaza luna si anul in WinMentor
-        opDate = dt.utcfromtimestamp(gestoData["documentDate"])
+        opDate = datetime.datetime.fromtimestamp(gestoData["documentDate"], datetime.UTC)
 
         if not self.setLunaLucru(opDate.year, opDate.month):
             return False
@@ -1237,13 +1303,17 @@ class WinMentor(object):
             elif self.companyName == "Andalusia":
                 wmGestiune = "PER"
             elif self.companyName == "SC Pan Partener Spedition Arg SRL":
-                wmGestiune = "RETUR"
+                if gestoData["destination"]["name"] in ["BRUTARIE TRIVALE", "LABORATOR CREPITO TRIVALE"]:
+                    wmGestiune = "RET_TRIV"
+                else:
+                    wmGestiune = "RETUR"
         elif gestoData["type"] == "notaConstatareDiferente":
             wmGestiune = "DepProdFinite"
         else:
             if self.companyName == "Panemar morarit si panificatie SRL":
                 wmGestiune = self.matchGestiune(gestoData["branch"], tipGest)
             else:
+
                 wmGestiune = self.matchGestiune(f"MAG_{gestoData['simbolWinMentorDeliveryNote']}")
 
         # Get lista articole from gesto, create array of articole pentru workOrders
@@ -1332,6 +1402,10 @@ class WinMentor(object):
                 observatii = f'Retur {observatii} - {gestoData["documentNo"]}'
             else:
                 observatii = self.gestiuni[wmGestiune]
+                try:
+                    observatii = f'{observatii} - {gestoData["source"]["address"]}'
+                except KeyError:
+                    pass
         else:
             simbol_carnet_NIR = "NIR_G"
             observatii = self.gestiuni[wmGestiune]
@@ -1383,7 +1457,7 @@ class WinMentor(object):
             return
 
         # Seteaza luna si anul in WinMentor
-        opDate = dt.utcfromtimestamp(gestoData["documentDate"])
+        opDate = datetime.datetime.fromtimestamp(gestoData["documentDate"], datetime.UTC)
         if not self.setLunaLucru(opDate.year, opDate.month):
             return False
 
@@ -1485,6 +1559,12 @@ class WinMentor(object):
 
             observatii = "{}".format(gestoData["source"]["name"])
 
+            if self.companyName in ["SC Pan Partener Spedition Arg SRL"]:
+                try:
+                    observatii = f'{observatii} punct de lucru - {gestoData["source"]["address"]}'
+                except KeyError:
+                    observatii = f'{observatii} punct de lucru'
+
             for item in gestoData["items"]:
                 if int(item["code"]) in ignoreCodes:
                     continue
@@ -1512,7 +1592,7 @@ class WinMentor(object):
             client_id = ""
 
             if self.companyName in ["SC Pan Partener Spedition Arg SRL"]:
-                if gestoData["destination"]["name"] == "BRUTARIE TRIVALE":
+                if gestoData["destination"]["name"] in ["BRUTARIE TRIVALE", "LABORATOR CREPITO TRIVALE"]:
                     # "BRUTARIE TRIVALE": 1317
                     client_id = 1317
                 else:
@@ -1560,7 +1640,7 @@ class WinMentor(object):
             return
 
         # Seteaza luna si anul in WinMentor
-        opDate = dt.utcfromtimestamp(gestoData["documentDate"])
+        opDate = datetime.datetime.fromtimestamp(gestoData["documentDate"], datetime.UTC)
         if not self.setLunaLucru(opDate.year, opDate.month):
             return False
 
@@ -1676,7 +1756,7 @@ class WinMentor(object):
             txtWMDoc += f"CodClient={client}\n"
         txtWMDoc += "Locatie=sediul 1\n"
         txtWMDoc += "SimbolCarnet={}\n".format("C_G")
-        txtWMDoc += "Data={:%d.%m.%Y}\n".format(kwargs.get("data", dt.now()))
+        txtWMDoc += "Data={:%d.%m.%Y}\n".format(kwargs.get("data", datetime.datetime.now()))
         # txtWMDoc += "SectieProductie={}\n".format(kwargs.get("gestDest", ""))
         txtWMDoc += "SectieProductie={}\n".format("PF")
         txtWMDoc += "TotalArticole={}\n".format(len(items))
@@ -1755,7 +1835,7 @@ class WinMentor(object):
         #     txtWMDoc += f"CodClient={client}\n"
         # txtWMDoc += "Locatie=sediul 1\n"
         txtWMDoc += "SimbolCarnet={}\n".format("MP_G")
-        txtWMDoc += "Data={:%d.%m.%Y}\n".format(kwargs.get("data", dt.now()))
+        txtWMDoc += "Data={:%d.%m.%Y}\n".format(kwargs.get("data", datetime.datetime.now()))
         # txtWMDoc += "SectieProductie={}\n".format(kwargs.get("gestDest", ""))
         # txtWMDoc += "SectieProductie={}\n".format("PF")
         txtWMDoc += "TotalArticole={}\n".format(len(items))
@@ -1973,7 +2053,7 @@ class WinMentor(object):
             return False
 
         # Seteaza luna si anul in WinMentor
-        opDate = dt.utcfromtimestamp(gestoData["dateBegin"])
+        opDate = datetime.datetime.fromtimestamp(gestoData["dateBegin"], datetime.UTC)
         if not self.setLunaLucru(opDate.year, opDate.month):
             return False
 
@@ -2082,7 +2162,7 @@ class WinMentor(object):
             return False
 
         # Seteaza luna si anul in WinMentor
-        opDate = dt.utcfromtimestamp(gestoData["documentDate"])
+        opDate = datetime.datetime.fromtimestamp(gestoData["documentDate"], datetime.UTC)
         if not self.setLunaLucru(opDate.year, opDate.month):
             return False
 
@@ -2205,8 +2285,14 @@ class WinMentor(object):
         branch = kwargs.get("branch")
         pos = kwargs.get("pos")
 
+        self.logger.info(f"{kwargs=}")
+
         if self.companyName in ["SC Pan Partener Spedition Arg SRL", ]:
-            monetarCasa = f"MAGAZIN {branch.upper()}"
+            branch_winMentorCode = kwargs.get("branch_winMentorCode")
+            if int(branch_winMentorCode) < 4862:
+                monetarCasa = f"MAGAZIN {branch.upper()}"
+            else:
+                monetarCasa = f"MAGAZIN MIOVENI"
         else:
             monetarCasa = util.getCfgVal("winmentor", "monetareCasaDefault")
 
@@ -2215,9 +2301,11 @@ class WinMentor(object):
             if util.cfg_has_option("monetareCasa", branch):
                 monetarCasa = util.getCfgVal("monetareCasa", branch)
 
-        self.logger.info("monetarCasa: {}".format(monetarCasa))
+        self.logger.info(f"{monetarCasa=}")
 
         items = kwargs.get("items", [])
+
+        self.logger.info(f"{items=}")
 
         # Header transfer
         txtWMDoc = (
@@ -2282,8 +2370,13 @@ class WinMentor(object):
         if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "SC Pan Partener Spedition Arg SRL", "S.C. Kattana Black SRL"]:
             for idx, item in enumerate(items, start=1):
                 txtProd = self._dictToColonList(keys, item)
+
                 key = item["codExternArticol"][:item["codExternArticol"].rfind("_")]
-                txtWMDoc += "Item_{}={}\n".format(idx, txtProd) # items start at 1
+                txtWMDoc += "Item_{}={}\n".format(idx, txtProd)
+
+                if item["tip_contabil"] is not None:
+                    txtWMDoc += f"Item_{idx}_TipContabil={item["tip_contabil"]}\n"
+
         else:
             prodIdx = {}
             prodIdx["G_PROD_9"] = 1
@@ -2315,7 +2408,7 @@ class WinMentor(object):
 
     @decorators.time_log
     def addMonetare(self, gestoData):
-        start = dt.now()
+        start = datetime.datetime.now()
 
         self.logger.debug("\n%s",
                         json.dumps(
@@ -2335,7 +2428,7 @@ class WinMentor(object):
         # wmGestiune = self.matchGestiune(gestoData["branch"], "PRODUSE")
 
         # Seteaza luna si anul in WinMentor
-        opDate = dt.fromtimestamp(gestoData["dateBegin"])
+        opDate = datetime.datetime.fromtimestamp(gestoData["dateBegin"])
         if not self.setLunaLucru(opDate.year, opDate.month):
             return False
 
@@ -2381,19 +2474,24 @@ class WinMentor(object):
 
                 if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "SC Pan Partener Spedition Arg SRL", \
                                         "S.C. Kattana Black SRL"]:
-                    newItems[codExternArticol] = {
-                                    "codExternArticol": codExternArticol,
-                                    "um": wmArticol["DenUM"],
-                                    "cant": item["qty"],
-                                    "pret": item["opVal"] / item["qty"],
-                                }
+                    item.update({
+                        "codExternArticol": codExternArticol,
+                        "um": wmArticol["DenUM"],
+                        "cant": item["qty"],
+                        "pret": item["opVal"] / item["qty"],
+                        "tip_contabil": None,
+                    })
 
                     if self.companyName in ['S.C. Kattana Black SRL']:
-                        newItems[codExternArticol]["simbGest"] = 'ARIES'
+                        item["simbGest"] = 'ARIES'
                     elif self.companyName in ['SC Pan Partener Spedition Arg SRL']:
-                        newItems[codExternArticol]["simbGest"] = f"MAG_{gestoData['branch_winMentorCode']}"
+                        item["simbGest"] = f"MAG_{gestoData['branch_winMentorCode']}"
+                        if item["code"] in ["21000", "21001", "21002", "21003"]:
+                            item["tip_contabil"] = "TC_AVANS"
+                        elif item["code"] in ["102", "103", "104", "105"]:
+                            item["tip_contabil"] = "TC_ROPET"
                     else:
-                        newItems[codExternArticol]["simbGest"] = wmArticol["GestImplicita"]
+                        item["simbGest"] = wmArticol["GestImplicita"]
                 else:
                     if codExternArticol not in newItems:
                         newItems[codExternArticol] = {
@@ -2406,22 +2504,28 @@ class WinMentor(object):
 
                     newItems[codExternArticol]["pret"] += item["opVal"]
 
-        self.logger.info("newItems: {}".format(newItems))
+        self.logger.info(f"{newItems=}")
+        self.logger.info(f'{gestoData["items"]=}')
 
         if ret == True:
             # Creaza transferul doar daca am coduri pentru toate produsele
 
-            articoleWMDoc = []
-            for (key, item) in newItems.items():
-                articoleWMDoc.append(
-                        {
-                            "codExternArticol": item["codExternArticol"],
-                            "um": item["um"],
-                            "cant": item["cant"],
-                            "pret": item["pret"],
-                            "simbGest": item["simbGest"]
-                            }
-                        )
+            if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "SC Pan Partener Spedition Arg SRL", \
+                                        "S.C. Kattana Black SRL"]:
+                articoleWMDoc = gestoData["items"]
+            else:
+                articoleWMDoc = []
+                for (key, item) in newItems.items():
+                    articoleWMDoc.append(
+                            {
+                                "codExternArticol": item["codExternArticol"],
+                                "um": item["um"],
+                                "cant": item["cant"],
+                                "pret": item["pret"],
+                                "simbGest": item["simbGest"],
+                                "tip_contabil": item["tip_contabil"]
+                                }
+                            )
 
             if self.companyName in ["CARMIC IMPEX SRL"]:
                 try:
@@ -2445,6 +2549,7 @@ class WinMentor(object):
                     items = articoleWMDoc,
                     payment = gestoData["payment"],
                     branch = gestoData["branch"],
+                    branch_winMentorCode = gestoData["branch_winMentorCode"],
                     pos = gestoData["pos_name"],
                     clientsNo = gestoData["clientsNo"] if gestoData["clientsNo"] not in ("nil", None) else 0,
                     )
@@ -2635,7 +2740,18 @@ class WinMentor(object):
                     destination = "1306"
                 elif transferNo_int < 160000:
                     destination = "3732"
+                elif transferNo_int < 170000:
+                    destination = "3809"
+                elif transferNo_int < 180000:
+                    destination = "4243"
+                elif transferNo_int < 190000:
+                    destination = "4702"
+                elif transferNo_int < 200000:
+                    destination = "4722"
+                elif transferNo_int < 210000:
+                    destination = "4862"
                 else:
+                    self.logger.info(f"{transferNo_int=} nu il am in lista de destinatii")
                     1/0
 
             if date not in deliveryNotes[source]:
@@ -2711,7 +2827,7 @@ class WinMentor(object):
         wmGestiune = self.matchGestiune(gestoData["branch"])
 
         # Seteaza luna si anul in WinMentor
-        opDate = dt.fromtimestamp(gestoData["dateBegin"])
+        opDate = datetime.datetime.fromtimestamp(gestoData["dateBegin"])
         if not self.setLunaLucru(opDate.year, opDate.month):
             return False
 
@@ -2803,20 +2919,25 @@ class WinMentor(object):
 
         # Adauga items in factura
         txtWMDoc += "\n[Items_{}]\n".format(1)
-        keys = (
+        keys = [
                 "codExternArticol",
                 "um",
                 "cant",
                 "pret",
                 "simbGest",
+                # "tip_contabil"
                 # "pret",
                 # "pret",
                 # "pret",
-                )
+        ]
 
         for idx, item in enumerate(items, start=1):
             txtProd = self._dictToColonList(keys, item, forceAbs=True)
             txtWMDoc += "Item_{}={}\n".format(idx, txtProd)
+            # txtWMDoc += f"Item_{idx}_TipContabil={item['tip_contabil']}\n"
+
+            if item["tip_contabil"] is not None:
+                txtWMDoc += f"Item_{idx}_TipContabil={item["tip_contabil"]}\n"
 
         self.logger.debug("txtWMDoc: \n{}".format(txtWMDoc))
 
@@ -2855,7 +2976,7 @@ class WinMentor(object):
 
         # Seteaza luna si anul in WinMentor
         if opDate is None:
-            opDate = dt.utcfromtimestamp(gestoData["dateBegin"])
+            opDate = datetime.datetime.fromtimestamp(gestoData["dateBegin"], datetime.UTC)
 
         if not self.setLunaLucru(opDate.year, opDate.month):
             return False
@@ -2871,6 +2992,8 @@ class WinMentor(object):
             self.logger.info("Articole cu coduri nesetate sau gestiuni lipsa, nu adaug")
             return False
 
+        tip_contabil = None
+
         if monthly:
             simbolCarnet = "BC_MP_G"
             simbGest = "Magazin {}MP".format(gestoData["branch"][:2])
@@ -2880,6 +3003,7 @@ class WinMentor(object):
             operat="D"
             if self.companyName == "SC Pan Partener Spedition Arg SRL":
                 simbGest = f"MAG_{gestoData['branch_winMentorCode']}"
+                tip_contabil = f"TC_{gestoData['branch_winMentorCode']}"
 
         # Get lista articole from gesto, create array of articole pentru workOrders
         articoleWMDoc = []
@@ -2914,6 +3038,7 @@ class WinMentor(object):
                         "pret": pret,
                         # "simbGest": wmArticol["GestImplicita"]
                         "simbGest": simbGest,
+                        "tip_contabil": tip_contabil,
                     })
 
         rc = self.addBonConsum(

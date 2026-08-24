@@ -5,7 +5,7 @@ import sys, getopt
 import datetime
 import util
 from winmentor import WinMentor
-from datetime import datetime as dt, timedelta
+from datetime import timedelta
 import logging.config
 from configparser import ConfigParser, NoOptionError
 from util import send_email
@@ -260,14 +260,14 @@ def importAvize(baseURL, date):
                                                             len(val4["items"]),
                                                             exp_val,
                                                             val4_val,
-                                                            datetime.datetime.utcfromtimestamp(exported_document["documentDate"]).date(),
+                                                            datetime.datetime.fromtimestamp(exported_document["documentDate"], datetime.UTC).date(),
                                                             documentDate.date(),
                                                             destination,
                                                             exported_document["simbolWinMentorDeliveryNote"]
                                                             ))
 
                         if destination == exported_document["simbolWinMentorDeliveryNote"] \
-                        and datetime.datetime.utcfromtimestamp(exported_document["documentDate"]).date() == documentDate.date()\
+                        and datetime.datetime.fromtimestamp(exported_document["documentDate"], datetime.UTC).date() == documentDate.date()\
                         and exported_document["itemsCount"] == len(val4["items"]) \
                         and exp_val == val4_val:
                             logger.info("Receptia {} exista".format(documentNo))
@@ -284,7 +284,7 @@ def importAvize(baseURL, date):
                                     "subject": msg,
                                     "body": msg,
                                     "emails": ["rusu.silviu@gmail.com", ],
-                                    "hours": 2
+                                    "hours": 24
                                 }
 
                                 logger.info(ngp_body)
@@ -307,7 +307,7 @@ def importAvize(baseURL, date):
                                                             len(val4["items"]),
                                                             exp_val,
                                                             val4_val,
-                                                            datetime.datetime.utcfromtimestamp(exported_document["documentDate"]).date(),
+                                                            datetime.datetime.fromtimestamp(exported_document["documentDate"], datetime.UTC).date(),
                                                             documentDate.date(),
                                                             destination,
                                                             exported_document["simbolWinMentorDeliveryNote"]
@@ -352,12 +352,12 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
 
     logger.info("Getting receptie from Gesto for {}, {}".format(branch, tokens[branch]))
     if endDate is None:
-        endDate = dt.today()
+        endDate = datetime.datetime.today()
         endDate = endDate.replace(hour=23, minute=59, second=59)
 
     startDate = (endDate - timedelta(days = daysDelta)).replace(hour=0, minute=0, second=0)
     start = datetime.datetime.strptime("2023-09-29", "%Y-%m-%d")
-    branchStartDate = dt.strptime(util.getCfgVal("receptionsStartDate", branch), "%Y-%m-%d")
+    branchStartDate = datetime.datetime.strptime(util.getCfgVal("receptionsStartDate", branch), "%Y-%m-%d")
     logger.debug("startDate: {}".format(branchStartDate))
     startDate = max([startDate, branchStartDate])
 
@@ -381,8 +381,8 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
     urlCount = url + "&pageSize="+str(1)
     urlCount += "&page="+str(1)
     logger.debug(url)
-    logger.debug("startDate: {}".format(dt.utcfromtimestamp(startDate)))
-    logger.debug("endDate: {}".format(dt.utcfromtimestamp(endDate)))
+    logger.debug("startDate: {}".format(datetime.datetime.fromtimestamp(startDate, datetime.UTC)))
+    logger.debug("endDate: {}".format(datetime.datetime.fromtimestamp(endDate, datetime.UTC)))
 
     retJSON = None
     token = tokens[branch]
@@ -456,6 +456,7 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
                 #     1/0
 
 
+@decorators.time_log
 def getGestoDocumentsMarkedForWinMentorExport(baseURL):
     """
     @param branch: Gesto branch used for request
@@ -504,12 +505,13 @@ def getGestoDocumentsMarkedForWinMentorExport(baseURL):
 
             is_exported_OK = False
 
-            opDate = dt.utcfromtimestamp(op["documentDate"])
+            opDate = datetime.datetime.fromtimestamp(op["documentDate"], datetime.UTC)
 
             # winmentor.setLunaLucru(opDate.year, opDate.month)
 
             if op["type"] == "reception":
                 # Get partener from gesto
+                logger.info(f'{op["source"]}')
                 gestoPartener = util.fixupCUI(op["source"]["code"])
                 if gestoPartener == '':
                     gestoPartener = util.fixupCUI(op["source"]["ro"])
@@ -659,7 +661,7 @@ if __name__ == "__main__":
         cfg.read_file(open('config_local.ini'))
 
         logger.info(">>> {}()".format(inspect.stack()[0][3]))
-        start = dt.now()
+        start = datetime.datetime.now()
 
         # start = datetime.datetime.strptime("2023-09-25", "%Y-%m-%d")
 
@@ -688,9 +690,9 @@ if __name__ == "__main__":
 
         # Get date to use for Unit Test
         try:
-            workdate = dt.strptime(util.getCfgVal("_UT_", "workdate"), "%Y-%m-%d")
+            workdate = datetime.datetime.strptime(util.getCfgVal("_UT_", "workdate"), "%Y-%m-%d")
         except NoOptionError as e:
-            workdate = dt.today()
+            workdate = datetime.datetime.today()
 
         doExportReceptions = util.getCfgVal("gesto", "exportReceptions", "bool")
         doGenerateWorkOrders = util.getCfgVal("gesto", "generateWorkOrders", "bool")
@@ -738,7 +740,7 @@ if __name__ == "__main__":
                 exportWinMentorData = bool(int(arg))
             elif opt in ("--workDate"):
                 try:
-                    workdate = dt.strptime(arg, "%Y-%m-%d")
+                    workdate = datetime.datetime.strptime(arg, "%Y-%m-%d")
                 except NoOptionError as e:
                     pass
 
@@ -773,8 +775,10 @@ if __name__ == "__main__":
 
             if doImportAvize:
                 max_day = 1
-                if dt.now().minute == 15:
+                if datetime.datetime.now().minute == 15:
                     max_day = 6
+
+                logger.info(f'{max_day=}')
 
                 for i in range(0, max_day):
                     w_date = endDate - timedelta(days = i)
@@ -837,7 +841,7 @@ if __name__ == "__main__":
         print(exp_repr)
         logger.info(exp_repr)
 
-        util.newException(e, send_email=False)
+        util.newException(e, do_send_email=False)
 
         if e.hresult == -2147023170:
             # pywintypes.com_error: (-2147023170, 'The remote procedure call failed.', None, None)
@@ -874,4 +878,4 @@ if __name__ == "__main__":
 
     if logger is not None:
         logger.info("END")
-        logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+        logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], datetime.datetime.now() - start))
