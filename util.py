@@ -73,7 +73,7 @@ def retToFileArray(ret, filename):
 def getCfgVal(section, varName, retType=None):
     cfg = ConfigParser()
     with codecs.open('config_local.ini', 'r', encoding='utf-8') as f:
-        cfg.readfp(f)
+        cfg.read_file(f)
 
     if retType == "int":
         ret = cfg.getint(section, varName)
@@ -98,7 +98,7 @@ def getCfgOptsDict(section):
     cfg = ConfigParser()
 
     with codecs.open('config_local.ini', 'r', encoding='utf-8') as f:
-        cfg.readfp(f)
+        cfg.read_file(f)
 
     ret={}
     for opt in cfg.options(section):
