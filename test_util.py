@@ -1,3 +1,5 @@
+from configparser import ConfigParser
+
 import pytest
 
 import util
@@ -84,3 +86,80 @@ def test_expand_branches_leaves_explicit_branches_untouched():
 def test_expand_branches_rejects_deploy_without_any_branch():
     with pytest.raises(ValueError, match="niciun branch"):
         util.expand_branches([{"firma": "X", "companyName": "Y", "branches": []}], [])
+
+
+def scheduler_cfg(raw):
+    cfg = ConfigParser()
+    cfg.read_string(raw)
+
+    return cfg
+
+
+def test_parse_scheduler_jobs_returns_name_args_and_cron():
+    jobs = util.parse_scheduler_jobs(scheduler_cfg(r"""
+[scheduler]
+python = C:\Python312\python.exe
+working_dir = c:\Vectron\gestoClient
+
+[scheduler:export]
+args = --exportWinMentorData=1 --markedForWinMentorExport=1
+hour = 6-21
+minute = */5
+"""))
+
+    assert jobs == [
+        {
+            "name": "export",
+            "args": ["--exportWinMentorData=1", "--markedForWinMentorExport=1"],
+            "cron": {"hour": "6-21", "minute": "*/5"},
+        },
+    ]
+
+
+def test_parse_scheduler_jobs_rejects_unknown_cron_key():
+    with pytest.raises(ValueError, match="minutes"):
+        util.parse_scheduler_jobs(scheduler_cfg(r"""
+[scheduler:export]
+args = --exportWinMentorData=1
+minutes = */5
+"""))
+
+
+def test_parse_scheduler_jobs_rejects_job_without_args():
+    with pytest.raises(ValueError, match="args"):
+        util.parse_scheduler_jobs(scheduler_cfg(r"""
+[scheduler:export]
+hour = 6-21
+minute = */5
+"""))
+
+
+def test_parse_scheduler_jobs_rejects_empty_args():
+    with pytest.raises(ValueError, match="args"):
+        util.parse_scheduler_jobs(scheduler_cfg(r"""
+[scheduler:export]
+args =
+minute = */5
+"""))
+
+
+def test_parse_scheduler_jobs_rejects_config_without_jobs():
+    with pytest.raises(ValueError, match="scheduler:"):
+        util.parse_scheduler_jobs(scheduler_cfg(r"""
+[scheduler]
+python = C:\Python312\python.exe
+"""))
+
+
+def test_parse_scheduler_jobs_keeps_config_order():
+    jobs = util.parse_scheduler_jobs(scheduler_cfg(r"""
+[scheduler:export]
+args = --exportWinMentorData=1
+
+[scheduler:trace_files]
+args = --delete-old-trace-files=1 --days-ago=20
+hour = 8
+minute = 43
+"""))
+
+    assert [job["name"] for job in jobs] == ["export", "trace_files"]

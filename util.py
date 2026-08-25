@@ -215,6 +215,43 @@ def filter_branches(cfg_branches, company_branches):
     return [b for b in company_branches if b.lower() in cfg_lower]
 
 
+SCHEDULER_JOB_PREFIX = "scheduler:"
+
+# campurile CronTrigger acceptate; o cheie necunoscuta e ignorata tacut de APScheduler,
+# iar jobul cade pe orarul implicit in loc sa dea eroare
+CRON_KEYS = ("minute", "hour", "day", "month", "day_of_week")
+
+
+def parse_scheduler_jobs(cfg):
+    """Fiecare [scheduler:<nume>] e un job: argumentele date lui main.py plus orarul cron."""
+    jobs = []
+
+    for section in cfg.sections():
+        if not section.startswith(SCHEDULER_JOB_PREFIX):
+            continue
+
+        options = dict(cfg.items(section))
+        args = options.pop("args", "").split()
+
+        if not args:
+            raise ValueError(f"[{section}]: lipseste 'args', argumentele date lui main.py")
+
+        for key in options:
+            if key not in CRON_KEYS:
+                raise ValueError(f"[{section}]: '{key}' nu este un camp cron valid; acceptate: {', '.join(CRON_KEYS)}")
+
+        jobs.append({
+            "name": section[len(SCHEDULER_JOB_PREFIX):],
+            "args": args,
+            "cron": options,
+        })
+
+    if not jobs:
+        raise ValueError(f"config-ul nu contine niciun job [{SCHEDULER_JOB_PREFIX}<nume>]")
+
+    return jobs
+
+
 @decorators.time_log
 def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGestoProblem=False):
     if not isGestoProblem:
