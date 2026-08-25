@@ -3678,7 +3678,6 @@ if __name__ == "__main__":
     #     print(repr(partener))
     # print("-- Start factura")
     # rc = winmentor.importaFactIntrare(
-    #         logOn = util.getCfgVal("winmentor", "userName"),
     #         nrDoc = "7123",
     #         nrNir = "672267",
     #         data = dt(2017, 07, 21),
