@@ -173,9 +173,23 @@ def parse_companies(raw):
             if key not in company:
                 raise ValueError(f"[winmentor] companies: lipseste cheia '{key}' din {company}")
 
-        # fara branches nu exista filtru pe request-urile Gesto: firma ar prelua rapoartele tuturor firmelor
-        if not company["branches"]:
+        # fara branches nu exista filtru pe request-urile Gesto: firma preia rapoartele tuturor locatiilor,
+        # corect doar cand e singura firma servita de acest deploy
+        if not company["branches"] and len(companies) > 1:
             raise ValueError(f"[winmentor] companies: firma '{company['firma']}' nu are niciun branch")
+
+    return companies
+
+
+def expand_branches(companies, deploy_branches):
+    """Firma unica fara branches serveste toate locatiile active din Gesto (getTokens):
+    fiecare request Gesto se face cu tokenul locatiei, deci lista trebuie enumerata explicit."""
+    for company in companies:
+        if not company["branches"]:
+            if not deploy_branches:
+                raise ValueError(f"[winmentor] companies: firma '{company['firma']}' nu are niciun branch, iar Gesto nu are nicio locatie activa")
+
+            company["branches"] = list(deploy_branches)
 
     return companies
 
@@ -194,8 +208,11 @@ def branches_query(branches):
 
 
 def filter_branches(cfg_branches, company_branches):
-    """Sectiunile de config sunt globale; pastram doar branch-urile firmei curente."""
-    return [b for b in cfg_branches if b in company_branches]
+    """Sectiunile de config sunt globale; pastram doar branch-urile firmei curente.
+    ConfigParser lowercase-uieste cheile sectiunilor, iar locatiile vin din Gesto cu numele lor real."""
+    cfg_lower = {b.lower() for b in cfg_branches}
+
+    return [b for b in company_branches if b.lower() in cfg_lower]
 
 
 @decorators.time_log
@@ -358,6 +375,30 @@ def log_json(myjson, indent=2):
     logger.info("{}:{}, {}()".format(frame.filename, frame.lineno, frame.name))
 
     logger.info(json.dumps(myjson, sort_keys=True, indent=indent, separators=(',', ': '), default=defaultJSON))
+
+
+@decorators.time_log
+def getTokens():
+    import requests
+
+    baseURL = getCfgVal("gesto", "url")
+    token = getCfgVal("winmentor", "companyToken")
+    url = baseURL + "/poses/?active=1"
+
+    logger.info(url)
+
+    r = requests.get(url, headers={'GESTOTOKEN': token})
+
+    if r.status_code != 200:
+        logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
+        1 / 0
+    else:
+        retJSON = r.json()
+        log_json(retJSON)
+
+        tokens = dict([(pos["branch"]["name"], str(pos["serialNum"])) for pos in retJSON["data"]])
+
+        return tokens
 
 
 @decorators.time_log

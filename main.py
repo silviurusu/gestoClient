@@ -710,7 +710,7 @@ def main():
             elif opt in ("--importAvize"):
                 doImportAvize = bool(int(arg))
             elif opt in ("--branches"):
-                cli_branches = [x.strip() for x in arg.split(",")]
+                cli_branches = [x.strip().replace("_", " ") for x in arg.split(",")]
             elif opt in ("--markedForWinMentorExport"):
                 markedForWinMentorExport = bool(int(arg))
             elif opt in ("--exportWinMentorData"):
@@ -749,9 +749,7 @@ def main():
 
         # start = datetime.datetime.strptime("2023-09-25", "%Y-%m-%d")
 
-        tokens={}
-        for opt in cfg.options("tokens"):
-            tokens[opt] = str(util.getCfgVal("tokens", opt))
+        tokens = util.getTokens()
 
         # Connect to winmentor
         cwd = os.getcwd()
@@ -783,7 +781,7 @@ def main():
             # las exceptie ca sa prinda scriptul de verificare
             1/0
 
-        companies = util.get_companies()
+        companies = util.expand_branches(util.get_companies(), tokens.keys())
 
         for company in companies:
             logger.info(f'{company=}')
