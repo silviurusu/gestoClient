@@ -62,7 +62,7 @@ def generateWorkOrders(baseURL, branch, date):
 
 @decorators.time_log
 def generateMonetare(baseURL, branch, date):
-    company = util.getCfgVal("winmentor", "companyName")
+    company = winmentor.companyName
     logger.info("Generate monetare for {}, {}".format(branch, tokens[branch]))
 
     url = baseURL + "/products/summary/?"
@@ -75,7 +75,7 @@ def generateMonetare(baseURL, branch, date):
     url += "&winMentor=1"
     url += "&excludeOpVal=0"
 
-    if company in ["CARMIC IMPEX SRL",]:
+    if company in ["CARMIC IMPEX SRL", "CARMIC 2 S.R.L.",]:
         url += "&cumulate_poses=0"
 
     # url += "&excludeCodes=1,2"
@@ -123,8 +123,6 @@ def getExportedDeliveryNotes(baseURL, startDate, endDate):
 
     url += "&dateBegin={}".format(util.getTimestamp(startDate - timedelta(days = 1)))
     url += "&dateEnd={}".format(util.getTimestamp(endDate))
-
-    companyName = util.getCfgVal("winmentor", "companyName")
 
     url += "&returnFields=relatedDocumentNo,itemsCount,value,type,documentNo,documentDate,simbolWinMentorDeliveryNote"
 
@@ -186,7 +184,7 @@ def importAvize(baseURL, date):
 
     deliveryNotes = winmentor.getTransferuri(date)
 
-    company = util.getCfgVal("winmentor", "companyName")
+    company = winmentor.companyName
 
     opStr = {
         "version": "1.0",
@@ -455,15 +453,16 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
 
 
 @decorators.time_log
-def getGestoDocumentsMarkedForWinMentorExport(baseURL):
+def getGestoDocumentsMarkedForWinMentorExport(baseURL, branches):
     """
-    @param branch: Gesto branch used for request
+    @param branches: Gesto branches ale firmei curente
     """
 
     logger.info("Getting all operations marked for WinMentorExport")
     url = baseURL + "/operations/?"
     url += "&markedForWinMentorExport=1"
     url += "&onlyKeepStockProducts=1"
+    url += util.branches_query(branches)
     logger.debug(url)
 
     token = util.getCfgVal("winmentor", "companyToken")
@@ -560,14 +559,14 @@ def getGestoDocumentsMarkedForWinMentorExport(baseURL):
 
 
 @decorators.time_log
-def getExportWinMentorData():
+def getExportWinMentorData(branches):
     baseURL = util.getCfgVal("gesto", "url")
     token = util.getCfgVal("winmentor", "companyToken")
-    url = baseURL + "/report/exportWinMentorData/"
 
     while True:
         # until no other exported report exists
-        url = baseURL + "/report/exportWinMentorData/"
+        url = baseURL + "/report/exportWinMentorData/?" + util.branches_query(branches)
+        logger.info(url)
 
         r = requests.get(url, headers={'GESTOTOKEN': token})
 
@@ -647,6 +646,7 @@ def main():
 
     try:
         logger = None
+        winmentor = None
 
         # Set DJANGO for email support
         os.environ.setdefault("DJANGO_SETTINGS_MODULE", "settings")
@@ -657,7 +657,7 @@ def main():
         cfg.optionxform = str
         cfg.read_file(open('config_local.ini'))
 
-        branches = util.getCfgVal("gesto", "branches")
+        cli_branches = None
 
         # Get date to use for Unit Test
         try:
@@ -710,7 +710,7 @@ def main():
             elif opt in ("--importAvize"):
                 doImportAvize = bool(int(arg))
             elif opt in ("--branches"):
-                branches = [x.strip() for x in arg.split(",")]
+                cli_branches = [x.strip() for x in arg.split(",")]
             elif opt in ("--markedForWinMentorExport"):
                 markedForWinMentorExport = bool(int(arg))
             elif opt in ("--exportWinMentorData"):
@@ -758,16 +758,11 @@ def main():
         logger.info("cwd: {}".format(cwd))
 
 
-        winmentor = WinMentor(firma = util.getCfgVal("winmentor", "firma"), an=start.year, luna=start.month)
-        if not winmentor:
-            logger.error("Failed to get winmentor object")
-            1/0
-
         logger.info( 'exportReceptions {}'.format(doExportReceptions))
         logger.info( 'generateWorkOrders {}'.format(doGenerateWorkOrders))
         logger.info( 'generateMonetare {}'.format(doGenerateMonetare))
         logger.info( 'importAvize {}'.format(doImportAvize))
-        logger.info( 'branches: {}'.format(branches))
+        logger.info( 'cli_branches: {}'.format(cli_branches))
 
         logger.info( 'markedForWinMentorExport {}'.format(markedForWinMentorExport))
         logger.info( 'exportWinMentorData {}'.format(exportWinMentorData))
@@ -781,79 +776,96 @@ def main():
         endDate = workdate.replace(hour=23, minute=59, second=59)
         logger.info("Using end date: {}".format(endDate))
 
-        if markedForWinMentorExport or exportWinMentorData or doImportAvize:
-            if markedForWinMentorExport:
-                logger.info( 'markedForWinMentorExport {}'.format(markedForWinMentorExport))
-                getGestoDocumentsMarkedForWinMentorExport(
+        companies = util.get_companies()
+
+        for company in companies:
+            logger.info(f'{company=}')
+
+            if cli_branches is not None:
+                company["branches"] = cli_branches
+
+            winmentor = WinMentor(company=company, an=start.year, luna=start.month)
+            if not winmentor:
+                logger.error("Failed to get winmentor object")
+                1/0
+
+            branches = company["branches"]
+
+            if markedForWinMentorExport or exportWinMentorData or doImportAvize:
+                if markedForWinMentorExport:
+                    logger.info( 'markedForWinMentorExport {}'.format(markedForWinMentorExport))
+                    getGestoDocumentsMarkedForWinMentorExport(
+                                    baseURL = baseURL,
+                                    branches = branches,
+                                )
+
+                if exportWinMentorData:
+                    logger.info( 'exportWinMentorData {}'.format(exportWinMentorData))
+                    getExportWinMentorData(branches = branches)
+
+                if doImportAvize:
+                    max_day = 1
+                    if datetime.datetime.now().minute == 15:
+                        max_day = 6
+
+                    logger.info(f'{max_day=}')
+
+                    for i in range(0, max_day):
+                        w_date = endDate - timedelta(days = i)
+
+                        logger.info(f'{w_date=}')
+
+                        gestoData = importAvize(
+                            baseURL = baseURL,
+                            date = w_date,
+                            )
+
+            else:
+                if doExportReceptions:
+                    branches = util.filter_branches(cfg.options("receptionsStartDate"), company["branches"])
+                    logger.info( 'branches: {}'.format(branches))
+
+                    excludeCUI = util.getCfgVal("receptions", "excludeCUI")
+
+                    for branch in branches:
+                        gestoData = getGestoDocuments(
                                 baseURL = baseURL,
-                            )
+                                branch = branch,
+                                operationType="reception",
+                                excludeCUI=excludeCUI,
+                                endDate = endDate,
+                                daysDelta = daysDelta,
+                                )
 
-            if exportWinMentorData:
-                logger.info( 'exportWinMentorData {}'.format(exportWinMentorData))
-                getExportWinMentorData()
+                if doGenerateMonetare:
+                    if util.cfg_has_section("monetareCasa"):
+                        branches = util.filter_branches(cfg.options("monetareCasa"), company["branches"])
+                        logger.info( 'branches: {}'.format(branches))
 
-            if doImportAvize:
-                max_day = 1
-                if datetime.datetime.now().minute == 15:
-                    max_day = 6
+                    for branch in branches:
+                        gestoData = generateMonetare(
+                                baseURL = baseURL,
+                                branch = branch,
+                                date = endDate,
+                                )
 
-                logger.info(f'{max_day=}')
+                if doGenerateWorkOrders:
+                    if util.cfg_has_section("monetareCasa"):
+                        branches = util.filter_branches(cfg.options("monetareCasa"), company["branches"])
+                        logger.info( 'branches: {}'.format(branches))
 
-                for i in range(0, max_day):
-                    w_date = endDate - timedelta(days = i)
+                    for branch in branches:
+                        gestoData = generateWorkOrders(
+                                baseURL = baseURL,
+                                branch = branch,
+                                date = endDate,
+                                )
 
-                    logger.info(f'{w_date=}')
+            # Send mail with new products and partners
+            winmentor.sendNewProductsMail()
+            winmentor.sendPartnersMail()
+            winmentor.sendIncorrectWinMentorProductsMail()
 
-                    gestoData = importAvize(
-                        baseURL = baseURL,
-                        date = w_date,
-                        )
-
-        else:
-            if doExportReceptions:
-                branches = cfg.options("receptionsStartDate")
-                logger.info( 'branches: {}'.format(branches))
-
-                excludeCUI = util.getCfgVal("receptions", "excludeCUI")
-
-                for branch in branches:
-                    gestoData = getGestoDocuments(
-                            baseURL = baseURL,
-                            branch = branch,
-                            operationType="reception",
-                            excludeCUI=excludeCUI,
-                            endDate = endDate,
-                            daysDelta = daysDelta,
-                            )
-
-            if doGenerateMonetare:
-                if util.cfg_has_section("monetareCasa"):
-                    branches = cfg.options("monetareCasa")
-                    logger.info( 'branches: {}'.format(branches))
-
-                for branch in branches:
-                    gestoData = generateMonetare(
-                            baseURL = baseURL,
-                            branch = branch,
-                            date = endDate,
-                            )
-
-            if doGenerateWorkOrders:
-                if util.cfg_has_section("monetareCasa"):
-                    branches = cfg.options("monetareCasa")
-                    logger.info( 'branches: {}'.format(branches))
-
-                for branch in branches:
-                    gestoData = generateWorkOrders(
-                            baseURL = baseURL,
-                            branch = branch,
-                            date = endDate,
-                            )
-
-        # Send mail with new products and partners
-        winmentor.sendNewProductsMail()
-        winmentor.sendPartnersMail()
-        winmentor.sendIncorrectWinMentorProductsMail()
         return True
 
     except com_error as e:
@@ -868,7 +880,7 @@ def main():
             if logger is not None:
                 logger.exception(exp_repr)
         else:
-            company = util.getCfgVal("winmentor", "companyName")
+            company = winmentor.companyName if winmentor is not None else "firma necunoscuta"
             msg = f"Exceptie la {company}"
 
             ngp_body = {

@@ -110,7 +110,7 @@ def verify_last_run_finished(log_details=settings.MAINTENANCE_LOG_DETAILS):
             logging.info(f"Log file found, {file_path} created on {creation_datetime}")
 
     if not found:
-        company = util.getCfgVal("winmentor", "companyName")
+        company = util.get_companies()[0]["companyName"]
         txtMail = f"WinMentor blocat la - {company}"
 
         util.send_push_notification(txtMail, txtMail, True)
