@@ -34,7 +34,6 @@ class WinMentor(object):
 
     companyName = None
     logOn = util.getCfgVal("winmentor", "userName")
-    branches = None
 
     multiplePartenerIDs = {}
     multiplePartenerIDsForEmail = []
@@ -87,7 +86,6 @@ class WinMentor(object):
         self.setFirmaLucru(company_cfg["firma"])
 
         self.companyName = company_cfg["companyName"]
-        self.branches = company_cfg["branches"]
 
         # Seteaza luna lucru
         self.an = kwargs.get("an")

@@ -815,7 +815,7 @@ def main():
 
                         logger.info(f'{w_date=}')
 
-                        gestoData = importAvize(
+                        importAvize(
                             baseURL = baseURL,
                             date = w_date,
                             )
@@ -828,7 +828,7 @@ def main():
                     excludeCUI = util.getCfgVal("receptions", "excludeCUI")
 
                     for branch in branches:
-                        gestoData = getGestoDocuments(
+                        getGestoDocuments(
                                 baseURL = baseURL,
                                 branch = branch,
                                 operationType="reception",
@@ -843,7 +843,7 @@ def main():
                         logger.info( 'branches: {}'.format(branches))
 
                     for branch in branches:
-                        gestoData = generateMonetare(
+                        generateMonetare(
                                 baseURL = baseURL,
                                 branch = branch,
                                 date = endDate,
@@ -855,7 +855,7 @@ def main():
                         logger.info( 'branches: {}'.format(branches))
 
                     for branch in branches:
-                        gestoData = generateWorkOrders(
+                        generateWorkOrders(
                                 baseURL = baseURL,
                                 branch = branch,
                                 date = endDate,
