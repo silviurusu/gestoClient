@@ -164,7 +164,7 @@ def parse_companies(raw):
     try:
         companies = json.loads(raw)
     except (TypeError, ValueError) as e:
-        raise ValueError("[winmentor] companies nu este JSON valid: {}".format(e))
+        raise ValueError(f"[winmentor] companies nu este JSON valid: {e}")
 
     if not isinstance(companies, list) or len(companies) == 0:
         raise ValueError("[winmentor] companies trebuie sa fie o lista nevida de firme")
@@ -172,7 +172,7 @@ def parse_companies(raw):
     for company in companies:
         for key in COMPANY_KEYS:
             if key not in company:
-                raise ValueError("[winmentor] companies: lipseste cheia '{}' din {}".format(key, company))
+                raise ValueError(f"[winmentor] companies: lipseste cheia '{key}' din {company}")
 
     return companies
 
