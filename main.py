@@ -776,6 +776,13 @@ def main():
         endDate = workdate.replace(hour=23, minute=59, second=59)
         logger.info("Using end date: {}".format(endDate))
 
+        # o singura verificare per run, inainte de orice Dispatch(): in bucla per firma,
+        # instanta WinMentor a firmei anterioare tine DocImpServer.exe in viata
+        if WinMentor.docImpServerRunning():
+            logger.info(settings.DOC_IMP_SERVER_RUNNING)
+            # las exceptie ca sa prinda scriptul de verificare
+            1/0
+
         companies = util.get_companies()
 
         for company in companies:

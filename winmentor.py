@@ -47,16 +47,18 @@ class WinMentor(object):
     missingWMCodes = {}
 
 
+    @staticmethod
+    def docImpServerRunning():
+        """DocImpServer.exe activ inseamna un import WinMentor inca in curs (sau blocat) dintr-un run anterior."""
+        for proc in win32com.client.GetObject('winmgmts:').InstancesOf('win32_process'):
+            if proc.Name == "DocImpServer.exe":
+                return True
+
+        return False
+
+
     def __init__(self, **kwargs):
         self.logger = logging.getLogger(__name__)
-
-        for proc in win32com.client.GetObject('winmgmts:').InstancesOf('win32_process'):
-            # self.logger.info(proc.Name)
-
-            if (proc.Name == "DocImpServer.exe"):
-                self.logger.info(settings.DOC_IMP_SERVER_RUNNING)
-                # las exceptie ca sa prinda scriptul de verificare
-                1/0
 
         self._fdm = pythoncom.LoadTypeLib('DocImpServer.tlb')
         self._stat = None
