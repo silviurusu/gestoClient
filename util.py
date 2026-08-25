@@ -3,6 +3,7 @@ import settings
 from django.core.mail import EmailMessage
 from django.core.mail.backends.smtp import EmailBackend
 import logging
+import logging.config
 import re
 import inspect
 import codecs
@@ -45,7 +46,8 @@ def getNextDocumentNumber(type):
         documentNumberFolder = getCfgVal("gesto", "documentNumberFolder")
 
         cfg_filename = os.path.join(documentNumberFolder, 'config_documentNo_local.ini')
-        cfg.read_file(open(cfg_filename))
+        with open(cfg_filename) as f:
+            cfg.read_file(f)
     except FileNotFoundError as e:
         logger.exception(f"{e}")
         logger.exception(f"Failed to read file: {cfg_filename}")
@@ -71,6 +73,47 @@ def retToFileArray(ret, filename):
         thefile.write("{}/{} - {}\n".format(ctr, retCnt, r))
 
 
+def setup_logging(
+        default_path='logging.json',
+        default_level=logging.INFO,
+        env_key='LOG_CFG',
+        log_details=None
+        ):
+    """ Setup logging configuration
+
+        log_details: sufix in numele fisierului de log (ex. "verify_WM"), ca
+        log-urile scripturilor auxiliare sa se deosebeasca de cele ale main.py
+    """
+    path = default_path
+    value = os.getenv(env_key, None)
+    if value:
+        path = value
+    if os.path.exists(path):
+        with open(path, 'rt') as f:
+            config = json.load(f)
+
+            # Search for hadlers with "folder" and set the
+            # .. log file with current date in that folder
+            for _, dhandler in config["handlers"].items():
+                folder = dhandler.pop("folder", None)
+                if folder:
+                    now = datetime.datetime.now()
+                    suffix = "__{}".format(log_details) if log_details else ""
+
+                    path = os.path.join(folder, now.strftime("%Y_%m_%d__%H_%M") + suffix + ".log")
+
+                    if os.path.exists(path):
+                        path = os.path.join(folder, now.strftime("%Y_%m_%d__%H_%M__%f") + suffix + ".log")
+
+                    if not os.path.exists(folder):
+                        os.mkdir(folder)
+                    dhandler["filename"] = path
+
+        logging.config.dictConfig(config)
+    else:
+        logging.basicConfig(level=default_level)
+
+
 @decorators.time_log
 def getCfgVal(section, varName, retType=None):
     cfg = ConfigParser()
@@ -91,7 +134,7 @@ def getCfgVal(section, varName, retType=None):
     or section == "products" and varName in ['allowMissingDefaultGest', ]:
         ret = [x.strip() for x in ret.split(",")]
 
-    logger.info("{}: {}".format(varName, ret))
+    logger.info("{}: {}".format(varName, "***" if "password" in varName.lower() else ret))
     return ret
 
 

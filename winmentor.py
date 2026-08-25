@@ -70,10 +70,8 @@ class WinMentor(object):
         if self._stat is None:
             1/0
 
-        user = "vectron"
-        passwd = "2"
-        # user = "mircea"
-        # passwd = "1"
+        user = util.getCfgVal("winmentor", "loginUser")
+        passwd = util.getCfgVal("winmentor", "loginPassword")
 
         self.logger.info("user = {}".format(user))
         rc = self._stat.LogOn(user, passwd)
@@ -1972,8 +1970,12 @@ class WinMentor(object):
 
         txtWMDoc += "CEC={}\n".format(payment["bank transfer"] if "bank transfer" in payment else 0)
         txtWMDoc += "CARD={}\n".format(payment["card"] if "card" in payment else 0)
-        txtWMDoc += "BONVALORIC=0\n"
-        # txtWMDoc += "BONVALORIC={}\n".format(payment["food vouchers"] if "food vouchers" in payment else 0)
+        if self.companyName == "Andalusia":
+            # Andalusia nu inregistreaza bonurile valorice pe monetar
+            bon_valoric = 0
+        else:
+            bon_valoric = payment["food vouchers"] if "food vouchers" in payment else 0
+        txtWMDoc += "BONVALORIC={}\n".format(bon_valoric)
         txtWMDoc += "Observatii={}\n".format(kwargs.get("observatii", ""))
         txtWMDoc += "Discount={}\n".format(0)
         txtWMDoc += "TVADiscount={}\n".format(0)

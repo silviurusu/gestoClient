@@ -7,7 +7,7 @@ import util
 import settings
 from winmentor import WinMentor
 from datetime import datetime as dt, timedelta
-import logging.config
+import logging
 from util import send_email
 import inspect
 from django.template import loader
@@ -308,7 +308,8 @@ def getExportedDeliveryNotes(baseURL, startDate, endDate):
                 for ctr2, op in enumerate(retJSON["data"], start=1):
                     logger.debug("{}, {}, {}, {}".format(ctr2, tot, op["id"], op["simbolWinMentorDeliveryNote"]))
 
-                    if op["simbolWinMentorDeliveryNote"] not in destinations:
+                    # destinations neconfigurat ([""]) = nu filtra
+                    if destinations != [''] and op["simbolWinMentorDeliveryNote"] not in destinations:
                         logger.info("{} not in {}".format(op["simbolWinMentorDeliveryNote"], destinations))
                         continue
 
@@ -375,7 +376,8 @@ def getExportedReceptions(baseURL, startDate, endDate):
                 for ctr2, op in enumerate(retJSON["data"], start=1):
                     logger.debug("{}, {}, {}, {}".format(ctr2, tot, op["id"], op["simbolWinMentorDeliveryNote"]))
 
-                    if op["simbolWinMentorDeliveryNote"] not in destinations:
+                    # destinations neconfigurat ([""]) = nu filtra
+                    if destinations != [''] and op["simbolWinMentorDeliveryNote"] not in destinations:
                         logger.info("{} not in {}".format(op["simbolWinMentorDeliveryNote"], destinations))
                         continue
 
@@ -693,12 +695,11 @@ def importAvize(baseURL, date):
 
                     opStrText = json.dumps(opStr, default=util.defaultJSON)
 
-                    if documentNo not in ["42842"]:
-                        r = requests.post(baseURL+"/importOperation/", data = opStrText)
-                        logger.info("Gesto response: %d, %s", r.status_code, r.text)
-                        if r.status_code != 200:
-                            logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
-                            1/0
+                    r = requests.post(baseURL+"/importOperation/", data = opStrText)
+                    logger.info("Gesto response: %d, %s", r.status_code, r.text)
+                    if r.status_code != 200:
+                        logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
+                        1/0
 
                     # 1/0
                     opStr.pop('documentNo', None)
@@ -901,14 +902,13 @@ def importaFacturiIntrare(baseURL, date):
 
                 opStrText = json.dumps(opStr, default=util.defaultJSON)
 
-                if rec_no not in ["42842"]:
-                    r = requests.post(baseURL+"/importOperation/", data = opStrText)
+                r = requests.post(baseURL+"/importOperation/", data = opStrText)
 
-                    logger.info("Gesto response: %d, %s", r.status_code, r.text)
+                logger.info("Gesto response: %d, %s", r.status_code, r.text)
 
-                    if r.status_code != 200:
-                        logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
-                        1/0
+                if r.status_code != 200:
+                    logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
+                    1/0
 
             opStr.pop('documentNo', None)
             opStr.pop('items', None)
@@ -1328,47 +1328,6 @@ def getGestoDocumentsMarkedForWinMentorExport(baseURL, branch):
             #     1/0
 
 
-def setup_logging(
-        default_path='logging.json',
-        default_level=logging.INFO,
-        env_key='LOG_CFG'
-        ):
-    """ Setup logging configuration
-
-    """
-    path = default_path
-    value = os.getenv(env_key, None)
-    if value:
-        path = value
-    if os.path.exists(path):
-        with open(path, 'rt') as f:
-            config = json.load(f)
-
-            # Search for hadlers with "folder" and set the
-            # .. log file with current date in that folder
-            for _, dhandler in config["handlers"].items():
-                folder = dhandler.pop("folder", None)
-                if folder:
-                    path = os.path.join(
-                            folder,
-                            dt.strftime(dt.now(), "%Y_%m_%d__%H_%M.log")
-                            )
-
-                    if os.path.exists(path):
-                        path = os.path.join(
-                            folder,
-                            dt.strftime(dt.now(), "%Y_%m_%d__%H_%M__%f.log")
-                            )
-
-                    if not os.path.exists(folder):
-                        os.mkdir(folder)
-                    dhandler["filename"] = path
-
-        logging.config.dictConfig(config)
-    else:
-        logging.basicConfig(level=default_level)
-
-
 if __name__ == "__main__":
     try:
         # Set DJANGO for email support
@@ -1377,7 +1336,7 @@ if __name__ == "__main__":
         django.setup()
 
         # Get logger
-        setup_logging()
+        util.setup_logging()
         logger = logging.getLogger(name = __name__)
 
         logger.info(">>> {}()".format(inspect.stack()[0][3]))
@@ -1464,12 +1423,12 @@ if __name__ == "__main__":
             logger.info(args)
 
         except getopt.GetoptError:
-            print('{} --exportReceptions=<> --generateWorkOrders=<> --generateIntrariDinProductie=<> --generateMonetare=<> --importAvize=<> --importaFacturiIntrare=<> --exportComenziGest=<> --exportSummaryTransfers=<> --exportSummaryBonDeConsum=<> --exportSales=<> --exportReturns=<> --exportNotaConstatareDiferente=<> --exportSupplyOrders=<> --branches=<> --verify=<> --markedForWinMentorExport=<> --exportWinMentorData=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0]))
+            print('{} --exportReceptions=<> --generateWorkOrders=<> --generateIntrariDinProductie=<> --generateMonetare=<> --importAvize=<> --importFacturiIntrare=<> --exportComenziGest=<> --exportSummaryTransfers=<> --exportSummaryBonDeConsum=<> --exportSales=<> --exportReturns=<> --exportNotaConstatareDiferente=<> --exportSupplyOrders=<> --branches=<> --verify=<> --markedForWinMentorExport=<> --exportWinMentorData=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0]))
             sys.exit(2)
 
         for opt, arg in opts:
             if opt == '-h':
-                print('{} --exportReceptions=<> --generateWorkOrders=<> --generateIntrariDinProductie=<> --generateMonetare=<> --importAvize=<> --importaFacturiIntrare=<> --exportComenziGest=<> --exportSummaryTransfers=<> --exportSummaryBonDeConsum=<> --exportSales=<> --exportReturns=<> --exportNotaConstatareDiferente=<> --exportSupplyOrders=<> --branches=<> --verify=<> --markedForWinMentorExport=<> --exportWinMentorData=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0]))
+                print('{} --exportReceptions=<> --generateWorkOrders=<> --generateIntrariDinProductie=<> --generateMonetare=<> --importAvize=<> --importFacturiIntrare=<> --exportComenziGest=<> --exportSummaryTransfers=<> --exportSummaryBonDeConsum=<> --exportSales=<> --exportReturns=<> --exportNotaConstatareDiferente=<> --exportSupplyOrders=<> --branches=<> --verify=<> --markedForWinMentorExport=<> --exportWinMentorData=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0]))
                 sys.exit()
             elif opt in ("--exportReceptions"):
                 doExportReceptions = bool(int(arg))

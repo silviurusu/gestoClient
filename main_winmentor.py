@@ -11,7 +11,9 @@ import util
 import inspect
 import decorators
 
-# logging.basicConfig(filename='delete_older_winmentor.log', level=logging.INFO)
+# Sufixul fisierelor de log ale acestui script; verify_winmentor le sare
+# cand cauta ultimul log al lui main.py
+LOG_DETAILS = "verify_WM"
 
 
 @decorators.time_log
@@ -49,7 +51,7 @@ def delete_older_winmentor(days_ago):
 
 
 @decorators.time_log
-def verify_winmentor(log_details="verify_WM"):
+def verify_winmentor(log_details=LOG_DETAILS):
     cutoff_date = dt.now() - datetime.timedelta(minutes=10)
     logging.info(f"Cutoff date: {cutoff_date}.")
 
@@ -92,14 +94,14 @@ def verify_winmentor(log_details="verify_WM"):
         util.send_email(subject = txtMail, msg = txtMail)
 
 
-if __name__ == "__main__":
+def main(argv):
     try:
         logger = None
         # Run
         os.environ.setdefault("DJANGO_SETTINGS_MODULE", "settings")
         django.setup()
 
-        util.setup_logging(log_details="verify_WM")
+        util.setup_logging(log_details=LOG_DETAILS)
         logger = logging.getLogger(name = __name__)
 
         logger.info(">>> {}()".format(inspect.stack()[0][3]))
@@ -111,7 +113,7 @@ if __name__ == "__main__":
 
         try:
             # logger.info(sys.argv)
-            opts, args = getopt.getopt(sys.argv[1:],"h",["verify_winmentor=",
+            opts, args = getopt.getopt(argv,"h",["verify_winmentor=",
                                      "delete_older_winmentor=",
                                      "days_ago=",])
 
@@ -139,7 +141,7 @@ if __name__ == "__main__":
         if do_delete_older_winmentor:
             delete_older_winmentor(days_ago)
         elif do_verify_winmentor:
-            verify_winmentor(log_details="verify_WM")
+            verify_winmentor(log_details=LOG_DETAILS)
 
     except Exception as e:
         print(repr(e))
@@ -151,3 +153,7 @@ if __name__ == "__main__":
         if logger is not None:
             logger.info("END")
             logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
