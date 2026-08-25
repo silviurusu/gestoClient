@@ -12,3 +12,10 @@
 .vscode/settings.json
 errors.log
 info.log
+
+# artefacte de setup pe server (nssm + politica locala de securitate), nu intra in repo
+nssm.exe
+secedit.sdb
+secedit.jfm
+secpol.txt
+secpol_check.txt
