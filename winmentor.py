@@ -2472,7 +2472,17 @@ class WinMentor(object):
                 wmArticol = self.getProduct(codExternArticol)
                 # self.logger.info("wmArticol: {}".format(wmArticol))
 
-                if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "CARMIC 2 S.R.L.", "SC Pan Partener Spedition Arg SRL", \
+                if self.companyName in ["CARMIC IMPEX SRL", "CARMIC 2 S.R.L."]:
+                    # un articol per cod WM; o linie Gesto ulterioara cu acelasi cod o inlocuieste pe cea anterioara
+                    newItems[codExternArticol] = {
+                                    "codExternArticol": codExternArticol,
+                                    "um": wmArticol["DenUM"],
+                                    "cant": item["qty"],
+                                    "pret": item["opVal"] / item["qty"],
+                                    "simbGest": wmArticol["GestImplicita"],
+                                    "tip_contabil": None,
+                                }
+                elif self.companyName in ["Andalusia", "SC Pan Partener Spedition Arg SRL", \
                                         "S.C. Kattana Black SRL"]:
                     item.update({
                         "codExternArticol": codExternArticol,
@@ -2499,7 +2509,8 @@ class WinMentor(object):
                                     "um": wmArticol["DenUM"],
                                     "cant": 1,
                                     "pret": 0,
-                                    "simbGest": wmArticol["GestImplicita"]
+                                    "simbGest": wmArticol["GestImplicita"],
+                                    "tip_contabil": None,
                                 }
 
                     newItems[codExternArticol]["pret"] += item["opVal"]
@@ -2510,7 +2521,7 @@ class WinMentor(object):
         if ret == True:
             # Creaza transferul doar daca am coduri pentru toate produsele
 
-            if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "CARMIC 2 S.R.L.", "SC Pan Partener Spedition Arg SRL", \
+            if self.companyName in ["Andalusia", "SC Pan Partener Spedition Arg SRL", \
                                         "S.C. Kattana Black SRL"]:
                 articoleWMDoc = gestoData["items"]
             else:
