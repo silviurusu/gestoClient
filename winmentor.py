@@ -8,16 +8,11 @@ Facade (wrapper) for WinMentor OLE wrapper
 
 import pythoncom, win32com.client
 from datetime import timedelta
-from numbers import Number
 import datetime
 import logging
 import util
-import inspect
 import re
 import json
-import os
-import subprocess
-import time
 from util import send_email
 from django.template import loader
 import decorators

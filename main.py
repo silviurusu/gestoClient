@@ -13,7 +13,7 @@ import django
 import decorators
 import settings
 import maintenance
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
 from pywintypes import com_error
 
 
