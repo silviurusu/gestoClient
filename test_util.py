@@ -29,6 +29,11 @@ def test_parse_companies_rejects_missing_key():
         util.parse_companies('[{"firma": "X", "companyName": "Y"}]')
 
 
+def test_parse_companies_rejects_empty_branches():
+    with pytest.raises(ValueError, match="niciun branch"):
+        util.parse_companies('[{"firma": "X", "companyName": "Y", "branches": []}]')
+
+
 def test_branches_query_joins_with_comma():
     assert util.branches_query(["c1", "c2"]) == "&branches=c1,c2"
 

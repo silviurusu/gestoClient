@@ -174,6 +174,10 @@ def parse_companies(raw):
             if key not in company:
                 raise ValueError(f"[winmentor] companies: lipseste cheia '{key}' din {company}")
 
+        # fara branches nu exista filtru pe request-urile Gesto: firma ar prelua rapoartele tuturor firmelor
+        if not company["branches"]:
+            raise ValueError(f"[winmentor] companies: firma '{company['firma']}' nu are niciun branch")
+
     return companies
 
 
