@@ -1,15 +1,8 @@
-# import traceback
-# from gesto.myLogger import logger
 import datetime
-# import os
-# import inspect
-# from gesto import settings
 from functools import wraps
 import logging
 import util
-# from django.http import HttpResponse
 from django.core.handlers.wsgi import WSGIRequest
-# from django.shortcuts import render
 from django.http import HttpResponse
 from django.template.response import ContentNotRenderedError
 
@@ -78,21 +71,22 @@ def time_log(print_args=True):
 
             # kwargs["function"].append(func.__name__)
 
-            result = func(*args, **kwargs)
+            try:
+                result = func(*args, **kwargs)
 
-            FUNCTION_DURATION = datetime.datetime.now() - start
+                FUNCTION_DURATION = datetime.datetime.now() - start
 
-            if result is not None \
-            and isinstance(result, HttpResponse):
-                try:
-                    result.content = result.content.replace("FUNCTION_DURATION", "{}".format(FUNCTION_DURATION))
-                except ContentNotRenderedError:
-                    logger.info("no time_log information")
-                    pass
-
-            # storing time after function execution
-            logger.info("<<< {}() - duration = {}".format(func.__name__, datetime.datetime.now() - start))
-            return result
+                if result is not None \
+                and isinstance(result, HttpResponse):
+                    try:
+                        result.content = result.content.replace("FUNCTION_DURATION", "{}".format(FUNCTION_DURATION))
+                    except ContentNotRenderedError:
+                        logger.info("no time_log information")
+                        pass
+                return result
+            finally:
+                # storing time after function execution
+                logger.info("<<< {}() - duration = {}".format(func.__name__, datetime.datetime.now() - start))
 
         return wrapper_time_log_decorator
 

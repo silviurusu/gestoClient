@@ -1,29 +1,21 @@
-import sys, getopt
-import django
 import os
 import datetime
 import logging
-import logging.config
 import settings
 import util
-import inspect
 import decorators
 
-# logging.basicConfig(filename='delete_older_winmentor.log', level=logging.INFO)
 
 
 @decorators.time_log
-def delete_older_winmentor(days_ago):
+def delete_old_trace_files(days_ago):
     start_time = datetime.datetime.now()
     logging.info(f"Start: {start_time}")
 
     cutoff_date = start_time - datetime.timedelta(days=days_ago)
     logging.info(f"Cutoff date: {cutoff_date}.")
 
-    # trace_folders = ['d:\\Vectron\\gestoClient\\debug']
-    trace_folders = None
-    if trace_folders is None:
-        trace_folders = [util.getCfgVal("gesto", "trace_folder")]
+    trace_folders = [util.getCfgVal("gesto", "trace_folder")]
 
     for folder_path in trace_folders:
         files = os.listdir(folder_path)
@@ -44,7 +36,6 @@ def delete_older_winmentor(days_ago):
     end_time = datetime.datetime.now()
     logging.info(f"End: {end_time}")
     logging.info(f"Duration: {end_time-start_time}")
-
 
 
 def read_last_line(filepath, block_size=1024):
@@ -68,14 +59,11 @@ def read_last_line(filepath, block_size=1024):
 
 
 @decorators.time_log
-def verify_winmentor(log_details="verify_WM"):
+def verify_last_run_finished(log_details=settings.MAINTENANCE_LOG_DETAILS):
     cutoff_date = datetime.datetime.now() - datetime.timedelta(minutes=10)
     logging.info(f"{cutoff_date=}")
 
-    # trace_folders = ['d:\\Vectron\\gestoClient\\debug']
-    trace_folders = None
-    if trace_folders is None:
-        trace_folders = [util.getCfgVal("gesto", "trace_folder")]
+    trace_folders = [util.getCfgVal("gesto", "trace_folder")]
 
     found = False
 
@@ -105,7 +93,7 @@ def verify_winmentor(log_details="verify_WM"):
                 last_line = read_last_line(f"{folder_path}\\{file}")
                 logging.info(last_line)
 
-                if "<<< <module>()" not in last_line:
+                if settings.TASK_FINISHED not in last_line:
                     logging.info("Taskul NU s-a terminat cu succes")
                     continue
 
@@ -126,64 +114,3 @@ def verify_winmentor(log_details="verify_WM"):
         txtMail = f"WinMentor blocat la - {company}"
 
         util.send_push_notification(txtMail, txtMail, True)
-
-
-if __name__ == "__main__":
-    try:
-        logger = None
-        # Run
-        os.environ.setdefault("DJANGO_SETTINGS_MODULE", "settings")
-        django.setup()
-
-        util.setup_logging(log_details="verify_WM")
-        logger = logging.getLogger(name = __name__)
-
-        logger.info(">>> {}()".format(inspect.stack()[0][3]))
-        start = datetime.datetime.now()
-
-        days_ago = 100
-        do_verify_winmentor = 0
-        do_delete_older_winmentor = 0
-
-        try:
-            # logger.info(sys.argv)
-            opts, args = getopt.getopt(sys.argv[1:],"h",["verify_winmentor=",
-                                     "delete_older_winmentor=",
-                                     "days_ago=",])
-
-            logger.info(opts)
-            logger.info(args)
-
-        except getopt.GetoptError:
-            print('{} --verify_winmentor=<> --delete_older_winmentor=<> --days_ago=<>'.format(sys.argv[0]))
-            sys.exit(2)
-
-        for opt, arg in opts:
-            if opt == '-h':
-                print('{} --verify_winmentor=<> --delete_older_winmentor=<> --days_ago=<>'.format(sys.argv[0]))
-                sys.exit()
-            elif opt in ("--verify_winmentor"):
-                do_verify_winmentor = bool(int(arg))
-            elif opt in ("--delete_older_winmentor"):
-                do_delete_older_winmentor = bool(int(arg))
-            elif opt in ("--days_ago"):
-                days_ago = int(arg)
-
-        logger.info(opts)
-        logger.info(args)
-
-        if do_delete_older_winmentor:
-            delete_older_winmentor(days_ago)
-        elif do_verify_winmentor:
-            verify_winmentor(log_details="verify_WM")
-
-    except Exception as e:
-        print(repr(e))
-        if logger is not None:
-            logger.exception(repr(e))
-        util.newException(e)
-
-    finally:
-        if logger is not None:
-            logger.info("END")
-            logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], datetime.datetime.now() - start))

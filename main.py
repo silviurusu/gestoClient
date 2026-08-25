@@ -9,12 +9,10 @@ from datetime import timedelta
 import logging.config
 from configparser import ConfigParser, NoOptionError
 from util import send_email
-import re
-import traceback
-import inspect
-from django.template import loader, Context
 import django
 import decorators
+import settings
+import maintenance
 from decimal import Decimal, ROUND_HALF_UP
 from pywintypes import com_error
 
@@ -643,7 +641,10 @@ def cleanId(name):
     return "".join(name.lower().split())
 
 
-if __name__ == "__main__":
+@decorators.time_log
+def main():
+    global logger, tokens, winmentor
+
     try:
         logger = None
 
@@ -651,40 +652,10 @@ if __name__ == "__main__":
         os.environ.setdefault("DJANGO_SETTINGS_MODULE", "settings")
         django.setup()
 
-        # Get logger
-        util.setup_logging()
-        logger = logging.getLogger(name = __name__)
-
         # Get Script settings
         cfg = ConfigParser()
         cfg.optionxform = str
         cfg.read_file(open('config_local.ini'))
-
-        logger.info(">>> {}()".format(inspect.stack()[0][3]))
-        start = datetime.datetime.now()
-
-        # start = datetime.datetime.strptime("2023-09-25", "%Y-%m-%d")
-
-        tokens={}
-        for opt in cfg.options("tokens"):
-            tokens[opt] = str(util.getCfgVal("tokens", opt))
-
-        # Connect to winmentor
-        import os
-        cwd = os.getcwd()
-        logger.info("cwd: {}".format(cwd))
-
-        # for f in os.listdir("\\mentor\\winment\\"):
-        #     logger.info(f)
-
-        winmentor = WinMentor(firma = util.getCfgVal("winmentor", "firma"), an=start.year, luna=start.month)
-        if not winmentor:
-            logger.error("Failed to get winmentor object")
-            1/0
-
-        # TODO -- END TESTING --
-
-        logger.info("START")
 
         branches = util.getCfgVal("gesto", "branches")
 
@@ -702,6 +673,12 @@ if __name__ == "__main__":
         markedForWinMentorExport = False
         exportWinMentorData = False
 
+        do_verify_last_run_finished = False
+        do_delete_old_trace_files = False
+        days_ago = 100
+
+        usage = '{} --exportReceptions=<> --generateWorkOrders=<> --generateMonetare=<> --importAvize=<> --branches=<> --workDate=<YYYY-MM-DD> --verify-last-run-finished=<> --delete-old-trace-files=<> --days-ago=<>'.format(sys.argv[0])
+
         try:
             opts, args = getopt.getopt(sys.argv[1:],"h",["exportReceptions=",
                                      "generateWorkOrders=",
@@ -710,19 +687,19 @@ if __name__ == "__main__":
                                      "branches=",
                                      "exportWinMentorData=",
                                      "markedForWinMentorExport=",
-                                     "workDate="
+                                     "workDate=",
+                                     "verify-last-run-finished=",
+                                     "delete-old-trace-files=",
+                                     "days-ago="
                                     ])
 
-            logger.info(opts)
-            logger.info(args)
-
         except getopt.GetoptError:
-            print('{} --exportReceptions=<> --generateWorkOrders=<> --generateMonetare=<> --importAvize=<> --branches=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0]))
+            print(usage)
             sys.exit(2)
 
         for opt, arg in opts:
             if opt == '-h':
-                print('{} --exportReceptions=<> --generateWorkOrders=<> --generateMonetare=<> --importAvize=<> --branches=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0]))
+                print(usage)
                 sys.exit()
             elif opt in ("--exportReceptions"):
                 doExportReceptions = bool(int(arg))
@@ -743,6 +720,48 @@ if __name__ == "__main__":
                     workdate = datetime.datetime.strptime(arg, "%Y-%m-%d")
                 except NoOptionError as e:
                     pass
+            elif opt in ("--verify-last-run-finished"):
+                do_verify_last_run_finished = bool(int(arg))
+            elif opt in ("--delete-old-trace-files"):
+                do_delete_old_trace_files = bool(int(arg))
+            elif opt in ("--days-ago"):
+                days_ago = int(arg)
+
+        # Maintenance runs get their own log name so verify_last_run_finished skips them
+        is_maintenance = do_verify_last_run_finished or do_delete_old_trace_files
+
+        # Get logger
+        util.setup_logging(log_details = settings.MAINTENANCE_LOG_DETAILS if is_maintenance else None)
+        logger = logging.getLogger(name = __name__)
+
+        logger.info(opts)
+        logger.info(args)
+
+        if do_delete_old_trace_files:
+            maintenance.delete_old_trace_files(days_ago)
+            return True
+
+        if do_verify_last_run_finished:
+            maintenance.verify_last_run_finished()
+            return True
+
+        start = datetime.datetime.now()
+
+        # start = datetime.datetime.strptime("2023-09-25", "%Y-%m-%d")
+
+        tokens={}
+        for opt in cfg.options("tokens"):
+            tokens[opt] = str(util.getCfgVal("tokens", opt))
+
+        # Connect to winmentor
+        cwd = os.getcwd()
+        logger.info("cwd: {}".format(cwd))
+
+
+        winmentor = WinMentor(firma = util.getCfgVal("winmentor", "firma"), an=start.year, luna=start.month)
+        if not winmentor:
+            logger.error("Failed to get winmentor object")
+            1/0
 
         logger.info( 'exportReceptions {}'.format(doExportReceptions))
         logger.info( 'generateWorkOrders {}'.format(doGenerateWorkOrders))
@@ -835,6 +854,7 @@ if __name__ == "__main__":
         winmentor.sendNewProductsMail()
         winmentor.sendPartnersMail()
         winmentor.sendIncorrectWinMentorProductsMail()
+        return True
 
     except com_error as e:
         exp_repr = repr(e)
@@ -876,6 +896,9 @@ if __name__ == "__main__":
 
         util.newException(e)
 
-    if logger is not None:
-        logger.info("END")
-        logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], datetime.datetime.now() - start))
+    return False
+
+
+if __name__ == "__main__":
+    if main():
+        logger.info(settings.TASK_FINISHED)
