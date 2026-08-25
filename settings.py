@@ -1,5 +1,4 @@
 import os
-import logging
 
 BASE_DIR = os.path.normpath(os.path.dirname(os.path.realpath(__file__)))
 

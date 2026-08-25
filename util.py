@@ -1,7 +1,9 @@
 import datetime
-import collections
+import settings
 from django.core.mail import EmailMessage
+from django.core.mail.backends.smtp import EmailBackend
 import logging
+import logging.config
 import re
 import inspect
 import codecs
@@ -32,7 +34,7 @@ def newException(e):
         send_email(subject, html_part)
 
     except BaseException as e:
-        logger.exception("{0}, {1}".format(e, e.message))
+        logger.exception(f"{e}")
 
 
 def getNextDocumentNumber(type):
@@ -44,9 +46,11 @@ def getNextDocumentNumber(type):
         documentNumberFolder = getCfgVal("gesto", "documentNumberFolder")
 
         cfg_filename = os.path.join(documentNumberFolder, 'config_documentNo_local.ini')
-        cfg.read(cfg_filename)
-    except:
-        logger.exception("Failed to read .ini file")
+        with open(cfg_filename) as f:
+            cfg.read_file(f)
+    except FileNotFoundError as e:
+        logger.exception(f"{e}")
+        logger.exception(f"Failed to read file: {cfg_filename}")
         sys.exit(1)
 
     docNo = cfg["documentNumbers"].getint(type)
@@ -69,6 +73,47 @@ def retToFileArray(ret, filename):
         thefile.write("{}/{} - {}\n".format(ctr, retCnt, r))
 
 
+def setup_logging(
+        default_path='logging.json',
+        default_level=logging.INFO,
+        env_key='LOG_CFG',
+        log_details=None
+        ):
+    """ Setup logging configuration
+
+        log_details: sufix in numele fisierului de log (ex. "verify_WM"), ca
+        log-urile scripturilor auxiliare sa se deosebeasca de cele ale main.py
+    """
+    path = default_path
+    value = os.getenv(env_key, None)
+    if value:
+        path = value
+    if os.path.exists(path):
+        with open(path, 'rt') as f:
+            config = json.load(f)
+
+            # Search for hadlers with "folder" and set the
+            # .. log file with current date in that folder
+            for _, dhandler in config["handlers"].items():
+                folder = dhandler.pop("folder", None)
+                if folder:
+                    now = datetime.datetime.now()
+                    suffix = "__{}".format(log_details) if log_details else ""
+
+                    path = os.path.join(folder, now.strftime("%Y_%m_%d__%H_%M") + suffix + ".log")
+
+                    if os.path.exists(path):
+                        path = os.path.join(folder, now.strftime("%Y_%m_%d__%H_%M__%f") + suffix + ".log")
+
+                    if not os.path.exists(folder):
+                        os.mkdir(folder)
+                    dhandler["filename"] = path
+
+        logging.config.dictConfig(config)
+    else:
+        logging.basicConfig(level=default_level)
+
+
 @decorators.time_log
 def getCfgVal(section, varName, retType=None):
     cfg = ConfigParser()
@@ -85,11 +130,11 @@ def getCfgVal(section, varName, retType=None):
     if section == "client" and varName in ['bccEmails', 'notificationEmails', ] \
     or section == "deliveryNote" and varName in ['sources', 'destinations'] \
     or section == "gesto" and varName in ['branches', 'branches_monetare'] \
-    or section == "receptions" and varName in ['branches', ] \
+    or section == "receptions" and varName in ['branches', 'destinations' ] \
     or section == "products" and varName in ['allowMissingDefaultGest', ]:
         ret = [x.strip() for x in ret.split(",")]
 
-    logger.info("{}: {}".format(varName, ret))
+    logger.info("{}: {}".format(varName, "***" if "password" in varName.lower() else ret))
     return ret
 
 
@@ -147,6 +192,10 @@ def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGes
         email = EmailMessage(subject, msg, to=toEmails, bcc=bccEmails)
         email.content_subtype = "html"
 
+        backend = EmailBackend(host=settings.AWS_EMAIL_HOST, username=settings.AWS_EMAIL_USER,
+                               password=settings.AWS_EMAIL_PASS)
+        email.connection = backend
+
         if 1==1:
             email.send()
         else:
@@ -198,7 +247,7 @@ def getTimestamp(date):
 @decorators.disable_logging(logging.DEBUG)
 def fixupCUI2(cui):
     """ Return a CUI or CNP or Serie/Nr CI in format fix, daca sirul de intrare
-        corepunde:
+        corespunde:
         CUI: XXddddddd[d][d]
         CNP: ddddddddddddd
         Serie/Nr CI: XXdddddd
@@ -207,7 +256,7 @@ def fixupCUI2(cui):
 
     """
     # Incearca CUI
-    x = re.match("^\s*([A-z]{2})?\s*([0-9]{7,9})\s*$", cui)
+    x = re.match(r"^\s*([A-z]{2})?\s*([0-9]{7,9})\s*$", cui)
     if x:
         pref, no = x.groups()
         if no:
@@ -217,7 +266,7 @@ def fixupCUI2(cui):
             return (True, pref + no)
 
     # Incearca CNP
-    x = re.match("^\s*([0-9]{13})\s*$", cui)
+    x = re.match(r"^\s*([0-9]{13})\s*$", cui)
     if x:
         no, = x.groups()
         if no:
@@ -226,7 +275,7 @@ def fixupCUI2(cui):
             return (True, no)
 
     # Incearca Serie/Nr
-    x = re.match("^\s*([A-z]{2})?\s*([0-9]{6})?\s*$", cui)
+    x = re.match(r"^\s*([A-z]{2})?\s*([0-9]{6})?\s*$", cui)
     if x:
         serie, nr = x.groups()
         if nr:

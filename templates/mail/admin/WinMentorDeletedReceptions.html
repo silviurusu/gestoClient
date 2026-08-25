@@ -1,0 +1,10 @@
+<!-- replaceWithHTMLCodes -->
+Buna ziua,
+
+{{deleted_receptions|length}} recepti{{ deleted_receptions|length|pluralize:"e a fost stearsa,i au fost sterse" }} din WinMentor si exista in Gesto, va rog analizati:
+
+{% for reception in deleted_receptions %}
+<a href="{{HOME_URL}}/web/operations/?&operation_id={{reception.id}}">{{reception.relatedDocumentNo}} -  {{reception.destination}}</a> {{reception.documentDateHuman}}
+{% endfor %}
+
+Nu dati reply la acest mail va rog, nu urmareste nimeni aceasta adresa de mail.

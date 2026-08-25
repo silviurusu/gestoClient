@@ -1,6 +1,6 @@
 <!-- replaceWithHTMLCodes -->
 {%if missingCodes|length != 0%}
-Urmatoarele {{missingCodes|length}} produse nu au setate coduri WinMentor (in Gesto):<br/>
+Urmatoarele {{missingCodes|length}} produse nu au setate coduri WinMentor (in Gesto) sau codurile sunt incorecte:<br/>
 {% for key,p in missingCodes.items %}
     {{p.item.name}}, {{p.item.code}} --- {{p.details}}
 {% endfor %}
