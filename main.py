@@ -17,6 +17,14 @@ from decimal import Decimal
 from pywintypes import com_error
 
 
+def anuntaLunaInchisa(e):
+    """Clientul afla o data pe zi ca luna e inchisa; documentele raman de transmis."""
+    logger.info(e)
+    subject = f"Luna {e.luna} inchisa in WinMentor la {e.companyName}"
+    if util.report_problem(subject, str(e), hours=24):
+        send_email(subject, str(e), toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
+
+
 @decorators.time_log
 def generateWorkOrders(baseURL, branch, date):
     url = baseURL + "/products/summary/?"
@@ -56,7 +64,10 @@ def generateWorkOrders(baseURL, branch, date):
 
         if retJSON["verify"] in ["success", "no verify requested", ]:
             # email is sent from Gesto if there is any problem
-            winmentor.addWorkOrders(retJSON)
+            try:
+                winmentor.addWorkOrders(retJSON)
+            except LunaInchisa as e:
+                anuntaLunaInchisa(e)
 
 
 
@@ -597,10 +608,7 @@ def getExportWinMentorData(branches):
                         1/0
                 except LunaInchisa as e:
                     # nu marcam raportul, ramane de transmis; reincercam la urmatorul run
-                    logger.info(e)
-                    subject = f"Luna {e.luna} inchisa in WinMentor la {e.companyName}"
-                    if util.report_problem(subject, str(e), hours=24):
-                        send_email(subject, str(e), toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
+                    anuntaLunaInchisa(e)
                     break
 
                 logger.info("ret: {}".format(ret))

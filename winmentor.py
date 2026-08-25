@@ -28,7 +28,7 @@ class LunaInchisa(Exception):
     def __init__(self, companyName, opDate):
         self.companyName = companyName
         self.luna = f"{opDate:%m.%Y}"
-        super().__init__(f"Luna {self.luna} este inchisa in WinMentor la {companyName}, monetarele raman de transmis pana la deschiderea lunii")
+        super().__init__(f"Luna {self.luna} este inchisa in WinMentor la {companyName}, documentele raman de transmis pana la deschiderea lunii")
 
 
 class WinMentor(object):
@@ -177,6 +177,13 @@ class WinMentor(object):
             return False
 
         return True
+
+
+    def setLunaLucruPentruExport(self, opDate, document):
+        """Ca setLunaLucru, dar un document de export nu se pierde: luna inchisa ridica LunaInchisa."""
+        if not self.setLunaLucru(opDate.year, opDate.month):
+            self.logger.info(f"{document} din {opDate:%d.%m.%Y} ramane de transmis")
+            raise LunaInchisa(self.companyName, opDate)
 
 
     def _colonListToDict(self, keys, myStr):
@@ -1988,8 +1995,7 @@ class WinMentor(object):
 
         # Seteaza luna si anul in WinMentor
         opDate = datetime.datetime.fromtimestamp(gestoData["dateBegin"], datetime.UTC)
-        if not self.setLunaLucru(opDate.year, opDate.month):
-            return False
+        self.setLunaLucruPentruExport(opDate, f'intrari din productie {gestoData["branch"]}')
 
         ignoreCodes = []
         if self.companyName == "Panemar morarit si panificatie SRL":
@@ -2363,9 +2369,7 @@ class WinMentor(object):
 
         # Seteaza luna si anul in WinMentor
         opDate = datetime.datetime.fromtimestamp(gestoData["dateBegin"])
-        if not self.setLunaLucru(opDate.year, opDate.month):
-            self.logger.info(f'monetar {gestoData["branch"]} din {gestoData["dateBeginHuman"]} ramane de transmis')
-            raise LunaInchisa(self.companyName, opDate)
+        self.setLunaLucruPentruExport(opDate, f'monetar {gestoData["branch"]}')
 
         # verify I have all gesto codes and default gestiuni in WinMentor
         # if not self.productsAreOK(gestoData):
@@ -2754,8 +2758,7 @@ class WinMentor(object):
 
         # Seteaza luna si anul in WinMentor
         opDate = datetime.datetime.fromtimestamp(gestoData["dateBegin"])
-        if not self.setLunaLucru(opDate.year, opDate.month):
-            return False
+        self.setLunaLucruPentruExport(opDate, f'transfer {gestoData["branch"]}')
 
         # verify I have all gesto codes and defalut gestiuni in WinMentor
         if not self.productsAreOK(gestoData):
@@ -2904,8 +2907,7 @@ class WinMentor(object):
         if opDate is None:
             opDate = datetime.datetime.fromtimestamp(gestoData["dateBegin"], datetime.UTC)
 
-        if not self.setLunaLucru(opDate.year, opDate.month):
-            return False
+        self.setLunaLucruPentruExport(opDate, f'bon de consum {gestoData["branch"]}')
 
         ignoreCodes = []
         if self.companyName == "Panemar morarit si panificatie SRL":
