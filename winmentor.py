@@ -22,6 +22,15 @@ from pywintypes import com_error
 import settings
 
 
+class LunaInchisa(Exception):
+    """WinMentor nu accepta documente in luna ceruta; documentul ramane de transmis."""
+
+    def __init__(self, companyName, opDate):
+        self.companyName = companyName
+        self.luna = f"{opDate:%m.%Y}"
+        super().__init__(f"Luna {self.luna} este inchisa in WinMentor la {companyName}, monetarele raman de transmis pana la deschiderea lunii")
+
+
 class WinMentor(object):
     ''' classdocs
     '''
@@ -2355,7 +2364,8 @@ class WinMentor(object):
         # Seteaza luna si anul in WinMentor
         opDate = datetime.datetime.fromtimestamp(gestoData["dateBegin"])
         if not self.setLunaLucru(opDate.year, opDate.month):
-            return False
+            self.logger.info(f'monetar {gestoData["branch"]} din {gestoData["dateBeginHuman"]} ramane de transmis')
+            raise LunaInchisa(self.companyName, opDate)
 
         # verify I have all gesto codes and default gestiuni in WinMentor
         # if not self.productsAreOK(gestoData):

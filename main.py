@@ -4,7 +4,7 @@ import os
 import sys, getopt
 import datetime
 import util
-from winmentor import WinMentor
+from winmentor import WinMentor, LunaInchisa
 from datetime import timedelta
 import logging.config
 from configparser import ConfigParser, NoOptionError
@@ -562,38 +562,46 @@ def getExportWinMentorData(branches):
             util.log_json(retJSON)
 
             if retJSON["report_id"] is not None:
-                if isinstance(retJSON["report_data"], list):
-                    # doar monetarele pot veni ca lista
-                    for rd in retJSON["report_data"]:
-                        ret = winmentor.addMonetare(rd)
-                elif retJSON["report_data"]["data"] == "monetare":
-                    ret = winmentor.addMonetare(retJSON["report_data"])
-                elif retJSON["report_data"]["data"] == "intrari_din_productie":
-                    report_data = retJSON["report_data"]
+                try:
+                    if isinstance(retJSON["report_data"], list):
+                        # doar monetarele pot veni ca lista
+                        for rd in retJSON["report_data"]:
+                            ret = winmentor.addMonetare(rd)
+                    elif retJSON["report_data"]["data"] == "monetare":
+                        ret = winmentor.addMonetare(retJSON["report_data"])
+                    elif retJSON["report_data"]["data"] == "intrari_din_productie":
+                        report_data = retJSON["report_data"]
 
-                    logger.info("verify: {}".format(report_data["verify"]))
-                    if report_data["verify"] in ["no verify requested", "success", ]:
-                        # email is sent from Gesto if there is any problem
-                        ret = winmentor.addIntrariDinProductie(report_data)
-                    # elif report_data["verify"] == "No Vectron data":
-                    #     ret = True
-                    else:
-                        ret = False
-                elif retJSON["report_data"]["data"] == "transferuri":
-                    report_data = retJSON["report_data"]
+                        logger.info("verify: {}".format(report_data["verify"]))
+                        if report_data["verify"] in ["no verify requested", "success", ]:
+                            # email is sent from Gesto if there is any problem
+                            ret = winmentor.addIntrariDinProductie(report_data)
+                        # elif report_data["verify"] == "No Vectron data":
+                        #     ret = True
+                        else:
+                            ret = False
+                    elif retJSON["report_data"]["data"] == "transferuri":
+                        report_data = retJSON["report_data"]
 
-                    logger.info("verify: {}".format(report_data["verify"]))
-                    if report_data["verify"] in ["no verify requested", "success", ]:
-                        # email is sent from Gesto if there is any problem
-                        ret = winmentor.addWorkOrders(report_data)
-                    # elif report_data["verify"] == "No Vectron data":
-                    #     ret = True
+                        logger.info("verify: {}".format(report_data["verify"]))
+                        if report_data["verify"] in ["no verify requested", "success", ]:
+                            # email is sent from Gesto if there is any problem
+                            ret = winmentor.addWorkOrders(report_data)
+                        # elif report_data["verify"] == "No Vectron data":
+                        #     ret = True
+                        else:
+                            ret = False
+                    elif retJSON["report_data"]["data"] == "bonuri_de_consum":
+                        ret = winmentor.addProductSummary(retJSON["report_data"])
                     else:
-                        ret = False
-                elif retJSON["report_data"]["data"] == "bonuri_de_consum":
-                    ret = winmentor.addProductSummary(retJSON["report_data"])
-                else:
-                    1/0
+                        1/0
+                except LunaInchisa as e:
+                    # nu marcam raportul, ramane de transmis; reincercam la urmatorul run
+                    logger.info(e)
+                    subject = f"Luna {e.luna} inchisa in WinMentor la {e.companyName}"
+                    if util.report_problem(subject, str(e), hours=24):
+                        send_email(subject, str(e), toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
+                    break
 
                 logger.info("ret: {}".format(ret))
 
