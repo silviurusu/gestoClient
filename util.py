@@ -156,6 +156,45 @@ def getCfgVal(section, varName, retType=None):
     return ret
 
 
+COMPANY_KEYS = ("firma", "companyName", "branches")
+
+
+def parse_companies(raw):
+    """[winmentor] companies este o lista JSON de firme WinMentor servite de acest deploy."""
+    try:
+        companies = json.loads(raw)
+    except (TypeError, ValueError) as e:
+        raise ValueError("[winmentor] companies nu este JSON valid: {}".format(e))
+
+    if not isinstance(companies, list) or len(companies) == 0:
+        raise ValueError("[winmentor] companies trebuie sa fie o lista nevida de firme")
+
+    for company in companies:
+        for key in COMPANY_KEYS:
+            if key not in company:
+                raise ValueError("[winmentor] companies: lipseste cheia '{}' din {}".format(key, company))
+
+    return companies
+
+
+@decorators.time_log
+def get_companies():
+    return parse_companies(getCfgVal("winmentor", "companies"))
+
+
+def branches_query(branches):
+    """Fragment de query string pentru filtrarea pe branch-uri a request-urilor Gesto."""
+    if not branches:
+        return ""
+
+    return "&branches=" + ",".join(branches)
+
+
+def filter_branches(cfg_branches, company_branches):
+    """Sectiunile de config sunt globale; pastram doar branch-urile firmei curente."""
+    return [b for b in cfg_branches if b in company_branches]
+
+
 @decorators.time_log
 def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGestoProblem=False):
     if not isGestoProblem:
