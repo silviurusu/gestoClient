@@ -1,6 +1,5 @@
 import datetime
 import settings
-import datetime
 import logging
 import functools
 import re
@@ -245,6 +244,26 @@ def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGes
 
     r = requests.post(baseURL+"/api/email/", json=email_body, headers={'GESTOTOKEN': token})
     logger.info("{} - {}".format(r.status_code, r.text))
+
+
+@decorators.time_log
+def report_problem(subject, body, hours, emails=None):
+    """Inregistreaza problema in Gesto (/api/gestoProblems/); True daca e noua in ultimele `hours` ore, deci merita un mail."""
+    ngp_body = {
+        "subject": subject,
+        "body": body,
+        "hours": hours,
+    }
+    if emails is not None:
+        ngp_body["emails"] = emails
+
+    logger.info(ngp_body)
+
+    baseURL = getCfgVal("gesto", "url")
+    r = requests.post(baseURL + "/api/gestoProblems/", json=ngp_body)
+    logger.info("{} - {}".format(r.status_code, r.text))
+
+    return r.json()["ngp"]
 
 
 def defaultJSON(obj):

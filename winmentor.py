@@ -17,7 +17,6 @@ from util import send_email
 from django.template import loader
 import decorators
 import math
-import requests
 from decimal import Decimal, ROUND_HALF_UP
 from pywintypes import com_error
 import settings
@@ -580,23 +579,7 @@ class WinMentor(object):
 
             msg = f"Exceptie la {self.companyName}"
 
-            ngp_body = {
-                "subject": msg,
-                "body": exp_repr,
-                "emails": ["silviu@vectron.ro", ],
-                "hours": 2
-            }
-
-            self.logger.info(ngp_body)
-
-            baseURL = util.getCfgVal("gesto", "url")
-            r = requests.post(baseURL+"/api/gestoProblems/", json=ngp_body)
-            self.logger.info("{} - {}".format(r.status_code, r.text))
-
-            resp = r.json()
-            self.logger.info(f"{resp=}")
-
-            if resp["ngp"]:
+            if util.report_problem(msg, exp_repr, hours=2, emails=["silviu@vectron.ro", ]):
                 send_email(msg, msg, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
 
             return False
@@ -861,18 +844,7 @@ class WinMentor(object):
                 "missingWMCodes": self.missingWMCodes,
             })
 
-            ngp_body = {
-                "subject": subject,
-                "body": html_part,
-                "emails": util.getCfgVal("client", "notificationEmails"),
-                "hours": 2
-            }
-
-            self.logger.info(ngp_body)
-
-            baseURL = util.getCfgVal("gesto", "url")
-            r = requests.post(baseURL+"/api/gestoProblems/", json=ngp_body)
-            self.logger.info("{} - {}".format(r.status_code, r.text))
+            util.report_problem(subject, html_part, hours=2, emails=util.getCfgVal("client", "notificationEmails"))
 
 
     def sendPartnersMail(self):
@@ -885,21 +857,7 @@ class WinMentor(object):
                 "multiplePartenerIDsForEmail": self.multiplePartenerIDsForEmail,
             })
 
-            ngp_body = {
-                "subject": subject,
-                "body": html_part,
-                "hours": 2
-            }
-
-            self.logger.info(ngp_body)
-
-            baseURL = util.getCfgVal("gesto", "url")
-            r = requests.post(baseURL+"/api/gestoProblems/", json=ngp_body)
-            self.logger.info("{} - {}".format(r.status_code, r.text))
-            resp = r.json()
-            self.logger.info(f"{resp}")
-
-            if resp["ngp"]:
+            if util.report_problem(subject, html_part, hours=2):
                 send_email(subject, html_part, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
 
 
@@ -1007,21 +965,7 @@ class WinMentor(object):
             msg += "\nLocatie: {}".format(gestoData["destination"]["name"])
             msg += "\nNumarul: {}".format(gestoData["relatedDocumentNo"])
 
-            ngp_body = {
-                "subject": subject,
-                "body": msg,
-                "hours": 1
-            }
-
-            self.logger.info(ngp_body)
-
-            baseURL = util.getCfgVal("gesto", "url")
-            r = requests.post(baseURL+"/api/gestoProblems/", json=ngp_body)
-            self.logger.info("{} - {}".format(r.status_code, r.text))
-            resp = r.json()
-            self.logger.info(f"{resp}")
-
-            if resp["ngp"]:
+            if util.report_problem(subject, msg, hours=1):
                 send_email(subject, msg, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
 
             self.logger.error(msg)
@@ -1106,21 +1050,7 @@ class WinMentor(object):
                 subject = "Factura {} importata incorect in Winmentor".format(gestoData["documentNo"])
                 msg += "\nwmPartenerID:{}, documentNo:{}, relatedDocumentNo:{}".format(wmPartenerID, gestoData["documentNo"], gestoData["relatedDocumentNo"])
 
-                ngp_body = {
-                    "subject": subject,
-                    "body": msg,
-                    "hours": 2
-                }
-
-                self.logger.info(ngp_body)
-
-                baseURL = util.getCfgVal("gesto", "url")
-                r = requests.post(baseURL+"/api/gestoProblems/", json=ngp_body)
-                self.logger.info("{} - {}".format(r.status_code, r.text))
-                resp = r.json()
-                self.logger.info(f"{resp}")
-
-                if resp["ngp"]:
+                if util.report_problem(subject, msg, hours=2):
                     send_email(subject, msg)
 
                 self.logger.error(msg)
@@ -2556,17 +2486,7 @@ class WinMentor(object):
             else:
                 subject = f'Eroare export monetar {gestoData["branch"]}'
 
-                ngp_body = {
-                    "subject": subject,
-                    "body": repr(self.getListaErori()),
-                    "hours": 2
-                }
-
-                self.logger.info(ngp_body)
-
-                baseURL = util.getCfgVal("gesto", "url")
-                r = requests.post(baseURL+"/api/gestoProblems/", json=ngp_body)
-                self.logger.info("{} - {}".format(r.status_code, r.text))
+                util.report_problem(subject, repr(self.getListaErori()), hours=2)
 
                 ret = False
 

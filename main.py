@@ -276,23 +276,7 @@ def importAvize(baseURL, date):
                             if abs(exp_val-val4_val) < 1:
                                 msg = f"Receptia {documentNo} a fost modificata - {company}"
 
-                                ngp_body = {
-                                    "subject": msg,
-                                    "body": msg,
-                                    "emails": ["rusu.silviu@gmail.com", ],
-                                    "hours": 24
-                                }
-
-                                logger.info(ngp_body)
-
-                                baseURL = util.getCfgVal("gesto", "url")
-                                r = requests.post(baseURL+"/api/gestoProblems/", json=ngp_body)
-                                logger.info("{} - {}".format(r.status_code, r.text))
-
-                                resp = r.json()
-                                logger.info(f"{resp=}")
-
-                                if resp["ngp"]:
+                                if util.report_problem(msg, msg, hours=24, emails=["rusu.silviu@gmail.com", ]):
                                     send_email(msg, msg, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
 
                                 continue
@@ -890,23 +874,8 @@ def main():
             company = winmentor.companyName if winmentor is not None else "firma necunoscuta"
             msg = f"Exceptie la {company}"
 
-            ngp_body = {
-                "subject": msg,
-                "body": exp_repr,
-                "hours": 1
-            }
-
-            logger.info(ngp_body)
-
-            baseURL = util.getCfgVal("gesto", "url")
-            r = requests.post(baseURL+"/api/gestoProblems/", json=ngp_body)
-            logger.info("{} - {}".format(r.status_code, r.text))
-
-            resp = r.json()
-            logger.info(f"{resp=}")
-
-            if resp["ngp"]:
-                send_email(msg, ngp_body)
+            if util.report_problem(msg, exp_repr, hours=1):
+                send_email(msg, exp_repr)
 
     except Exception as e:
         print(repr(e))
