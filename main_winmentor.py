@@ -85,9 +85,9 @@ def verify_winmentor(log_details="verify_WM"):
 
             logging.info(f"Log file found, {file_path} created on {creation_datetime}")
 
-    if not found:
-        company = util.getCfgVal("winmentor", "companyName")
-        txtMail = f"WinMentor blocat la - {company}"
+    if not found:        
+        companies = json.loads(util.getCfgVal("winmentor", "companies"))
+        txtMail = f"WinMentor blocat la - {companies[0]["companyName"]}"
 
         util.send_email(subject = txtMail, msg = txtMail)
 
