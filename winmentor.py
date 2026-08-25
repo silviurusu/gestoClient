@@ -14,7 +14,7 @@ import math
 from django.template import loader
 import datetime
 import settings
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 import decorators
 import requests
 import json
@@ -71,7 +71,7 @@ class WinMentor(object):
             1/0
 
         user = "vectron"
-        passwd = "1"
+        passwd = "2"
         # user = "mircea"
         # passwd = "1"
 
@@ -212,7 +212,7 @@ class WinMentor(object):
 
 
     @decorators.time_log(print_args=False)
-    def productsAreOK(self, gestoData, ignoreCodes=[], verifyGest=True):
+    def productsAreOK(self, gestoData, ignoreCodes=[], verifyGest=True, art_key="winMentorCode"):
         self.logger.info("ignoreCodes: {}".format(ignoreCodes))
 
         ret = True
@@ -222,9 +222,8 @@ class WinMentor(object):
                 self.logger.info("code: {}, ignore".format(item["code"]))
                 continue
 
-            if item["winMentorCode"] == "nil" \
-            or item["winMentorCode"] == ""  \
-            or not self.productExists(item["winMentorCode"]):
+            if item[art_key] in ["nil", "", ] \
+            or not self.productExists(item[art_key]):
                 ret = False
                 if item["code"] not in self.missingCodes:
                     self.logger.info("code: {}, missing".format(item["code"]))
@@ -240,21 +239,27 @@ class WinMentor(object):
                     if "source" in gestoData:
                         source = gestoData["source"]["name"]
 
-                    relatedDocumentNo = ""
-                    if "relatedDocumentNo" in gestoData:
+                    try:
                         relatedDocumentNo = gestoData["relatedDocumentNo"]
+                    except KeyError:
+                        relatedDocumentNo = ""
+
+                    try:
+                        documentNo = gestoData["documentNo"]
+                    except KeyError:
+                        documentNo = ""
 
                     self.missingCodes[item["code"]] = {
                             "item": item,
                             "details": "{} - {} - {} - {}".format(dateHuman,
                                                              gestoData["branch"],
                                                              source,
-                                                             relatedDocumentNo if relatedDocumentNo not in [None, "nil", ""] else gestoData["documentNo"]
+                                                             relatedDocumentNo if relatedDocumentNo not in [None, "nil", ""] else documentNo
                                                              )
                         }
             elif verifyGest \
-            and self.getProduct(item["winMentorCode"])["GestImplicita"] == "" \
-            and item["winMentorCode"] not in self.allowMissingDefaultGest:
+            and self.getProduct(item[art_key])["GestImplicita"] == "" \
+            and item[art_key] not in self.allowMissingDefaultGest:
                 ret = False
                 if item["code"] not in self.missingDefaultGest:
                     self.logger.info("item: {}".format(item))
@@ -994,6 +999,9 @@ class WinMentor(object):
         if month not in self.intrari:
             self.intrari[month]={}
             # Salveaza toate intrarile pentru factura respectiva
+            gestiuni = self.getGestiuni()
+            gestiuni = {v: k for k, v in gestiuni.items()}
+
             keys = (
                    "partenerId",
                    "data",
@@ -1021,8 +1029,17 @@ class WinMentor(object):
                     if val["nrDoc"] not in self.intrari[month][val["partenerId"]]:
                         self.intrari[month][val["partenerId"]][val["nrDoc"]]={
                             "items": [],
-                            "data": val["data"]
+                            "data": val["data"],
+                            'value': Decimal('0')
                         }
+
+                    # primim numele gestiunii si trebuie tradus in simbolul gestiunii
+                    if val['simbGest'] in gestiuni:
+                        val['simbGest'] = gestiuni[val['simbGest']]
+
+                    op_price = util.getNumber(val['pret'])
+                    qty = util.getNumber(val['cant'])
+                    self.intrari[month][val["partenerId"]][val["nrDoc"]]['value'] += Decimal(op_price * qty).quantize(Decimal('.01'), ROUND_HALF_UP)
 
                     self.intrari[month][val["partenerId"]][val["nrDoc"]]["items"].append(val)
 
@@ -1179,7 +1196,7 @@ class WinMentor(object):
         gestiuni = self.getGestiuni()
         # self.logger.debug("gestiuni: {}".format(gestiuni))
 
-        matchStr = '^\s*([0-9]{1,4})\s*'
+        matchStr = r'^\s*([0-9]{1,4})\s*'
 
         simbolGestiuneSearch = name
 
@@ -1310,7 +1327,7 @@ class WinMentor(object):
             return
 
         # Seteaza luna si anul in WinMentor
-        opDate = dt.utcfromtimestamp(gestoData["documentDate"])
+        opDate = dt.fromtimestamp(gestoData["documentDate"], datetime.UTC)
         self.setLunaLucru(opDate.month, opDate.year)
 
         # Cod partener exact ca in Winmentor
@@ -1466,7 +1483,7 @@ class WinMentor(object):
                 serieDoc="G",
                 nrDoc = gestoData["relatedDocumentNo"],
                 dataNir = opDate,
-                data = dt.utcfromtimestamp(gestoData["relatedDocumentDate"]) if gestoData["relatedDocumentDate"] not in ("nil", None) else opDate,
+                data = dt.fromtimestamp(gestoData["relatedDocumentDate"], datetime.UTC) if gestoData["relatedDocumentDate"] not in ("nil", None) else opDate,
                 scadenta = opDate + timedelta(days = 1),
                 codFurnizor = wmPartenerID,
                 observatii= observatii,
@@ -1625,7 +1642,7 @@ class WinMentor(object):
             return
 
         # Seteaza luna si anul in WinMentor
-        opDate = dt.utcfromtimestamp(gestoData["documentDate"])
+        opDate = dt.fromtimestamp(gestoData["documentDate"], datetime.UTC)
         self.setLunaLucru(opDate.month, opDate.year)
 
         if self.companyName == "Panemar morarit si panificatie SRL":
@@ -1802,7 +1819,7 @@ class WinMentor(object):
             return False
 
         # Seteaza luna si anul in WinMentor
-        opDate = dt.utcfromtimestamp(gestoData["documentDate"])
+        opDate = dt.fromtimestamp(gestoData["documentDate"], datetime.UTC)
         self.setLunaLucru(opDate.month, opDate.year)
 
         # Cod partener exact ca in Winmentor
@@ -1942,10 +1959,21 @@ class WinMentor(object):
         txtWMDoc += "CasaCard={}\n".format(kwargs.get("casa_card"))
         txtWMDoc += "CasaBonValoric={}\n".format(kwargs.get("casa_bon_valoric"))
         txtWMDoc += "TotalArticole={}\n".format(len(items)+len(avansInfo))
+
         payment = kwargs.get("payment")
+        # add all card payments
+        card_payment = 0
+
+        for (key, item) in payment.items():
+            if "card" in key.lower():
+                card_payment += item
+
+        payment["card"] = card_payment
+
         txtWMDoc += "CEC={}\n".format(payment["bank transfer"] if "bank transfer" in payment else 0)
         txtWMDoc += "CARD={}\n".format(payment["card"] if "card" in payment else 0)
-        txtWMDoc += "BONVALORIC={}\n".format(payment["food vouchers"] if "food vouchers" in payment else 0)
+        txtWMDoc += "BONVALORIC=0\n"
+        # txtWMDoc += "BONVALORIC={}\n".format(payment["food vouchers"] if "food vouchers" in payment else 0)
         txtWMDoc += "Observatii={}\n".format(kwargs.get("observatii", ""))
         txtWMDoc += "Discount={}\n".format(0)
         txtWMDoc += "TVADiscount={}\n".format(0)
@@ -2111,7 +2139,7 @@ class WinMentor(object):
         # wmGestiune = self.matchGestiune(gestoData["branch"])
 
         # Seteaza luna si anul in WinMentor
-        opDate = dt.utcfromtimestamp(gestoData["dateBegin"])
+        opDate = dt.fromtimestamp(gestoData["dateBegin"], datetime.UTC)
         self.setLunaLucru(opDate.month, opDate.year)
 
         # verify I have all gesto codes and default gestiuni in WinMentor
@@ -2257,6 +2285,395 @@ class WinMentor(object):
                 ret = False
 
         return True
+
+    @decorators.time_log
+    def addIncasari(self, gestoData=None):
+        if len(gestoData['data'].keys()) == 0:
+            self.logger.info("Nu am nicio informatie de incasare")
+            return True
+        pass
+
+        opDate = dt.fromtimestamp(gestoData["date"], datetime.UTC)
+        self.setLunaLucru(opDate.month, opDate.year)
+
+        ret = True
+        sursa = 'CASA'
+        casa_lei = util.getCfgOptsDict("casa lei")
+        tip_doc = 'DI'
+        numar_cont = None
+        nume_casa = None
+        payments = []
+
+        if self.companyName == 'Andalusia':
+            nume_casa = "CASA LEI SEDIU"
+            numar_cont = '581'
+        else:
+            1/0
+
+        for branch_name, items in gestoData['data'].items():
+            total_cash = 0
+
+            for payment_name, value in items['payment'].items():
+                if any(['cash' in str(payment_name).lower(),
+                        'numerar' in str(payment_name).lower()]):
+                    total_cash += value
+
+            payments.append({
+                'simbolCont': '{}'.format(numar_cont),
+                'gestiune': '{}'.format(self.matchGestiune(items["simbolWinMentorDeliveryNote"])),
+                'valoare': total_cash,
+
+            })
+
+        if len(payments) == 0:
+            msg = 'Nu am putut gasi cash in metodele de plata: {}'.format( gestoData['data'][branch_name]['payment'].keys())
+            util.send_email(
+                subject = "WinMentor - Eroare la adaugare incasari la {}, {}".format(branch_name, opDate),
+                msg = msg,
+                toEmails=["silviu@vectron.ro", 'andrei@vectron.ro'],
+                location=False)
+            return False
+
+        rc = self.importaIncasare(
+                sursa = sursa,
+                nume_casa = nume_casa,
+                ziua_incasarii = opDate.day,
+                tip_doc = tip_doc,
+                payments = payments
+                )
+
+        if rc:
+            self.logger.info("SUCCESS: Adaugare incasari")
+        else:
+            errors = self.getListaErori()
+
+            self.logger.error(errors)
+
+            msg = errors[0]
+
+            util.send_email(
+                    subject = "WinMentor - Eroare la adaugare incasari la {}, {}".format(branch_name, opDate),
+                    msg = msg,
+                    toEmails=["silviu@vectron.ro"],
+                    location=False)
+            ret = False
+
+        return ret
+
+    def addPlati(self, gestoData=None):
+        if len(gestoData['data'].keys()) == 0:
+            self.logger.info("Nu am nicio informatie de plata")
+            return True
+        pass
+
+        opDate = dt.fromtimestamp(gestoData["date"], datetime.UTC)
+        self.setLunaLucru(opDate.month, opDate.year)
+
+        ret = True
+        branch_name = list(gestoData['data'].keys())[0]
+        sursa = 'CASA'
+        casa_lei = util.getCfgOptsDict("casa lei")
+        tip_doc = 'DP'
+        nume_cont = None
+        simbol_cont_destinatie = None
+        payments = []
+
+        if self.companyName == 'Andalusia':
+            nume_cont = 'CASA LEI {}'.format(casa_lei[branch_name.lower()])
+            simbol_cont_destinatie = 'CASA LEI SEDIU'
+
+        for branch_name, items in gestoData['data'].items():
+            total_cash = 0
+
+            for payment_name, value in items['payment'].items():
+                if str(payment_name).lower() in ['cash', 'numerar']:
+                    total_cash += value
+
+            payments.append({
+                'simbolCont': simbol_cont_destinatie,
+                'valIncasata': total_cash,
+            })
+
+        if len(payments) == 0:
+            msg = 'Nu am putut gasi cash in metodele de plata: {}'.format( gestoData['data'][branch_name]['payment'].keys())
+            util.send_email(
+                subject = "WinMentor - Eroare la adaugare plati la {}, {}".format(branch_name, opDate),
+                msg = msg,
+                toEmails=["silviu@vectron.ro"],
+                location=False)
+            return False
+
+        rc = self.importaPlati(
+                sursa = sursa,
+                nume_cont = nume_cont,
+                ziua_platii = opDate.day,
+                tip_doc = tip_doc,
+                payments = payments
+            )
+
+        if rc:
+            self.logger.info("SUCCESS: Adaugare plati")
+        else:
+            errors = self.getListaErori()
+
+            self.logger.error(errors)
+
+            msg = errors[0]
+
+            util.send_email(
+                    subject = "WinMentor - Eroare la adaugare plati la {}, {}".format(branch_name, opDate),
+                    msg = msg,
+                    toEmails=["silviu@vectron.ro"],
+                    location=False)
+            ret = False
+
+        return ret
+
+    def importaIncasare(self, **kwargs):
+        payments = kwargs.get("payments")
+        tip_doc = kwargs.get("tip_doc")
+
+        # Header incasare
+        txtWMDoc = (
+            "[InfoPachet]\n"
+            "AnLucru={}\n"
+            "LunaLucru={}\n"
+            "TipDocument={}\n"
+            "TotalDocumente={}\n"
+            "\n"
+            ).format(
+                self.an,
+                self.luna,
+                'INCASARE',
+                1
+                )
+
+        # Incasare
+        txtWMDoc += "[Document{}]\n".format(1)
+        txtWMDoc += "Sursa={}\n".format(kwargs.get("sursa"))
+        # txtWMDoc += "NumeBanca={}\n".format('')
+        # txtWMDoc += "SimbolBanca={}\n".format('')
+        # txtWMDoc += "NumeCont={}\n".format('')
+        txtWMDoc += "NrCont={}\n".format(kwargs.get("nume_casa"))
+        # txtWMDoc += "NumeCasa={}\n".format(kwargs.get("nume_casa"))
+        # txtWMDoc += "LocalitateCont={}\n".format('')
+        # txtWMDoc += "FilialaCont={}\n".format('')
+        txtWMDoc += "ZiuaIncasarii={}\n".format(kwargs.get("ziua_incasarii"))
+        txtWMDoc += "TotalIncasari={}\n".format(len(payments))
+        # txtWMDoc += "TipTranzactie={}\n".format('')
+
+        for cnt, payment in enumerate(payments, start=1):
+            txtWMDoc += "[Document{}-Incasare{}]\n".format(1, cnt)
+            # txtWMDoc += "DocIncasare={}\n".format(tip_doc)
+            txtWMDoc += "NrDocument={}\n".format(util.getNextDocumentNumber(tip_doc))
+            txtWMDoc += "TipOperatie={}\n".format('DIRECT PE VENITURI')
+            txtWMDoc += "SIMBOLCONT={}\n".format(payment['simbolCont'])
+            txtWMDoc += "Valoare={}\n".format(str(payment['valoare']).replace('.', ','))
+            txtWMDoc += "TVA={}\n".format('')
+            txtWMDoc += "Gestiune={}\n".format(payment['gestiune'])
+
+        # txtWMDoc = "[InfoPachet]\n"
+        # txtWMDoc += "AnLucru=2024\n"
+        # txtWMDoc += "LunaLucru=4\n"
+        # txtWMDoc += "TipDocument=INCASARE\n"
+        # txtWMDoc += "TotalDocumente=1\n"
+        # txtWMDoc += "\n"
+        # txtWMDoc += "[Document1]\n"
+        # txtWMDoc += "Sursa=CASA\n"
+        # txtWMDoc += "NumeCasa=CASA LEI SEDIU\n"
+        # txtWMDoc += "ZiuaIncasarii=27\n"
+        # txtWMDoc += "TotalIncasari=1\n"
+        # txtWMDoc += "[Document1-Incasare1]\n"
+        # txtWMDoc += "TipOperatie=VIRAMENT INTERN\n"
+        # txtWMDoc += "DocIncasare=DI\n"
+        # txtWMDoc += "NrDocument=11006\n"
+        # txtWMDoc += "DataIncasare=27.04.2024\n"
+        # txtWMDoc += "SIMBOLCONT=581\n"
+        # txtWMDoc += "Valoare=4159.42\n"
+        # txtWMDoc += "ContSursa=CASA LEI AUCHAN ARADULUI\n"
+        # txtWMDoc += "NrDocSursa=11006\n"
+        # txtWMDoc += "TipDocSursa=DP\n"
+
+        self.logger.debug("txtWMDoc: \n{}".format(txtWMDoc))
+
+        incasare = txtWMDoc.split("\n")
+
+        self._stat.SetDocsData(incasare)
+
+        rc = self._stat.IncasariValideExt()
+        if rc != 1:
+            return False
+
+        rc = self._stat.ImportaIncasariExt()
+        # rc=1
+
+        return (rc == 1)
+
+    def importaIncasareTest(self):
+        self.setLunaLucru(4, 2024)
+
+        # Header incasare
+        txtWMDoc = "\n"
+        txtWMDoc += "[InfoPachet]\n"
+        txtWMDoc += "AnLucru=2024\n"
+        txtWMDoc += "LunaLucru=4\n"
+        txtWMDoc += "TipDocument=INCASARE\n"
+        txtWMDoc += "TotalDocumente=1\n"
+        txtWMDoc += "\n"
+        txtWMDoc += "[Document1]\n"
+        txtWMDoc += "Sursa=CASA\n"
+        txtWMDoc += "NumeCasa=CASA LEI SEDIU\n"
+        txtWMDoc += "ZiuaIncasarii=27\n"
+        txtWMDoc += "TotalIncasari=1\n"
+        txtWMDoc += "\n"
+        txtWMDoc += "[Document1-Incasare1]\n"
+        txtWMDoc += "TipOperatie=VIRAMENT INTERN\n"
+        txtWMDoc += "NrContDest=CASA LEI AUCHAN ARADULUI\n"
+        txtWMDoc += "DocIncasare=DI\n"
+        txtWMDoc += "NrDocument=11006\n"
+        txtWMDoc += "DataIncasare=27.03.2024\n"
+        txtWMDoc += "Valoare=4159,42\n"
+        txtWMDoc += "ContSursa=CASA LEI AUCHAN ARADULUI\n"
+        txtWMDoc += "NrDocSursa=11006\n"
+        txtWMDoc += "TipDocSursa=DP\n"
+
+
+        self.logger.debug("txtWMDoc: \n{}".format(txtWMDoc))
+
+        incasare = txtWMDoc.split("\n")
+
+        self._stat.SetDocsData(incasare)
+
+        rc = self._stat.IncasariValideExt()
+        if rc != 1:
+            errors = self.getListaErori()
+
+            self.logger.error(errors)
+            return False
+
+        # rc = self._stat.ImportaIncasariExt()
+        # rc=1
+
+        return (rc == 1)
+
+    def importaPlati(self, **kwargs):
+        payments = kwargs.get("payments")
+        tip_doc = kwargs.get("tip_doc")
+
+        # Header plata
+        txtWMDoc = (
+            "[InfoPachet]\n"
+            "AnLucru={}\n"
+            "LunaLucru={}\n"
+            "TotalDocumente={}\n"
+            "\n"
+            ).format(
+                self.an,
+                self.luna,
+                1,
+                )
+
+        # Plata
+        txtWMDoc += "[Document{}]\n".format(1)
+        txtWMDoc += "Sursa={}\n".format(kwargs.get("sursa"))
+        txtWMDoc += "NumeBanca={}\n".format('')
+        txtWMDoc += "SimbolBanca={}\n".format('')
+        txtWMDoc += "LocalitateCont={}\n".format('')
+        txtWMDoc += "NumeCont={}\n".format(kwargs.get("nume_cont"))
+        txtWMDoc += "NrCont={}\n".format('')
+        txtWMDoc += "TipTranzactie={}\n".format('')
+        txtWMDoc += "ZiuaPlatii={}\n".format(kwargs.get("ziua_platii"))
+        txtWMDoc += "TotalPlati={}\n".format(1)
+
+        for cnt, payment in enumerate(payments, start=1):
+            txtWMDoc += "[Document{}_Plata{}]\n".format(1, cnt)
+            txtWMDoc += "[DocPlata={}]\n".format(tip_doc)
+            txtWMDoc += "[NrDocument={}]\n".format(util.getNextDocumentNumber(tip_doc))
+            txtWMDoc += "[Reprezinta={}]\n".format('')
+            txtWMDoc += "[ValPlatita={}]\n".format(payment['valPlatita'])
+            txtWMDoc += "[SIMBOLCONT={}]\n".format(payment['simbolCont'])
+            txtWMDoc += "[TvaPlatit={}]\n".format('')
+
+        # txtWMDoc = "[InfoPachet]\n"
+        # txtWMDoc += "AnLucru=2024\n"
+        # txtWMDoc += "LunaLucru=4\n"
+        # txtWMDoc += "TipDocument=PLATA\n"
+        # txtWMDoc += "TotalDocumente=1\n"
+        # txtWMDoc += "\n"
+        # txtWMDoc += "[Document1]\n"
+        # txtWMDoc += "Sursa=CASA\n"
+        # txtWMDoc += "NumeCasa=CASA LEI AUCHAN ARADULUI\n"
+        # txtWMDoc += "ZiuaPlatii=27\n"
+        # txtWMDoc += "TotalPlati=1\n"
+        # txtWMDoc += "[Document1-Plata1]\n"
+        # txtWMDoc += "DocPlata=DP\n"
+        # txtWMDoc += "NrDocument=11006\n"
+        # txtWMDoc += "TipOperatie=VIRAMENT INTERN\n"
+        # txtWMDoc += "ContDestinatie=CASA LEI SEDIU\n"
+        # txtWMDoc += "SIMBOLCONT=581\n"
+        # txtWMDoc += "Curs=1\n"
+        # txtWMDoc += "Valoare=4159,42\n"
+        # txtWMDoc += "TVA=0\n"
+
+        self.logger.debug("txtWMDoc: \n{}".format(txtWMDoc))
+
+        plata = txtWMDoc.split("\n")
+
+        self._stat.SetDocsData(plata)
+
+        rc = self._stat.PlatiValide()
+        if rc != 1:
+            return False
+
+        rc = self._stat.ImportaPlati()
+        # rc=1
+
+        return (rc == 1)
+
+    def importaPlataTest(self):
+        self.setLunaLucru(4, 2024)
+
+        txtWMDoc = ""
+        txtWMDoc += "[InfoPachet]\n"
+        txtWMDoc += "AnLucru=2024\n"
+        txtWMDoc += "LunaLucru=4\n"
+        txtWMDoc += "TipDocument=PLATA\n"
+        txtWMDoc += "TotalDocumente=1\n"
+        txtWMDoc += "\n"
+        txtWMDoc += "[Document1]\n"
+        txtWMDoc += "Sursa=CASA\n"
+        txtWMDoc += "NumeCasa=CASA LEI AUCHAN ARADULUI\n"
+        txtWMDoc += "ZiuaPlatii=27\n"
+        txtWMDoc += "TotalPlati=1\n"
+        txtWMDoc += "\n"
+        txtWMDoc += "[Document1-Plata1]\n"
+        txtWMDoc += "DocPlata=DP\n"
+        txtWMDoc += "NrDocument=11006\n"
+        txtWMDoc += "TipOperatie=VIRAMENT INTERN\n"
+        txtWMDoc += "ContDestinatie=CASA LEI SEDIU\n"
+        txtWMDoc += "NrContDest=CASA LEI SEDIU\n"
+        txtWMDoc += "SIMBOLCONT=581\n"
+        txtWMDoc += "Curs=1\n"
+        txtWMDoc += "Valoare=4159,42\n"
+        txtWMDoc += "TVA=0\n"
+
+        self.logger.debug("txtWMDoc: \n{}".format(txtWMDoc))
+
+        plata = txtWMDoc.split("\n")
+
+        self._stat.SetDocsData(plata)
+
+        rc = self._stat.PlatiValide()
+        if rc != 1:
+            errors = self.getListaErori()
+
+            self.logger.error(errors)
+            return False
+
+        rc = self._stat.ImportaPlati()
+        # rc=1
+
+        return (rc == 1)
 
 
     def importaTransfer(self, **kwargs):
@@ -2622,7 +3039,7 @@ class WinMentor(object):
 
                 qty = util.getNumber(items[9])
 
-                deliveryNotes[source][date][destination][transferNo]["value"] += opPrice * qty
+                deliveryNotes[source][date][destination][transferNo]["value"] += Decimal(opPrice * qty).quantize(Decimal('.01'), ROUND_HALF_UP)
                 deliveryNotes[source][date][destination][transferNo]["items"].append({
                             "winMentorCode": winMentorCode,
                             "opPrice": opPrice,
@@ -2663,7 +3080,7 @@ class WinMentor(object):
             return False
 
         # Seteaza luna si anul in WinMentor
-        opDate = dt.utcfromtimestamp(gestoData["documentDate"])
+        opDate = dt.fromtimestamp(gestoData["documentDate"], datetime.UTC)
         self.setLunaLucru(opDate.month, opDate.year)
 
         ignoreCodes = []
@@ -2773,7 +3190,7 @@ class WinMentor(object):
             return False
 
         # Seteaza luna si anul in WinMentor
-        opDate = dt.utcfromtimestamp(gestoData["dateBegin"])
+        opDate = dt.fromtimestamp(gestoData["dateBegin"], datetime.UTC)
         self.setLunaLucru(opDate.month, opDate.year)
 
         ignoreCodes = []
@@ -2781,7 +3198,7 @@ class WinMentor(object):
             ignoreCodes = [1105, 819,]
 
         # verify I have all gesto codes and default gestiuni in WinMentor
-        if not self.productsAreOK(gestoData, ignoreCodes):
+        if not self.productsAreOK(gestoData, ignoreCodes, art_key=art_key):
             self.logger.info("Articole cu coduri nesetate sau gestiuni lipsa, nu adaug")
             return False
 
@@ -2846,7 +3263,7 @@ class WinMentor(object):
             return True
 
         # Seteaza luna si anul in WinMentor
-        opDate = dt.utcfromtimestamp(gestoData["documentDate"])
+        opDate = dt.fromtimestamp(gestoData["documentDate"], datetime.UTC)
 
         if gestoData["branch"] == "28 Zorilor" \
         and opDate.year == 2022 \
@@ -3042,7 +3459,7 @@ class WinMentor(object):
             return False
 
         # Seteaza luna si anul in WinMentor
-        opDate = dt.utcfromtimestamp(gestoData["dateBegin"])
+        opDate = dt.fromtimestamp(gestoData["dateBegin"], datetime.UTC)
         self.setLunaLucru(opDate.month, opDate.year)
 
         ignoreCodes = []
@@ -3115,7 +3532,7 @@ class WinMentor(object):
 
         # Seteaza luna si anul in WinMentor
         if opDate is None:
-            opDate = dt.utcfromtimestamp(gestoData["dateBegin"])
+            opDate = dt.fromtimestamp(gestoData["dateBegin"], datetime.UTC)
 
         self.setLunaLucru(opDate.month, opDate.year)
 

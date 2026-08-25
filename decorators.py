@@ -1,7 +1,6 @@
 # import traceback
 # from gesto.myLogger import logger
 import datetime
-# import os
 # import inspect
 # from gesto import settings
 from functools import wraps
