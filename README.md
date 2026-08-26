@@ -20,3 +20,15 @@ intre 06:00 si 21:00 si `remove_old_files.py` zilnic. Se instaleaza ca serviciu 
 5. Dezactiveaza task-urile vechi din Task Scheduler (`task_schedule/<client>/*.xml`), altfel importurile ruleaza de doua ori.
 
 Log-ul serviciului: `debug/scheduler.log`. `config_local.ini` trebuie sa aiba `[winmentor] loginUser`, `loginPassword` si `[gesto] trace_folder`.
+
+## Generarea wrapper-ului COM (gen_py) din tlb
+
+`winmentor.py` incarca direct `tlb/WMDocImpServer.tlb` prin `pythoncom.LoadTypeLib`, deci in mod normal
+nu e nevoie de nimic. Wrapper-ul generat (`gen_py`) e util doar cand vrei sa vezi semnaturile metodelor
+expuse de DocImpServer:
+
+```
+python -m win32com.client.makepy tlb/WMDocImpServer.tlb
+```
+
+Rezultatul ajunge in `site-packages/win32com/gen_py`.
