@@ -248,3 +248,31 @@ python = C:\Python312\python.exe
 
     with pytest.raises(ValueError, match="schedule_file"):
         util.scheduler_schedule_path(cfg, r"c:\Vectron\gestoClient")
+
+
+@pytest.mark.parametrize("tag", ["<br>", "<br/>", "<br />", "<BR/>"])
+def test_as_plain_text_turns_line_breaks_into_newlines(tag):
+    assert util.as_plain_text(f"prima{tag}a doua") == "prima\na doua"
+
+
+def test_as_plain_text_drops_the_other_tags_and_keeps_their_text():
+    assert util.as_plain_text("<b>14011</b> --- SUMMER CROISSANT") == "14011 --- SUMMER CROISSANT"
+
+
+def test_as_plain_text_leaves_text_without_tags_untouched():
+    assert util.as_plain_text("APA MINERALA SAN GRAZIANO 0.375 L, 33017") == "APA MINERALA SAN GRAZIANO 0.375 L, 33017"
+
+
+def test_as_plain_text_unescapes_entities_left_by_template_autoescape():
+    assert util.as_plain_text("COCA COLA &amp; CO") == "COCA COLA & CO"
+
+
+def test_as_plain_text_keeps_escaped_markup_as_text():
+    """Un &lt;b&gt; scris ca text ramane text: entitatile se dezescapeaza dupa stergerea tagurilor."""
+    assert util.as_plain_text("&lt;b&gt; nu e un tag") == "<b> nu e un tag"
+
+
+def test_as_plain_text_on_a_rendered_template_fragment():
+    rendered = "Urmatoarele 1 coduri nu apar in WinMentor:<br />\n    <b>2091</b> --- TORT, 2091"
+
+    assert util.as_plain_text(rendered) == "Urmatoarele 1 coduri nu apar in WinMentor:\n\n    2091 --- TORT, 2091"
