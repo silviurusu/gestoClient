@@ -100,7 +100,7 @@ def newException(e, do_send_email=True):
             send_email(subject, html_part)
         else:
             logger.info(subject)
-            logger.info(html_part)
+            logger.info(as_plain_text(html_part))
 
     except BaseException as e:
         logger.exception(e)
@@ -298,7 +298,9 @@ def as_plain_text(rendered):
     return html.unescape(strip_tags(BR_TAG.sub("\n", rendered)))
 
 
-@decorators.time_log
+# print_args=False: decoratorul ar loga corpul brut, cu tagurile din template; functia
+# il logheaza oricum mai jos, curatat
+@decorators.time_log(print_args=False)
 def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGestoProblem=False):
     if not isGestoProblem:
         callersFrame = inspect.stack()[1][0]
@@ -346,7 +348,8 @@ def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGes
     logger.info("{} - {}".format(r.status_code, r.text))
 
 
-@decorators.time_log
+# print_args=False: vezi send_email
+@decorators.time_log(print_args=False)
 def report_problem(subject, body, hours, emails=None):
     """Inregistreaza problema in Gesto (/api/gestoProblems/); True daca e noua in ultimele `hours` ore, deci merita un mail."""
     ngp_body = {
