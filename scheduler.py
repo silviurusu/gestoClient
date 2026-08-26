@@ -22,12 +22,16 @@ from apscheduler.triggers.cron import CronTrigger
 import util
 
 
-CFG_FILE_NAME = "config_local.ini"
+# caile se rezolva fata de scriptul insusi: un serviciu porneste implicit in
+# C:\Windows\System32, iar nssm ajunge in folderul aplicatiei doar daca i s-a dat AppDirectory
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+
+CFG_FILE_NAME = os.path.join(APP_DIR, "config_local.ini")
 TIMEZONE = "Europe/Bucharest"
 
 # jurnalul serviciului sta in afara folderului de trace, unde verify_last_run_finished
 # citeste fiecare fisier ca pe o rulare main.py
-LOG_FILE_NAME = "scheduler.log"
+LOG_FILE_NAME = os.path.join(APP_DIR, "scheduler.log")
 LOG_MAX_BYTES = 10 * 1024 * 1024
 LOG_BACKUP_COUNT = 3
 
@@ -70,7 +74,7 @@ def main():
     cfg.read_file(open(CFG_FILE_NAME))
 
     python = cfg.get("scheduler", "python", fallback="") or sys.executable
-    working_dir = cfg.get("scheduler", "working_dir", fallback="") or os.path.dirname(os.path.abspath(__file__))
+    working_dir = cfg.get("scheduler", "working_dir", fallback="") or APP_DIR
 
     logging.info(f"python: {python}")
     logging.info(f"working_dir: {working_dir}")
