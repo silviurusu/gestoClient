@@ -15,6 +15,7 @@ import django
 from decimal import Decimal
 from django.utils.translation import ngettext
 import decorators
+import maintenance
 
 
 @decorators.time_log
@@ -213,7 +214,7 @@ def generateMonetare(baseURL, branch, date):
 
     companyName = util.getCfgVal("winmentor", "companyName")
     if companyName == "Panemar morarit si panificatie SRL":
-        logger.info("endDate: {}".format(endDate))
+        logger.info("endDate: {}".format(date))
         # adauga intai vanzarile facturate
         sales_details = getGestoDocuments(
                                 baseURL = baseURL,
@@ -1324,18 +1325,17 @@ def getGestoDocumentsMarkedForWinMentorExport(baseURL, branch):
             #     1/0
 
 
-if __name__ == "__main__":
+def main():
+    global logger, winmentor, tokens
+
+    logger = None
+
     try:
         # Set DJANGO for email support
 
         os.environ.setdefault("DJANGO_SETTINGS_MODULE", "settings")
         django.setup()
 
-        # Get logger
-        util.setup_logging()
-        logger = logging.getLogger(name = __name__)
-
-        logger.info(">>> {}()".format(inspect.stack()[0][3]))
         start = dt.now()
 
         # with open('d:\\gestoClientWME\\debug\\silviu.log', 'wb') as f:
@@ -1365,8 +1365,6 @@ if __name__ == "__main__":
         # sys.exit(0)
         # # TODO -- END TESTING --
 
-        logger.info("START")
-
         branches = util.getCfgVal("gesto", "branches")
         branches_monetare = util.getCfgVal("gesto", "branches_monetare")
 
@@ -1393,6 +1391,12 @@ if __name__ == "__main__":
         markedForWinMentorExport = False
         exportWinMentorData = False
 
+        days_ago = 100
+        do_verify_last_run_finished = False
+        do_delete_old_trace_files = False
+
+        usage = '{} --exportReceptions=<> --generateWorkOrders=<> --generateIntrariDinProductie=<> --generateMonetare=<> --importAvize=<> --importFacturiIntrare=<> --exportComenziGest=<> --exportSummaryTransfers=<> --exportSummaryBonDeConsum=<> --exportSales=<> --exportReturns=<> --exportNotaConstatareDiferente=<> --exportSupplyOrders=<> --branches=<> --verify=<> --markedForWinMentorExport=<> --exportWinMentorData=<> --workDate=<YYYY-MM-DD> --verify-last-run-finished=<> --delete-old-trace-files=<> --days-ago=<>'.format(sys.argv[0])
+
         try:
             # logger.info(sys.argv)
             opts, args = getopt.getopt(sys.argv[1:],"h",["exportReceptions=",
@@ -1413,18 +1417,18 @@ if __name__ == "__main__":
                                      "workDate=",
                                      "markedForWinMentorExport=",
                                      "exportWinMentorData=",
+                                     "verify-last-run-finished=",
+                                     "delete-old-trace-files=",
+                                     "days-ago=",
                                     ])
 
-            logger.info(opts)
-            logger.info(args)
-
         except getopt.GetoptError:
-            print('{} --exportReceptions=<> --generateWorkOrders=<> --generateIntrariDinProductie=<> --generateMonetare=<> --importAvize=<> --importFacturiIntrare=<> --exportComenziGest=<> --exportSummaryTransfers=<> --exportSummaryBonDeConsum=<> --exportSales=<> --exportReturns=<> --exportNotaConstatareDiferente=<> --exportSupplyOrders=<> --branches=<> --verify=<> --markedForWinMentorExport=<> --exportWinMentorData=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0]))
+            print(usage)
             sys.exit(2)
 
         for opt, arg in opts:
             if opt == '-h':
-                print('{} --exportReceptions=<> --generateWorkOrders=<> --generateIntrariDinProductie=<> --generateMonetare=<> --importAvize=<> --importFacturiIntrare=<> --exportComenziGest=<> --exportSummaryTransfers=<> --exportSummaryBonDeConsum=<> --exportSales=<> --exportReturns=<> --exportNotaConstatareDiferente=<> --exportSupplyOrders=<> --branches=<> --verify=<> --markedForWinMentorExport=<> --exportWinMentorData=<> --workDate=<YYYY-MM-DD>'.format(sys.argv[0]))
+                print(usage)
                 sys.exit()
             elif opt in ("--exportReceptions"):
                 doExportReceptions = bool(int(arg))
@@ -1462,9 +1466,44 @@ if __name__ == "__main__":
                 markedForWinMentorExport = bool(int(arg))
             elif opt in ("--exportWinMentorData"):
                 exportWinMentorData = bool(int(arg))
+            elif opt in ("--verify-last-run-finished"):
+                do_verify_last_run_finished = bool(int(arg))
+            elif opt in ("--delete-old-trace-files"):
+                do_delete_old_trace_files = bool(int(arg))
+            elif opt in ("--days-ago"):
+                days_ago = int(arg)
+
+        # Maintenance runs get their own log name so verify_last_run_finished skips them
+        is_maintenance = do_verify_last_run_finished or do_delete_old_trace_files
+
+        # Get logger
+        util.setup_logging(log_details = settings.MAINTENANCE_LOG_DETAILS if is_maintenance else None)
+        logger = logging.getLogger(name = __name__)
+
+        logger.info(">>> {}()".format(inspect.stack()[0][3]))
+        logger.info("START")
+        logger.info(opts)
+        logger.info(args)
+
+        # maintenance nu are nevoie de WinMentor; verify_last_run_finished trebuie sa poata
+        # raporta tocmai cazul in care conexiunea COM e blocata
+        if do_delete_old_trace_files:
+            maintenance.delete_old_trace_files(days_ago)
+            return True
+
+        if do_verify_last_run_finished:
+            maintenance.verify_last_run_finished()
+            return True
 
         # tokens = util.getCfgOptsDict("tokens")
         tokens = util.getTokens()
+
+        # o singura verificare per run, inainte de Dispatch(): DocImpServer.exe activ inseamna
+        # un import dintr-un run anterior inca in curs sau blocat
+        if WinMentor.docImpServerRunning():
+            logger.info(settings.DOC_IMP_SERVER_RUNNING)
+            # las exceptie ca sa prinda scriptul de verificare
+            1/0
 
         # Connect to winmentor
         winmentor = WinMentor(firma = util.getCfgVal("winmentor", "firma"),
@@ -1660,11 +1699,22 @@ if __name__ == "__main__":
         winmentor.sendIncorrectWinMentorProductsMail()
         winmentor.sendComenziWithProblemsMail()
 
+        return True
+
     except Exception as e:
         print(repr(e))
-        logger.exception(repr(e))
+        if logger is not None:
+            logger.exception(repr(e))
         util.newException(e)
 
     finally:
-        logger.info("END")
-        logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+        if logger is not None:
+            logger.info("END")
+            logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
+
+    return False
+
+
+if __name__ == "__main__":
+    if main():
+        logger.info(settings.TASK_FINISHED)

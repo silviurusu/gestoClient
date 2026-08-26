@@ -51,6 +51,16 @@ class WinMentor(object):
     _newProducts = []
 
 
+    @staticmethod
+    def docImpServerRunning():
+        """DocImpServer.exe activ inseamna un import WinMentor inca in curs (sau blocat) dintr-un run anterior."""
+        for proc in win32com.client.GetObject('winmgmts:').InstancesOf('win32_process'):
+            if proc.Name == "DocImpServer.exe":
+                return True
+
+        return False
+
+
     def __init__(self, **kwargs):
         self.logger = logging.getLogger(__name__)
 

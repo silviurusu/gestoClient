@@ -1,21 +1,23 @@
 from apscheduler.schedulers.blocking import BlockingScheduler
-from apscheduler.triggers.combining import AndTrigger
-from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
+import os
 import subprocess
+import sys
 import logging
 from datetime import datetime
 
-# pentru setare ca serviciu
-# nssm install GestoScheduler "C:\Users\Vectron\AppData\Local\Programs\Python\Python312\python.exe" "C:\Users\Vectron\gestoClientWME\scheduler.py"
-# nssm set GestoScheduler AppDirectory "C:\Users\Vectron\gestoClientWME"
-# nssm start GestoScheduler
+# instalarea ca serviciu Windows e descrisa in README.md
+
+# interpretorul si folderul aplicatiei sunt cele cu care a pornit scheduler-ul,
+# ca sa nu depinda de caile unui anume client
+PYTHON = sys.executable
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
 
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(message)s',
     handlers=[
-        logging.FileHandler('debug/scheduler.log'),
+        logging.FileHandler(os.path.join(APP_DIR, 'debug', 'scheduler.log')),
         logging.StreamHandler()
     ]
 )
@@ -27,21 +29,21 @@ def run_gesto():
 
     try:
         args = [
-                    r"C:\Users\Vectron\AppData\Local\Programs\Python\Python312\python.exe",
+                    PYTHON,
                     "main.py",
                     "--markedForWinMentorExport=1",
                     "--exportWinMentorData=1"
                 ]
-        
+
         if now.minute == 0:
             args.append("--importAvize=1")
             args.append("--importFacturiIntrare=1")
 
         logging.info(f"Running with args: {' '.join(args[1:])}")
-        
+
         result = subprocess.run(
             args,
-            cwd=r"C:\Users\Vectron\gestoClientWME",
+            cwd=APP_DIR,
             capture_output=True,
             text=True
         )
@@ -51,16 +53,15 @@ def run_gesto():
 
 
 def sterge_fisiere_vechi():
-    now = datetime.now()    
-    
     logging.info("Starting sterge fisiere vechi...")
     try:
         result = subprocess.run(
             [
-                r"C:\Users\Vectron\AppData\Local\Programs\Python\Python312\python.exe",
-                "remove_old_files.py"                
+                PYTHON,
+                "main.py",
+                "--delete-old-trace-files=1"
             ],
-            cwd=r"C:\Users\Vectron\gestoClientWME",
+            cwd=APP_DIR,
             capture_output=True,
             text=True
         )

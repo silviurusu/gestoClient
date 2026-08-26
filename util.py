@@ -205,6 +205,23 @@ def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGes
         logger.exception("{}, {}".format(e, e.message))
 
 
+def send_push_notification(title, message, email=False, channel="gesto-push-general"):
+    # tags can be all from here: https://docs.ntfy.sh/emojis/
+    import requests
+    headers = {
+        "Title": title,
+        "Priority": "urgent",
+        "Tags": "warning"
+    }
+    URL = "https://ntfy.sh/" + channel
+    message = message.replace("<br>", "\n")
+
+    if email:
+        send_email(title, message)
+
+    requests.post(url=URL, data=message, headers=headers, timeout=30)
+
+
 def getNumber(arg, decimal_places=4):
     if arg == '':
         ret = 0

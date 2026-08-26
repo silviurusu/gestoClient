@@ -1,0 +1,126 @@
+import os
+import datetime
+import logging
+import settings
+import util
+import decorators
+
+
+# scheduler.py porneste main.py la fiecare 15 minute, deci un run sanatos poate fi vechi
+# de pana la 15 minute in momentul verificarii; 20 lasa marja pentru durata run-ului.
+RUN_MAX_AGE_MINUTES = 20
+
+
+@decorators.time_log
+def delete_old_trace_files(days_ago):
+    start_time = datetime.datetime.now()
+    logging.info(f"Start: {start_time}")
+
+    cutoff_date = start_time - datetime.timedelta(days=days_ago)
+    logging.info(f"Cutoff date: {cutoff_date}.")
+
+    trace_folders = [util.getCfgVal("gesto", "trace_folder")]
+
+    for folder_path in trace_folders:
+        files = os.listdir(folder_path)
+        tot = len(files)
+        logging.info(f"{tot} files in folder")
+
+        for ctr, file_name in enumerate(files, start=1):
+            file_path = os.path.join(folder_path, file_name)
+            creation_time = os.path.getmtime(file_path)
+            creation_datetime = datetime.datetime.fromtimestamp(creation_time)
+            if creation_datetime < cutoff_date:
+                os.remove(file_path)
+                logging.info(f"{ctr}, delete file {file_path} created on {creation_datetime}")
+
+    end_time = datetime.datetime.now()
+    logging.info(f"End: {end_time}")
+    logging.info(f"Duration: {end_time-start_time}")
+
+
+def read_last_line(filepath, block_size=1024):
+    logging.info(f"{filepath=}")
+
+    with open(filepath, 'rb') as file:
+        file.seek(0, 2)  # Move to the end of the file
+        file_size = file.tell()
+        buffer = b''
+        position = file_size
+        while position >= 0:
+            offset = max(0, position - block_size)
+            file.seek(offset)
+            chunk = file.read(position - offset)
+            buffer = chunk + buffer
+            lines = buffer.split(b'\n')
+            if len(lines) > 1:
+                return lines[-2].decode('utf-8')
+            position -= block_size
+        return buffer.decode('utf-8') if buffer else None
+
+
+@decorators.time_log
+def verify_last_run_finished(log_details=settings.MAINTENANCE_LOG_DETAILS):
+    cutoff_date = datetime.datetime.now() - datetime.timedelta(minutes=RUN_MAX_AGE_MINUTES)
+    logging.info(f"{cutoff_date=}")
+
+    trace_folders = [util.getCfgVal("gesto", "trace_folder")]
+
+    found = False
+
+    for folder_path in trace_folders:
+        files = os.listdir(folder_path)
+        tot = len(files)
+        logging.info(f"{tot} files in folder")
+
+        current_prefix = datetime.datetime.now().strftime('%Y_%m_%d__%H_%M')
+        logging.info(f"{current_prefix=}")
+
+        files_sorted = sorted(files, reverse=True)
+
+        # cel mai recent log al unui run incheiat cu succes; log-urile de maintenance,
+        # cel in curs de scriere si cele in care DocImpServer rula nu sunt run-uri valide
+        last_run_log = None
+
+        for file in files_sorted:
+            if log_details in file:
+                continue
+
+            if file.startswith(current_prefix):
+                continue
+
+            file_path = os.path.join(folder_path, file)
+
+            with open(file_path, 'r', encoding='utf-8') as f:
+                if settings.DOC_IMP_SERVER_RUNNING in f.read():
+                    logging.info(f"{settings.DOC_IMP_SERVER_RUNNING}, mesajul e in log")
+                    continue
+
+            last_line = read_last_line(file_path)
+            logging.info(last_line)
+
+            if last_line is None or settings.TASK_FINISHED not in last_line:
+                logging.info("Taskul NU s-a terminat cu succes")
+                continue
+
+            last_run_log = file_path
+            break
+
+        if last_run_log is None:
+            logging.info("Niciun log de run incheiat cu succes in folder")
+            continue
+
+        logging.info(last_run_log)
+
+        creation_time = os.path.getmtime(last_run_log)
+        creation_datetime = datetime.datetime.fromtimestamp(creation_time)
+        if creation_datetime > cutoff_date:
+            found = True
+
+            logging.info(f"Log file found, {last_run_log} created on {creation_datetime}")
+
+    if not found:
+        company = util.getCfgVal("winmentor", "companyName")
+        txtMail = f"WinMentor blocat la - {company}"
+
+        util.send_push_notification(txtMail, txtMail, True)

@@ -12,6 +12,10 @@ EMAIL_HOST = ""
 EMAIL_HOST_USER = ""
 EMAIL_HOST_PASSWORD = ""
 
+DOC_IMP_SERVER_RUNNING="DocImpServer ruleaza, nu fa nimic"
+TASK_FINISHED="Taskul s-a terminat cu succes"
+MAINTENANCE_LOG_DETAILS="maintenance"
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
