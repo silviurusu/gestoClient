@@ -243,6 +243,17 @@ SCHEDULER_JOB_PREFIX = "scheduler:"
 CRON_KEYS = ("minute", "hour", "day", "month", "day_of_week")
 
 
+def scheduler_schedule_path(cfg, app_dir):
+    """Orarul sta intr-un fisier versionat, per firma (task_schedule/<firma>/scheduler.ini),
+    ca sa nu se piarda odata cu config_local.ini, care nu e in git."""
+    if not cfg.has_option("scheduler", "schedule_file"):
+        raise ValueError("[scheduler]: lipseste 'schedule_file', calea catre orarul firmei")
+
+    schedule_file = cfg.get("scheduler", "schedule_file")
+
+    return os.path.join(app_dir, schedule_file)
+
+
 def parse_scheduler_jobs(cfg):
     """Fiecare [scheduler:<nume>] e un job: argumentele date lui main.py plus orarul cron."""
     jobs = []

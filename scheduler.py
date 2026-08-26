@@ -79,9 +79,15 @@ def main():
     logging.info(f"python: {python}")
     logging.info(f"working_dir: {working_dir}")
 
+    schedule_path = util.scheduler_schedule_path(cfg, APP_DIR)
+    logging.info(f"orar: {schedule_path}")
+
+    schedule = ConfigParser()
+    schedule.read_file(open(schedule_path))
+
     scheduler = BlockingScheduler(timezone=TIMEZONE)
 
-    for job in util.parse_scheduler_jobs(cfg):
+    for job in util.parse_scheduler_jobs(schedule):
         scheduler.add_job(
             run_job,
             trigger=CronTrigger(timezone=TIMEZONE, **job["cron"]),
@@ -103,4 +109,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:
+        # sub nssm, stderr nu ajunge nicaieri daca nu i s-a dat AppStderr: o eroare de config
+        # ar produce o bucla de repornire muta, cu jurnalul oprit dupa antet
+        logging.exception("Eroare la pornirea scheduler-ului")
+        raise

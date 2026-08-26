@@ -1,0 +1,33 @@
+Serviciul GestoScheduler pe serverul Carmic (DESKTOP-4FKOS8J).
+
+Instalare, din cmd ridicat, in c:\Vectron\gestoClient:
+
+    <python.exe> -m pip install apscheduler
+
+    nssm install GestoScheduler "C:\Users\vectron\AppData\Local\Programs\Python\Python312\python.exe" "c:\Vectron\gestoClient\scheduler.py"
+    nssm set GestoScheduler AppDirectory "c:\Vectron\gestoClient"
+    nssm set GestoScheduler ObjectName "DESKTOP-4FKOS8J\vectron" "<parola>"
+    nssm set GestoScheduler AppExit Default Restart
+    nssm set GestoScheduler AppStopMethodConsole 120000
+    nssm start GestoScheduler
+
+ObjectName e acelasi cont ca task-urile din folderul asta; fara el serviciul porneste ca
+LocalSystem, care are alta hiva HKCU decat cea in care e inregistrat COM-ul WinMentor si
+sub care e instalat Python-ul.
+
+AppStopMethodConsole la 120000 ms: la oprire, Python asteapta firele non-daemon din thread
+pool-ul APScheduler, deci un main.py in curs tine procesul in viata mult peste cele 1500 ms
+implicite. Fara valoarea asta, nssm restart raspunde "Unexpected status SERVICE_STOP_PENDING".
+
+AppKillProcessTree se lasa pe 0: un main.py orfan care isi termina importul e mai putin rau
+decat un import retezat, care lasa DocImpServer.exe agatat si blocheaza rularile urmatoare.
+
+Configul se citeste o singura data, la pornire: dupa orice schimbare in scheduler.ini sau in
+config_local.ini e nevoie de nssm restart GestoScheduler.
+
+In config_local.ini de pe server, doar caile si orarul folosit:
+
+    [scheduler]
+    python = C:\Users\vectron\AppData\Local\Programs\Python\Python312\python.exe
+    working_dir = c:\Vectron\gestoClient
+    schedule_file = task_schedule\Carmic\scheduler.ini

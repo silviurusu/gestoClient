@@ -220,3 +220,31 @@ def bare_requests_calls(path):
 @pytest.mark.parametrize("path", ["main.py", "util.py", "winmentor.py", "maintenance.py"])
 def test_http_calls_go_through_the_retrying_session(path):
     assert bare_requests_calls(path) == []
+
+
+def test_scheduler_schedule_path_resolves_relative_to_app_dir():
+    cfg = scheduler_cfg(r"""
+[scheduler]
+schedule_file = task_schedule\Carmic\scheduler.ini
+""")
+
+    assert util.scheduler_schedule_path(cfg, r"c:\Vectron\gestoClient") == r"c:\Vectron\gestoClient\task_schedule\Carmic\scheduler.ini"
+
+
+def test_scheduler_schedule_path_keeps_absolute_path():
+    cfg = scheduler_cfg(r"""
+[scheduler]
+schedule_file = d:\orare\carmic.ini
+""")
+
+    assert util.scheduler_schedule_path(cfg, r"c:\Vectron\gestoClient") == r"d:\orare\carmic.ini"
+
+
+def test_scheduler_schedule_path_rejects_missing_key():
+    cfg = scheduler_cfg(r"""
+[scheduler]
+python = C:\Python312\python.exe
+""")
+
+    with pytest.raises(ValueError, match="schedule_file"):
+        util.scheduler_schedule_path(cfg, r"c:\Vectron\gestoClient")
