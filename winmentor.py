@@ -16,7 +16,6 @@ import datetime
 import settings
 from decimal import Decimal, ROUND_HALF_UP
 import decorators
-import requests
 
 class WinMentor(object):
     ''' classdocs
@@ -1149,18 +1148,8 @@ class WinMentor(object):
                 "missingWMPrice": self.missingWMPrice,
             })
 
-            ngp_body = {
-                "subject": subject,
-                "body": html_part,
-                "emails": util.getCfgVal("client", "notificationEmails"),
-                "hours": 2
-            }
-
-            self.logger.info(ngp_body)
-
-            baseURL = util.getCfgVal("gesto", "url")
-            r = requests.post(baseURL+"/api/gestoProblems/", json=ngp_body)
-            self.logger.info("{} - {}".format(r.status_code, r.text))
+            util.report_problem(subject, html_part, hours=2,
+                                emails=util.getCfgVal("client", "notificationEmails"))
 
 
     @decorators.time_log
@@ -1626,15 +1615,7 @@ class WinMentor(object):
         if gestoData["simbolWinMentorReception"] in [None, "nil",]:
             txtMail = "Locatia {} nu are setat un simbol pentru WinMentor".format(gestoData["source"]["name"])
 
-            ngp_body = {
-                "subject": txtMail,
-                "body": txtMail,
-                "hours": 2
-            }
-
-            baseURL = util.getCfgVal("gesto", "url")
-            r = requests.post(baseURL+"/api/gestoProblems/", json=ngp_body)
-            self.logger.info("{} - {}".format(r.status_code, r.text))
+            util.report_problem(txtMail, txtMail, hours=2)
 
             return
 

@@ -1502,8 +1502,15 @@ def main():
         # un import dintr-un run anterior inca in curs sau blocat
         if WinMentor.docImpServerRunning():
             logger.info(settings.DOC_IMP_SERVER_RUNNING)
-            # las exceptie ca sa prinda scriptul de verificare
-            1/0
+
+            # numele firmei intra in mesaj: toate serverele scriu pe acelasi canal ntfy
+            company = util.getCfgVal("winmentor", "companyName")
+            msg = f"{settings.DOC_IMP_SERVER_RUNNING} - {company}"
+
+            if util.report_problem(msg, msg, hours=0.5):
+                util.send_push_notification(msg, msg, True)
+
+            return False
 
         # Connect to winmentor
         winmentor = WinMentor(firma = util.getCfgVal("winmentor", "firma"),

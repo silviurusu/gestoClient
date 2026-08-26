@@ -11,6 +11,7 @@ from django.template import loader
 import traceback
 import json
 from decimal import Decimal
+import requests
 import decorators
 from configparser import ConfigParser
 import os
@@ -205,9 +206,27 @@ def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGes
         logger.exception("{}, {}".format(e, e.message))
 
 
+def report_problem(subject, body, hours, emails=None):
+    """Inregistreaza problema in Gesto (/api/gestoProblems/); True daca e noua in ultimele `hours` ore, deci merita un mail."""
+    ngp_body = {
+        "subject": subject,
+        "body": body,
+        "hours": hours,
+    }
+    if emails is not None:
+        ngp_body["emails"] = emails
+
+    logger.info(ngp_body)
+
+    baseURL = getCfgVal("gesto", "url")
+    r = requests.post(baseURL + "/api/gestoProblems/", json=ngp_body)
+    logger.info("{} - {}".format(r.status_code, r.text))
+
+    return r.json()["ngp"]
+
+
 def send_push_notification(title, message, email=False, channel="gesto-push-general"):
     # tags can be all from here: https://docs.ntfy.sh/emojis/
-    import requests
     headers = {
         "Title": title,
         "Priority": "urgent",
@@ -326,7 +345,6 @@ def log_json(myjson, indent=2):
 
 @decorators.time_log
 def getTokens():
-    import requests
 
     baseURL = getCfgVal("gesto", "url")
     token = getCfgVal("winmentor", "companyToken")
