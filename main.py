@@ -1285,10 +1285,6 @@ def getGestoDocumentsMarkedForWinMentorExport(baseURL, branch):
 
             is_exported_OK = True
 
-            opDate = dt.fromtimestamp(op["documentDate"], datetime.UTC)
-
-            # winmentor.setLunaLucru(opDate.month, opDate.year)
-
             if op["type"]== "reception":
                 # Get partener from gesto
                 gestoPartener = util.fixupCUI(op["source"]["code"])
@@ -1534,7 +1530,7 @@ if __name__ == "__main__":
             excludeCUI = util.getCfgVal("receptions", "excludeCUI")
 
             for branch in branches:
-                gestoData = getGestoDocuments(
+                getGestoDocuments(
                         baseURL = baseURL,
                         branch = branch,
                         operationType="reception",
@@ -1545,7 +1541,7 @@ if __name__ == "__main__":
 
         if doExportSales:
             for branch in branches:
-                gestoData = getGestoDocuments(
+                getGestoDocuments(
                         baseURL = baseURL,
                         branch = branch,
                         operationType="sale",
@@ -1555,7 +1551,7 @@ if __name__ == "__main__":
 
         if doExportReturns:
             for branch in branches:
-                gestoData = getGestoDocuments(
+                getGestoDocuments(
                         baseURL = baseURL,
                         branch = branch,
                         operationType="return",
@@ -1565,7 +1561,7 @@ if __name__ == "__main__":
 
         if doExportNotaConstatareDiferente:
             for branch in branches:
-                gestoData = getGestoDocuments(
+                getGestoDocuments(
                         baseURL = baseURL,
                         branch = branch,
                         operationType="notaConstatareDiferente",
@@ -1575,7 +1571,7 @@ if __name__ == "__main__":
 
         if doExportSupplyOrders:
             for branch in branches:
-                gestoData = getGestoDocuments(
+                getGestoDocuments(
                         baseURL = baseURL,
                         branch = branch,
                         operationType="supplyOrder",
@@ -1583,19 +1579,19 @@ if __name__ == "__main__":
                         )
 
         if doImportAvize:
-            gestoData = importAvize(
+            importAvize(
                     baseURL = baseURL,
                     date = endDate,
                     )
 
         if doImportFacturiIntrare:
-            gestoData = importaFacturiIntrare(
+            importaFacturiIntrare(
                 baseURL=baseURL,
                 date=endDate
             )
 
         if doExportComenziGest:
-            gestoData = exportComenziGest(
+            exportComenziGest(
                     baseURL = baseURL,
                     date = endDate,
                     interval = doExportComenziGest
@@ -1629,21 +1625,21 @@ if __name__ == "__main__":
                     continue
 
             if doExportSummaryTransfers:
-                gestoData = exportSummaryTransfers(
+                exportSummaryTransfers(
                         baseURL = baseURL,
                         branch = branch,
                         date = endDate,
                         )
 
             if doExportSummaryBonDeConsum:
-                gestoData = exportSummaryBonDeConsum(
+                exportSummaryBonDeConsum(
                         baseURL = baseURL,
                         branch = branch,
                         date = endDate,
                         )
 
             if doGenerateMonetare:
-                gestoData = generateMonetare(
+                generateMonetare(
                         baseURL = baseURL,
                         branch = branch,
                         date = endDate,
@@ -1652,7 +1648,7 @@ if __name__ == "__main__":
         if branches_monetare != ['']:
             for branch in branches_monetare:
                 if doGenerateMonetare:
-                    gestoData = generateMonetare(
+                    generateMonetare(
                             baseURL = baseURL,
                             branch = branch,
                             date = endDate,

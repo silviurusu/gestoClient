@@ -17,7 +17,6 @@ import settings
 from decimal import Decimal, ROUND_HALF_UP
 import decorators
 import requests
-import json
 
 class WinMentor(object):
     ''' classdocs
@@ -1502,7 +1501,6 @@ class WinMentor(object):
 
     @decorators.time_log
     def getComenziGest(self, startDate, endDate):
-        sources = util.getCfgVal("deliveryNote", "sources")
         destinations = util.getCfgOptsDict("comenziGestStartDate").keys()
         self.logger.info("destinations: {}".format(destinations))
 
@@ -2019,7 +2017,6 @@ class WinMentor(object):
                 if use_crr_info:
                     if cash_register_report is not None:
                         crr_key_vat = "VAT{}_total".format(vat_key[key])
-                        crr_key_vat_amount = "VAT{}_amount_total".format(vat_key[key])
 
                         if key in ["G_PROD_9", "G_PROD_19", ]:
                             # I have information from casa de marcat
@@ -3017,8 +3014,6 @@ class WinMentor(object):
                     "transferNo": transferNo,
                     "value": 0
                 }
-
-            productCode = items[4]
 
             if self.companyName != "Andalusia":
                 if items[2] == "":

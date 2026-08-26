@@ -7,7 +7,7 @@ import logging.config
 import re
 import inspect
 import codecs
-from django.template import loader, Context
+from django.template import loader
 import traceback
 import json
 from decimal import Decimal
