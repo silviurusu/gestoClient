@@ -778,8 +778,15 @@ def main():
         # instanta WinMentor a firmei anterioare tine DocImpServer.exe in viata
         if WinMentor.docImpServerRunning():
             logger.info(settings.DOC_IMP_SERVER_RUNNING)
-            # las exceptie ca sa prinda scriptul de verificare
-            1/0
+
+            # numele firmei intra in mesaj: toate serverele scriu pe acelasi canal ntfy
+            company = util.get_companies()[0]["companyName"]
+            msg = f"{settings.DOC_IMP_SERVER_RUNNING} - {company}"
+
+            if util.report_problem(msg, msg, hours=0.5):
+                util.send_push_notification(msg, msg, True)
+
+            return False
 
         companies = util.expand_branches(util.get_companies(), tokens.keys())
 
