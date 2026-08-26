@@ -12,11 +12,33 @@ import traceback
 import json
 from decimal import Decimal
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 import decorators
 from configparser import ConfigParser
 import os
 
 logger = logging.getLogger(__name__)
+
+
+# Reteaua de la client are pene scurte de DNS: un getaddrinfo poate expira o data
+# si reusi la reincercarea urmatoare. Reincercam doar esecurile de connect, care
+# se produc inainte ca requestul sa plece de pe masina, deci raman idempotente
+# inclusiv pentru POST. Erorile de read (read=0) nu se reincearca.
+CONNECT_RETRIES = 3
+CONNECT_BACKOFF = 1.5
+
+SESSION = requests.Session()
+_retrying_adapter = HTTPAdapter(max_retries=Retry(
+    total=None,
+    connect=CONNECT_RETRIES,
+    read=0,
+    status=0,
+    backoff_factor=CONNECT_BACKOFF,
+))
+SESSION.mount("https://", _retrying_adapter)
+SESSION.mount("http://", _retrying_adapter)
+
 
 
 @decorators.time_log
@@ -219,7 +241,7 @@ def report_problem(subject, body, hours, emails=None):
     logger.info(ngp_body)
 
     baseURL = getCfgVal("gesto", "url")
-    r = requests.post(baseURL + "/api/gestoProblems/", json=ngp_body)
+    r = SESSION.post(baseURL + "/api/gestoProblems/", json=ngp_body)
     logger.info("{} - {}".format(r.status_code, r.text))
 
     return r.json()["ngp"]
@@ -238,7 +260,7 @@ def send_push_notification(title, message, email=False, channel="gesto-push-gene
     if email:
         send_email(title, message)
 
-    requests.post(url=URL, data=message, headers=headers, timeout=30)
+    SESSION.post(url=URL, data=message, headers=headers, timeout=30)
 
 
 def getNumber(arg, decimal_places=4):
@@ -352,7 +374,7 @@ def getTokens():
 
     logger.info(url)
 
-    r = requests.get(url, headers={'GESTOTOKEN': token})
+    r = SESSION.get(url, headers={'GESTOTOKEN': token})
 
     if r.status_code != 200:
         logger.error("Gesto request failed: %d, %s", r.status_code, r.text)

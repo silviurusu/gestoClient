@@ -1,4 +1,3 @@
-import requests
 import json
 import os
 import sys, getopt
@@ -58,7 +57,7 @@ def generateWorkOrders(baseURL, branch, date, doVerify):
     token = tokens[branch]
     logger.debug("Gesto request token: {}".format(token))
 
-    r = requests.get(url, headers={'GESTOTOKEN': token})
+    r = util.SESSION.get(url, headers={'GESTOTOKEN': token})
 
     if r.status_code != 200:
         logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
@@ -112,7 +111,7 @@ def generateIntrariDinProductie(baseURL, branch, date, doVerify):
     token = tokens[branch]
     logger.debug("Gesto request token: {}".format(token))
 
-    r = requests.get(url, headers={'GESTOTOKEN': token})
+    r = util.SESSION.get(url, headers={'GESTOTOKEN': token})
 
     if r.status_code != 200:
         logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
@@ -157,7 +156,7 @@ def exportSummaryTransfers(baseURL, branch, date):
     token = tokens[branch]
     logger.debug("Gesto request token: {}".format(token))
 
-    r = requests.get(url, headers={'GESTOTOKEN': token})
+    r = util.SESSION.get(url, headers={'GESTOTOKEN': token})
 
     if r.status_code != 200:
         logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
@@ -191,7 +190,7 @@ def exportSummaryBonDeConsum(baseURL, branch, date):
     token = tokens[branch]
     logger.debug("Gesto request token: {}".format(token))
 
-    r = requests.get(url, headers={'GESTOTOKEN': token})
+    r = util.SESSION.get(url, headers={'GESTOTOKEN': token})
 
     if r.status_code != 200:
         logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
@@ -244,7 +243,7 @@ def generateMonetare(baseURL, branch, date):
     token = tokens[branch]
     logger.debug("Gesto request token: {}".format(token))
 
-    r = requests.get(url, headers={'GESTOTOKEN': token})
+    r = util.SESSION.get(url, headers={'GESTOTOKEN': token})
 
     if r.status_code != 200:
         logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
@@ -279,7 +278,7 @@ def getExportedDeliveryNotes(baseURL, startDate, endDate):
     urlPage = url + "&pageSize=1"
     logger.info(urlPage)
 
-    r = requests.get(urlPage, headers={'GESTOTOKEN': token})
+    r = util.SESSION.get(urlPage, headers={'GESTOTOKEN': token})
 
     ret = {}
 
@@ -302,7 +301,7 @@ def getExportedDeliveryNotes(baseURL, startDate, endDate):
                 urlPage += "&page="+str(ctr)
                 logger.debug("{}, {}, {}".format(ctr, pagesCount, urlPage))
 
-                r = requests.get(urlPage, headers={'GESTOTOKEN': token})
+                r = util.SESSION.get(urlPage, headers={'GESTOTOKEN': token})
                 retJSON = r.json()
 
                 tot = len(retJSON["data"])
@@ -347,7 +346,7 @@ def getExportedReceptions(baseURL, startDate, endDate):
     urlPage = url + "&pageSize=1"
     logger.info(urlPage)
 
-    r = requests.get(urlPage, headers={'GESTOTOKEN': token})
+    r = util.SESSION.get(urlPage, headers={'GESTOTOKEN': token})
 
     ret = {}
 
@@ -370,7 +369,7 @@ def getExportedReceptions(baseURL, startDate, endDate):
                 urlPage += "&page="+str(ctr)
                 logger.debug("{}, {}, {}".format(ctr, pagesCount, urlPage))
 
-                r = requests.get(urlPage, headers={'GESTOTOKEN': token})
+                r = util.SESSION.get(urlPage, headers={'GESTOTOKEN': token})
                 retJSON = r.json()
 
                 tot = len(retJSON["data"])
@@ -559,7 +558,7 @@ def exportComenziGest(baseURL, date, interval=1):
         if documentDate > branchStartDate:
             logger.info("{} > {}. Receptia se va importa in Gesto".format(documentDate, branchStartDate))
 
-            r = requests.post(baseURL+"/importOperation/", data = opStrText)
+            r = util.SESSION.post(baseURL+"/importOperation/", data = opStrText)
             logger.info("Gesto response: %d, %s", r.status_code, r.text)
             if r.status_code != 200:
                 logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
@@ -696,7 +695,7 @@ def importAvize(baseURL, date):
 
                     opStrText = json.dumps(opStr, default=util.defaultJSON)
 
-                    r = requests.post(baseURL+"/importOperation/", data = opStrText)
+                    r = util.SESSION.post(baseURL+"/importOperation/", data = opStrText)
                     logger.info("Gesto response: %d, %s", r.status_code, r.text)
                     if r.status_code != 200:
                         logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
@@ -903,7 +902,7 @@ def importaFacturiIntrare(baseURL, date):
 
                 opStrText = json.dumps(opStr, default=util.defaultJSON)
 
-                r = requests.post(baseURL+"/importOperation/", data = opStrText)
+                r = util.SESSION.post(baseURL+"/importOperation/", data = opStrText)
 
                 logger.info("Gesto response: %d, %s", r.status_code, r.text)
 
@@ -1074,7 +1073,7 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
 
     ret = []
 
-    r = requests.get(urlCount, headers={'GESTOTOKEN': token})
+    r = util.SESSION.get(urlCount, headers={'GESTOTOKEN': token})
 
     if r.status_code != 200:
         logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
@@ -1108,7 +1107,7 @@ def getGestoDocuments(baseURL, branch, operationType, excludeCUI=None, endDate =
             urlPage += "&page="+str(ctr)
             logger.debug("{}, {}, {}".format(ctr, pagesCount, urlPage))
 
-            r = requests.get(urlPage, headers={'GESTOTOKEN': token})
+            r = util.SESSION.get(urlPage, headers={'GESTOTOKEN': token})
             retJSON = r.json()
 
             tot = len(retJSON["data"])
@@ -1168,7 +1167,7 @@ def getExportWinMentorData():
         # until no other exported report exists
         url = baseURL + "/report/exportWinMentorData/"
 
-        r = requests.get(url, headers={'GESTOTOKEN': token})
+        r = util.SESSION.get(url, headers={'GESTOTOKEN': token})
 
         if r.status_code != 200:
             logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
@@ -1215,11 +1214,11 @@ def getExportWinMentorData():
                 if ret:
                     # success
                     url = baseURL + "/report/exportWinMentorData/{}/exportedWinMentor/".format(retJSON["report_id"])
-                    r = requests.put(url, headers={'GESTOTOKEN': token})
+                    r = util.SESSION.put(url, headers={'GESTOTOKEN': token})
                     logger.info(r)
                 else:
                     url = baseURL + "/report/exportWinMentorData/{}/exportProblems/".format(retJSON["report_id"])
-                    r = requests.put(url, headers={'GESTOTOKEN': token})
+                    r = util.SESSION.put(url, headers={'GESTOTOKEN': token})
                     logger.info(r)
 
                 if retJSON["remaining_reports"] == 0:
@@ -1245,7 +1244,7 @@ def getGestoDocumentsMarkedForWinMentorExport(baseURL, branch):
     token = tokens[branch]
     logger.debug("Gesto request token: {}".format(token))
 
-    r = requests.get(url, headers={'GESTOTOKEN': token})
+    r = util.SESSION.get(url, headers={'GESTOTOKEN': token})
 
     if r.status_code != 200:
         logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
@@ -1318,7 +1317,7 @@ def getGestoDocumentsMarkedForWinMentorExport(baseURL, branch):
 
             if is_exported_OK:
                 url = baseURL + "/operations/{}/exportedWinMentor/".format(op["id"])
-                r = requests.put(url, headers={'GESTOTOKEN': token})
+                r = util.SESSION.put(url, headers={'GESTOTOKEN': token})
                 logger.info(r)
 
             # if ctr==1:
