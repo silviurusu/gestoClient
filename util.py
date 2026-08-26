@@ -7,7 +7,9 @@ import logging.config
 import re
 import inspect
 import codecs
+import html
 from django.template import loader
+from django.utils.html import strip_tags
 import traceback
 import json
 from decimal import Decimal
@@ -224,6 +226,18 @@ def parse_scheduler_jobs(cfg):
     return jobs
 
 
+BR_TAG = re.compile(r"<br\s*/?>", re.IGNORECASE)
+
+
+def as_plain_text(rendered):
+    """Corpul randat din template, curatat de taguri pentru log si pentru notificarile push.
+    Mailul si Gesto primesc in continuare HTML-ul.
+
+    Intai tagurile, apoi entitatile: invers, un &lt;b&gt; scris ca text in template
+    ar deveni tag si ar fi sters."""
+    return html.unescape(strip_tags(BR_TAG.sub("\n", rendered)))
+
+
 @decorators.time_log
 def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGestoProblem=False, replaceWithHTMLCodes=False):
     if not isGestoProblem:
@@ -236,7 +250,7 @@ def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGes
     msg = "\n" + msg
     if location:
         msg = "{}\n\n{}:{}".format(msg, frameinfo.filename, frameinfo.lineno)
-    logger.info("msg: {}".format(msg))
+    logger.info("msg: {}".format(as_plain_text(msg)))
 
     if replaceWithHTMLCodes or msg.find("<!-- replaceWithHTMLCodes -->") != -1:
         # msg = msg.replace("<", "&lt;")
@@ -244,8 +258,6 @@ def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGes
         msg = msg.replace("    ", "&nbsp;&nbsp;&nbsp;&nbsp;")
         # this one goes last
         msg = msg.replace("\n", "<br/>")
-
-    logger.info("msg: {}".format(msg))
 
     if toEmails is None or bccEmails is None:
         # create new list, if I ever append to it the value for settings.BCC_EMAILS will change and I will
@@ -286,7 +298,7 @@ def report_problem(subject, body, hours, emails=None):
     if emails is not None:
         ngp_body["emails"] = emails
 
-    logger.info(ngp_body)
+    logger.info({**ngp_body, "body": as_plain_text(body)})
 
     baseURL = getCfgVal("gesto", "url")
     r = SESSION.post(baseURL + "/api/gestoProblems/", json=ngp_body)
@@ -303,12 +315,12 @@ def send_push_notification(title, message, email=False, channel="gesto-push-gene
         "Tags": "warning"
     }
     URL = "https://ntfy.sh/" + channel
-    message = message.replace("<br>", "\n")
 
     if email:
         send_email(title, message)
 
-    SESSION.post(url=URL, data=message, headers=headers, timeout=30)
+    # doar ntfy primeste text simplu; mailul isi pastreaza formatarea
+    SESSION.post(url=URL, data=as_plain_text(message), headers=headers, timeout=30)
 
 
 def getNumber(arg, decimal_places=4):
