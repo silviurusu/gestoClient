@@ -1108,7 +1108,7 @@ class WinMentor(object):
         if len(self._newProducts) != 0:
             txtMail = ""
             for prod in self._newProducts:
-                for tag, val in prod.iteritems():
+                for tag, val in prod.items():
                     txtMail += "{}: {}\n".format(tag, val)
                 txtMail += "-" * 20 + "\n"
             util.send_email(
