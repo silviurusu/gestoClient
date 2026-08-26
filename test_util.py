@@ -1,6 +1,10 @@
+import ast
+import pathlib
 from configparser import ConfigParser
 
 import pytest
+import requests
+import urllib3
 
 import util
 
@@ -163,3 +167,56 @@ minute = 43
 """))
 
     assert [job["name"] for job in jobs] == ["export", "trace_files"]
+
+
+def refuse_connections(monkeypatch, attempts):
+    """Blocheaza stratul de socket, ca urllib3 sa vada acelasi esec de connect ca la o pana de DNS."""
+    def refuse(*args, **kwargs):
+        attempts.append(args)
+        raise ConnectionRefusedError("nimeni nu asculta")
+
+    monkeypatch.setattr(urllib3.util.connection, "create_connection", refuse)
+    monkeypatch.setattr(urllib3.util.retry.time, "sleep", lambda _seconds: None)
+
+
+def test_session_retries_connection_failures(monkeypatch):
+    attempts = []
+    refuse_connections(monkeypatch, attempts)
+
+    with pytest.raises(requests.exceptions.ConnectionError):
+        util.SESSION.get("https://www.gesto.ro/poses/")
+
+    assert len(attempts) == util.CONNECT_RETRIES + 1
+
+
+def test_session_retries_over_plain_http(monkeypatch):
+    attempts = []
+    refuse_connections(monkeypatch, attempts)
+
+    with pytest.raises(requests.exceptions.ConnectionError):
+        util.SESSION.get("http://www.gesto.ro/poses/")
+
+    assert len(attempts) == util.CONNECT_RETRIES + 1
+
+
+HTTP_VERBS = {"get", "post", "put", "patch", "delete", "head", "request"}
+
+
+def bare_requests_calls(path):
+    """Apelurile HTTP facute direct pe modulul `requests`, deci fara retry pe connect."""
+    tree = ast.parse(pathlib.Path(path).read_text(encoding="utf-8"))
+
+    return sorted(
+        "{}:{} requests.{}".format(path, node.lineno, node.func.attr)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr in HTTP_VERBS
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == "requests"
+    )
+
+
+@pytest.mark.parametrize("path", ["main.py", "util.py", "winmentor.py", "maintenance.py"])
+def test_http_calls_go_through_the_retrying_session(path):
+    assert bare_requests_calls(path) == []
