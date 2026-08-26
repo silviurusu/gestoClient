@@ -2,26 +2,52 @@
 
 ## Rulare ca serviciu Windows (scheduler.py)
 
-`scheduler.py` (APScheduler) inlocuieste task-urile din Task Scheduler: ruleaza `main.py` la 15 minute
-intre 06:00 si 21:00 si `main.py --delete-old-trace-files=1` zilnic. Se instaleaza ca serviciu cu
-[NSSM](https://nssm.cc/download). Interpretorul si folderul aplicatiei sunt cele cu care porneste
-scheduler-ul, deci nu trebuie editate cai in cod.
+`scheduler.py` (APScheduler) ruleaza `main.py` dupa un orar, ca serviciu Windows cu
+[NSSM](https://nssm.cc/download). Inlocuieste task-urile programate, cu o exceptie: watchdog-ul
+(`main.py --verify-last-run-finished`) ramane in Task Scheduler, ca supervizor extern.
 
-1. `pip install apscheduler`
+Orarul sta **versionat**, un fisier per firma, langa XML-urile pe care le inlocuieste:
+`task_schedule/<firma>/scheduler.ini`. `config_local.ini` nu e in git, deci un orar tinut acolo
+s-ar pierde odata cu serverul; in `config_local.ini` raman doar caile si trimiterea catre orar.
+
+`config_local.ini` pe server:
+
+```ini
+[scheduler]
+python = C:\Users\Vectron\AppData\Local\Programs\Python\Python312\python.exe
+working_dir = C:\Users\Vectron\gestoClientWME
+schedule_file = task_schedule\andalusia\scheduler.ini
+```
+
+`task_schedule/andalusia/scheduler.ini`, versionat — fiecare `[scheduler:<nume>]` e un job:
+argumentele date lui `main.py` plus orarul, in sintaxa cron APScheduler (`minute`, `hour`, `day`,
+`month`, `day_of_week`).
+
+Instalare:
+
+1. `<python.exe> -m pip install apscheduler` — cu **acelasi** interpretor ca cel din
+   `[scheduler] python`, altfel serviciul porneste dar lanseaza `main.py` cu alt Python.
 2. Copiaza `nssm.exe` in folderul aplicatiei (e in `.gitignore`, nu se comite).
 3. Contul care ruleaza serviciul are nevoie de dreptul **Log on as a service**:
    `secpol.msc` > Local Policies > User Rights Assignment > Log on as a service > adauga utilizatorul
    (sau `secedit /export /cfg secpol.txt`, editeaza `SeServiceLogonRight`, `secedit /configure /db secedit.sdb /cfg secpol.txt`;
    fisierele `secedit.*` / `secpol*.txt` rezultate sunt in `.gitignore`).
-4. Instalare si pornire (caile sunt cele de la Andalusia, adapteaza-le):
+4. Instalare si pornire:
    ```
-   nssm install GestoScheduler "C:\Users\Vectron\AppData\Local\Programs\Python\Python312\python.exe" "C:\Users\Vectron\gestoClientWME\scheduler.py"
-   nssm set GestoScheduler AppDirectory "C:\Users\Vectron\gestoClientWME"
+   nssm install GestoScheduler "<python.exe>" "<working_dir>\scheduler.py"
+   nssm set GestoScheduler AppDirectory "<working_dir>"
+   nssm set GestoScheduler ObjectName "<masina>\<utilizator>" "<parola>"
+   nssm set GestoScheduler AppExit Default Restart
    nssm start GestoScheduler
    ```
-5. Dezactiveaza task-urile vechi din Task Scheduler (`task_schedule/<client>/*.xml`), altfel importurile ruleaza de doua ori.
+   `ObjectName` nu e optional: fara el serviciul porneste ca LocalSystem, care are alta hiva HKCU
+   si alt profil decat contul sub care e inregistrat COM-ul WinMentor si sub care e instalat Python.
+   Acelasi cont ca task-urile din `task_schedule/`.
+5. Dezactiveaza task-urile vechi din Task Scheduler, altfel importurile ruleaza de doua ori.
 
-Log-ul serviciului: `debug/scheduler.log`. `config_local.ini` trebuie sa aiba `[winmentor] loginUser`, `loginPassword` si `[gesto] trace_folder`.
+Serviciul isi scrie jurnalul in `scheduler.log`, cu rotatie — nu in folderul de trace, unde
+`--verify-last-run-finished` citeste fiecare fisier ca pe o rulare `main.py`. `config_local.ini`
+trebuie sa aiba si `[winmentor] loginUser`, `loginPassword`, `[gesto] trace_folder`.
 
 ## Verificarea ca importul nu s-a blocat
 

@@ -1,105 +1,115 @@
-from apscheduler.schedulers.blocking import BlockingScheduler
-from apscheduler.triggers.cron import CronTrigger
+r"""Ruleaza main.py dupa orarul firmei, ca serviciu Windows.
+
+Inlocuieste task-urile programate din Windows Task Scheduler, mai putin watchdog-ul
+(main.py --verify-last-run-finished): un watchdog pornit de acelasi proces pe care il
+supravegheaza nu mai raporteaza nimic cand procesul cade, deci ramane supervizor extern.
+
+Setare ca serviciu, cu nssm: vezi README.md.
+"""
+import logging
+import logging.handlers
 import os
 import subprocess
 import sys
-import logging
-from datetime import datetime
+from configparser import ConfigParser
 
-# instalarea ca serviciu Windows e descrisa in README.md
+from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.triggers.cron import CronTrigger
 
-# interpretorul si folderul aplicatiei sunt cele cu care a pornit scheduler-ul,
-# ca sa nu depinda de caile unui anume client
-PYTHON = sys.executable
+import util
+
+
+# caile se rezolva fata de scriptul insusi: un serviciu porneste implicit in
+# C:\Windows\System32, iar nssm ajunge in folderul aplicatiei doar daca i s-a dat AppDirectory
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(message)s',
-    handlers=[
-        logging.FileHandler(os.path.join(APP_DIR, 'debug', 'scheduler.log')),
-        logging.StreamHandler()
-    ]
-)
+CFG_FILE_NAME = os.path.join(APP_DIR, "config_local.ini")
+TIMEZONE = "Europe/Bucharest"
 
-def run_gesto():
-    now = datetime.now()    
-    
-    logging.info("Starting importa documente din gesto...")
+# jurnalul serviciului sta in afara folderului de trace, unde verify_last_run_finished
+# citeste fiecare fisier ca pe o rulare main.py
+LOG_FILE_NAME = os.path.join(APP_DIR, "scheduler.log")
+LOG_MAX_BYTES = 10 * 1024 * 1024
+LOG_BACKUP_COUNT = 3
+
+
+def setup_logging():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(message)s",
+        handlers=[
+            logging.handlers.RotatingFileHandler(
+                LOG_FILE_NAME,
+                maxBytes=LOG_MAX_BYTES,
+                backupCount=LOG_BACKUP_COUNT,
+                encoding="utf8",
+            ),
+            logging.StreamHandler(),
+        ],
+    )
+
+
+def run_job(name, python, working_dir, args):
+    logging.info(f"{name}: pornit, main.py {' '.join(args)}")
 
     try:
-        args = [
-                    PYTHON,
-                    "main.py",
-                    "--markedForWinMentorExport=1",
-                    "--exportWinMentorData=1"
-                ]
-
-        if now.minute == 0:
-            args.append("--importAvize=1")
-            args.append("--importFacturiIntrare=1")
-
-        logging.info(f"Running with args: {' '.join(args[1:])}")
-
         result = subprocess.run(
-            args,
-            cwd=APP_DIR,
+            [python, "main.py"] + args,
+            cwd=working_dir,
             capture_output=True,
-            text=True
+            text=True,
         )
-        logging.info(f"Completed in {result.returncode} | Output: {result.stdout.strip()}")
-    except Exception as e:
-        logging.error(f"Failed: {e}")    
+        logging.info(f"{name}: cod {result.returncode} | {result.stdout.strip()}")
+    except Exception:
+        logging.exception(f"{name}: rularea a esuat")
 
 
-def sterge_fisiere_vechi():
-    logging.info("Starting sterge fisiere vechi...")
+def main():
+    setup_logging()
+
+    cfg = ConfigParser()
+    cfg.read_file(open(CFG_FILE_NAME))
+
+    python = cfg.get("scheduler", "python", fallback="") or sys.executable
+    working_dir = cfg.get("scheduler", "working_dir", fallback="") or APP_DIR
+
+    logging.info(f"python: {python}")
+    logging.info(f"working_dir: {working_dir}")
+
+    schedule_path = util.scheduler_schedule_path(cfg, APP_DIR)
+    logging.info(f"orar: {schedule_path}")
+
+    schedule = ConfigParser()
+    schedule.read_file(open(schedule_path))
+
+    scheduler = BlockingScheduler(timezone=TIMEZONE)
+
+    for job in util.parse_scheduler_jobs(schedule):
+        scheduler.add_job(
+            run_job,
+            trigger=CronTrigger(timezone=TIMEZONE, **job["cron"]),
+            args=(job["name"], python, working_dir, job["args"]),
+            name=job["name"],
+            # echivalentele IgnoreNew, respectiv StartWhenAvailable din Task Scheduler
+            max_instances=1,
+            misfire_grace_time=60,
+        )
+
+        logging.info(f"{job['name']}: {job['cron']} -> main.py {' '.join(job['args'])}")
+
+    logging.info("Scheduler pornit.")
+
     try:
-        result = subprocess.run(
-            [
-                PYTHON,
-                "main.py",
-                "--delete-old-trace-files=1"
-            ],
-            cwd=APP_DIR,
-            capture_output=True,
-            text=True
-        )
-        logging.info(f"Completed in {result.returncode} | Output: {result.stdout.strip()}")
-    except Exception as e:
-        logging.error(f"Failed: {e}")
+        scheduler.start()
+    except (KeyboardInterrupt, SystemExit):
+        logging.info("Scheduler oprit.")
 
-scheduler = BlockingScheduler(timezone="Europe/Bucharest")
 
-# Runs every 15 minutes, daily from 06:00 to 21:00
-scheduler.add_job(
-    run_gesto,
-    trigger=CronTrigger(
-        hour="6-21",          # 6 AM to 8 PM (last run at 20:45)
-        minute="*/15",        # every 15 minutes
-        timezone="Europe/Bucharest"
-    ),
-    name="Importa/exporta documente din/catre Gesto",
-    max_instances=1,          # equivalent to IgnoreNew
-    misfire_grace_time=60     # equivalent to StartWhenAvailable
-)
-
-scheduler.add_job(
-    sterge_fisiere_vechi,
-    trigger=CronTrigger(
-        hour="20",      
-        minute="43",   
-        timezone="Europe/Bucharest"
-    ),
-    name="Sterge fisiere vechi",
-    max_instances=1,          # equivalent to IgnoreNew
-    misfire_grace_time=60     # equivalent to StartWhenAvailable
-)
-
-logging.info("Scheduler started.")
-logging.info("Press Ctrl+C to stop.")
-
-try:
-    scheduler.start()
-except KeyboardInterrupt:
-    logging.info("Scheduler stopped.")
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception:
+        # sub nssm, stderr nu ajunge nicaieri daca nu i s-a dat AppStderr: o eroare de config
+        # ar produce o bucla de repornire muta, cu jurnalul oprit dupa antet
+        logging.exception("Eroare la pornirea scheduler-ului")
+        raise
