@@ -396,9 +396,10 @@ def report_problem(subject, body, hours, emails=None):
     if emails is not None:
         ngp_body["emails"] = emails
 
-    # corpul separat, ca text: intr-un repr de dict newline-urile raman escapate
+    # corpul separat, ca text: intr-un repr de dict newline-urile raman escapate.
+    # Pornit pe rand nou, altfel primul lui rand ramane lipit de prefixul logger-ului.
     logger.info({k: v for k, v in ngp_body.items() if k != "body"})
-    logger.info(as_plain_text(body))
+    logger.info("\n" + as_plain_text(body))
 
     baseURL = getCfgVal("gesto", "url")
     r = SESSION.post(baseURL + "/api/gestoProblems/", json=ngp_body)
