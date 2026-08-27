@@ -1,39 +1,37 @@
-<!-- replaceWithHTMLCodes -->
+<!-- formatare proprie -->
 {%if missingCodes|length != 0%}
-Urmatoarele {{missingCodes|length}} produse nu au setate coduri WinMentor (in Gesto) sau codurile sunt incorecte:<br/>
+Urmatoarele {{missingCodes|length}} produse nu au setate coduri WinMentor (in Gesto) sau codurile sunt incorecte:<br>
 {% for key,p in missingCodes.items %}
-    {{p.item.name}}, {{p.item.code}} --- {{p.details}}
+    {{p.item.name}}, {{p.item.code}} --- {{p.details}}<br>
 {% endfor %}
+<br>
 {%endif%}
-
-
 {%if missingDefaultGest|length != 0%}
-Urmatoarele {{missingDefaultGest|length}} produse nu au gestiuni default in WinMentor:<br/>
+Urmatoarele {{missingDefaultGest|length}} produse nu au gestiuni default in WinMentor:<br>
 {% for key,p in missingDefaultGest.items %}
-    {{p.item.name}}, {{p.item.winMentorCode}} --- {{p.details}}
+    {{p.item.name}}, {{p.item.winMentorCode}} --- {{p.details}}<br>
 {% endfor %}
+<br>
 {%endif%}
-
-
 {%if productsMissingWMCodes|length != 0%}
-Urmatoarele {{productsMissingWMCodes|length}} produse nu au coduri in WinMentor:<br/>
+Urmatoarele {{productsMissingWMCodes|length}} produse nu au coduri in WinMentor:<br>
 {% for p in productsMissingWMCodes %}
-    {{p}}
+    {{p}}<br>
 {% endfor %}
+<br>
 {%endif%}
-
 {%if missingWMPrice|length != 0%}
-Urmatoarele {{missingWMPrice|length}} produse nu au preturi in WinMentor:<br/>
+Urmatoarele {{missingWMPrice|length}} produse nu au preturi in WinMentor:<br>
 {% for key,p in missingWMPrice.items %}
-    {{key}} - {{p.nume}} {% for doc in p.docs %}, {{doc.cheie}}, {{doc.gestoData.branch}}, {{doc.gestoData.documentDateHuman}}, {{doc.gestoData.documentNo}} {% endfor %}
+    {{key}} - {{p.nume}} {% for doc in p.docs %}, {{doc.cheie}}, {{doc.gestoData.branch}}, {{doc.gestoData.documentDateHuman}}, {{doc.gestoData.documentNo}} {% endfor %}<br>
 {% endfor %}
+<br>
 {%endif%}
-
 {%if missingWMCodes|length != 0%}
-Urmatoarele {{missingWMCodes|length}} coduri nu apar in WinMentor:<br/>
+Urmatoarele {{missingWMCodes|length}} coduri nu apar in WinMentor:<br>
 {% for key,p in missingWMCodes.items  %}
-    <b>{{key}}</b> --- {{p.item.name}}, {{p.item.winMentorCode}} --- {{p.details}}
+    <b>{{key}}</b> --- {{p.item.name}}, {{p.item.winMentorCode}} --- {{p.details}}<br>
 {% endfor %}
+<br>
 {%endif%}
-
-Nu dati reply la acest mail va rog, nu urmareste nimeni aceasta adresa de mail.
+Nu dati reply la acest mail va rog, nu urmareste nimeni aceasta adresa de mail.<br>

@@ -1161,7 +1161,7 @@ class WinMentor(object):
                 "subject": subject,
                 "comenziWithProblems": self.comenziWithProblems,
             })
-            util.send_email(subject, html_part, toEmails=util.getCfgVal("client", "notificationEmails"), location=False, replaceWithHTMLCodes =True)
+            util.send_email(subject, html_part, toEmails=util.getCfgVal("client", "notificationEmails"), location=False)
 
 
     @decorators.time_log

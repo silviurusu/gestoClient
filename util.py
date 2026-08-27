@@ -227,25 +227,60 @@ def parse_scheduler_jobs(cfg):
 
 
 BR_TAG = re.compile(r"<br\s*/?>", re.IGNORECASE)
+BR_AT_EOL = re.compile(r"<br\s*/?>[ \t]*\n", re.IGNORECASE)
 BLANK_LINES = re.compile(r"\n{3,}")
+LAYOUT_LINES = re.compile(r"\n\s*\n+")
+
+# newline-urile lasate in urma de tag-uri sunt doar asezare in fisier, nu rand nou
+FORMAT_PROPRIU = "<!-- formatare proprie -->"
+INDENT = "    "
+
+
+def as_email_html(msg):
+    """Corpul pregatit pentru mail.
+
+    Un template cu FORMAT_PROPRIU isi cere singur ruperile de rand, deci newline-urile lui
+    nu se ating: sunt asezare in fisier, iar in HTML sunt spatiu alb. Ramane de rezolvat
+    doar indentarea, pe care HTML-ul ar colapsa-o.
+
+    Restul mesajelor sunt text construit in Python, unde newline-ul chiar inseamna rand nou."""
+    if FORMAT_PROPRIU in msg:
+        return msg.replace(FORMAT_PROPRIU, "").replace(INDENT, "&nbsp;" * 4)
+
+    # exception.html isi tine randurile in <pre>; pana primeste si el marcajul, il recunoastem asa
+    if "<html" in msg:
+        return msg
+
+    return msg.replace("\n", "<br/>")
 
 
 def as_plain_text(rendered):
     """Corpul randat din template, curatat de taguri pentru log si pentru notificarile push.
-    Mailul si Gesto primesc in continuare HTML-ul.
+    Mailul trimis de aici primeste in continuare HTML-ul; Gesto isi face singur conversia,
+    deci lui ii dam tot textul.
 
-    Intai tagurile, apoi entitatile: invers, un &lt;b&gt; scris ca text in template
-    ar deveni tag si ar fi sters. La final se strang sirurile de linii goale lasate
-    in urma de blocurile {%if%} false din template."""
-    text = html.unescape(strip_tags(BR_TAG.sub("\n", rendered)))
+    Cand textul poarta <br>, structura randurilor vine de acolo, iar newline-urile sunt
+    doar asezare: blocurile {%if%} false si corpul fiecarui {% for %}, care include
+    newline-ul de dupa tag, lasa altfel un rand gol intre elemente. Fara niciun <br>
+    textul e construit in Python, unde randurile goale sunt puse intentionat.
 
-    return BLANK_LINES.sub("\n\n", text).strip()
+    Un <br> la capat de rand nu adauga nimic, ruperea e deja acolo, deci consuma si
+    newline-ul urmator; unul singur pe rand ramane rand gol.
+
+    Tagurile inaintea entitatilor: invers, un &lt;b&gt; scris ca text in template
+    ar deveni tag si ar fi sters."""
+    text = LAYOUT_LINES.sub("\n", rendered) if BR_TAG.search(rendered) else rendered
+    text = BR_TAG.sub("\n", BR_AT_EOL.sub("\n", text))
+    text = html.unescape(strip_tags(text))
+
+    # doar newline-urile: strip() ar manca si indentarea primului element
+    return BLANK_LINES.sub("\n\n", text).strip("\n")
 
 
 # print_args=False: decoratorul ar loga corpul brut, cu tagurile din template; functia
 # il logheaza oricum mai jos, curatat
 @decorators.time_log(print_args=False)
-def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGestoProblem=False, replaceWithHTMLCodes=False):
+def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGestoProblem=False):
     if not isGestoProblem:
         callersFrame = inspect.stack()[1][0]
     else:
@@ -258,12 +293,7 @@ def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGes
         msg = "{}\n\n{}:{}".format(msg, frameinfo.filename, frameinfo.lineno)
     logger.info("msg: {}".format(as_plain_text(msg)))
 
-    if replaceWithHTMLCodes or msg.find("<!-- replaceWithHTMLCodes -->") != -1:
-        # msg = msg.replace("<", "&lt;")
-        # msg = msg.replace(">", "&gt;")
-        msg = msg.replace("    ", "&nbsp;&nbsp;&nbsp;&nbsp;")
-        # this one goes last
-        msg = msg.replace("\n", "<br/>")
+    msg = as_email_html(msg)
 
     if toEmails is None or bccEmails is None:
         # create new list, if I ever append to it the value for settings.BCC_EMAILS will change and I will
@@ -296,6 +326,11 @@ def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGes
 
 def report_problem(subject, body, hours, emails=None):
     """Inregistreaza problema in Gesto (/api/gestoProblems/); True daca e noua in ultimele `hours` ore, deci merita un mail."""
+    # Gesto trimite mailul cu replaceWithBR, deci face el conversia: \n devine <br/> si
+    # cele patru spatii &nbsp;. Ii dam text simplu, ca sa o faca o singura data - corpul
+    # randat, cu <br>-urile lui si cu newline-urile de asezare, ar iesi cu randurile dublate.
+    body = as_plain_text(body)
+
     ngp_body = {
         "subject": subject,
         "body": body,
@@ -304,9 +339,9 @@ def report_problem(subject, body, hours, emails=None):
     if emails is not None:
         ngp_body["emails"] = emails
 
-    # corpul separat, ca text: intr-un repr de dict newline-urile raman escapate
-    logger.info({k: v for k, v in ngp_body.items() if k != "body"})
-    logger.info(as_plain_text(body))
+    # corpul sub metadate: intr-un repr de dict newline-urile raman escapate
+    meta = {k: v for k, v in ngp_body.items() if k != "body"}
+    logger.info("{}\n{}".format(meta, body))
 
     baseURL = getCfgVal("gesto", "url")
     r = SESSION.post(baseURL + "/api/gestoProblems/", json=ngp_body)

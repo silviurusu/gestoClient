@@ -1,12 +1,12 @@
-<!-- replaceWithHTMLCodes -->
-Buna ziua,
-
-{{subject}}
-
-Urmatoarele {{comenziWithProblems|length}} comenzi contin produse cu coduri WinMentor lipsa:
+<!-- formatare proprie -->
+Buna ziua,<br>
+<br>
+{{subject}}<br>
+<br>
+Urmatoarele {{comenziWithProblems|length}} comenzi contin produse cu coduri WinMentor lipsa:<br>
 {% for key, c in comenziWithProblems.items %}
-    {{c.destination}} - {{c.documentNo}} - {{c.date}}
-        {% for p in c.items%}Cantitate: {{p.qty}}{% endfor %}
+    {{c.destination}} - {{c.documentNo}} - {{c.date}}<br>
+        {% for p in c.items%}Cantitate: {{p.qty}}{% endfor %}<br>
 {% endfor %}
-
-Nu dati reply la acest mail va rog, nu urmareste nimeni aceasta adresa de mail.
+<br>
+Nu dati reply la acest mail va rog, nu urmareste nimeni aceasta adresa de mail.<br>
