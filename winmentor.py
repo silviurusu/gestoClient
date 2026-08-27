@@ -6,10 +6,13 @@ Facade (wrapper) for WinMentor OLE wrapper
 '''
 
 import pythoncom, win32com.client
+from pywintypes import com_error
 from datetime import datetime as dt, timedelta
 import logging
 import util
+import os
 import re
+import signal
 import math
 from django.template import loader
 import datetime
@@ -51,13 +54,91 @@ class WinMentor(object):
 
 
     @staticmethod
-    def docImpServerRunning():
-        """DocImpServer.exe activ inseamna un import WinMentor inca in curs (sau blocat) dintr-un run anterior."""
-        for proc in win32com.client.GetObject('winmgmts:').InstancesOf('win32_process'):
-            if proc.Name == "DocImpServer.exe":
-                return True
+    def docImpServerStartedAt():
+        """Cand a pornit cel mai vechi DocImpServer.exe, sau None daca nu ruleaza niciunul.
 
-        return False
+        Momentul spune cat de vechi e importul, ceea ce e singura informatie utila: sub
+        pragul rularii inseamna un import in curs, peste el inseamna unul intepenit.
+
+        Instantele blocate se aduna, iar cea mai veche masoara blocajul cel mai lung,
+        deci pe ea o raportam."""
+        started = [
+            util.wmi_creation_datetime(proc.CreationDate)
+            for proc in win32com.client.GetObject('winmgmts:').InstancesOf('win32_process')
+            if proc.Name == "DocImpServer.exe"
+        ]
+
+        return min(started) if started else None
+
+
+    @staticmethod
+    def killOrphanDocImpServers():
+        """Opreste instantele DocImpServer.exe ramase in urma unui run care s-a incheiat.
+
+        Serverul COM nu se inchide cand clientul iese - nici macar dupa un export reusit -
+        iar de atunci garda din main.py vede un import "in curs" si opreste orice rulare,
+        la infinit, pana intervine cineva.
+
+        Orfan inseamna doua lucruri deodata: procesul e in sesiunea noastra, ca sa nu atingem
+        importurile pornite manual din Mentor.exe (acelea traiesc in sesiunea utilizatorului,
+        noi in sesiunea 0), si nu mai exista niciun alt main.py care l-ar putea folosi. Cand
+        nu putem stabili amandoua, nu oprim nimic: un export intarziat cu cinci minute e mai
+        ieftin decat un import taiat la mijloc.
+
+        Intoarce cate instante au fost oprite."""
+        logger = logging.getLogger(__name__)
+
+        try:
+            procs = list(win32com.client.GetObject('winmgmts:').InstancesOf('win32_process'))
+        except com_error as e:
+            logger.warning(f"nu pot enumera procesele, las DocImpServer in pace: {e}")
+            return 0
+
+        pid = os.getpid()
+        session = next((proc.SessionId for proc in procs if proc.ProcessId == pid), None)
+
+        if session is None:
+            logger.warning("nu-mi gasesc propriul proces in WMI, las DocImpServer in pace")
+            return 0
+
+        servers = [
+            proc for proc in procs
+            if proc.Name == "DocImpServer.exe" and proc.SessionId == session
+        ]
+
+        if not servers:
+            return 0
+
+        # un alt main.py inseamna ca serverele sunt ale lui: le foloseste sau tocmai le porneste
+        exports = [
+            proc.ProcessId for proc in procs
+            if proc.ProcessId != pid
+            and proc.Name.lower().startswith("python")
+            and "main.py" in (proc.CommandLine or "")
+        ]
+
+        if exports:
+            logger.info(f"main.py mai ruleaza in {exports}, DocImpServer nu e orfan")
+            return 0
+
+        killed = 0
+
+        for proc in servers:
+            started = util.wmi_creation_datetime(proc.CreationDate)
+
+            try:
+                # win32com rezolva Terminate din WMI ca proprietate, deci proc.Terminate()
+                # l-ar executa la accesarea atributului si abia apoi ar crapa apeland int-ul
+                # intors; os.kill e TerminateProcess pe Windows, fara ambiguitatea asta
+                os.kill(proc.ProcessId, signal.SIGTERM)
+            except OSError as e:
+                logger.warning(f"DocImpServer orfan {proc.ProcessId}: nu l-am putut opri: {e}")
+                continue
+
+            logger.info(f"DocImpServer orfan {proc.ProcessId}, pornit {started:%d.%m %H:%M}, oprit")
+            killed += 1
+
+        return killed
 
 
     def __init__(self, **kwargs):
@@ -127,6 +208,20 @@ class WinMentor(object):
             self._stat.SetIDArtField("CodExtern")
 
         self.allowMissingDefaultGest = util.getCfgVal("products", "allowMissingDefaultGest")
+
+
+    def close(self):
+        """Elibereaza referinta COM catre DocImpServer.exe.
+
+        Fara ea serverul traieste pana la iesirea procesului - si uneori si dupa, fiindca la
+        teardown-ul interpretorului ordinea de eliberare nu mai e a noastra. Chemata aici,
+        eliberarea se intampla cat timp procesul e inca sanatos, deci serverul chiar apuca
+        sa vada ca n-a mai ramas nimeni pe el.
+
+        Dupa close() instanta nu mai e buna de nimic; companyName ramane, ca mesajele de
+        eroare de dupa sa mai poata spune despre ce firma vorbesc."""
+        self._stat = None
+        self._fdm = None
 
 
     def isDrink(self, productCode):

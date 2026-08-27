@@ -1328,6 +1328,7 @@ def main():
     global logger, winmentor, tokens
 
     logger = None
+    winmentor = None
 
     try:
         # Set DJANGO for email support
@@ -1423,7 +1424,7 @@ def main():
 
         except getopt.GetoptError:
             print(usage)
-            sys.exit(2)
+            sys.exit(settings.EXIT_ERROR)
 
         for opt, arg in opts:
             if opt == '-h':
@@ -1488,28 +1489,49 @@ def main():
         # raporta tocmai cazul in care conexiunea COM e blocata
         if do_delete_old_trace_files:
             maintenance.delete_old_trace_files(days_ago)
-            return True
+            return settings.EXIT_OK
 
         if do_verify_last_run_finished:
             maintenance.verify_last_run_finished()
-            return True
+            return settings.EXIT_OK
 
         # tokens = util.getCfgOptsDict("tokens")
         tokens = util.getTokens()
 
+        # serverele ramase dintr-un run incheiat ar tine verificarea de mai jos aprinsa
+        # la infinit, deci mai intai scapam de ele
+        WinMentor.killOrphanDocImpServers()
+
         # o singura verificare per run, inainte de Dispatch(): DocImpServer.exe activ inseamna
         # un import dintr-un run anterior inca in curs sau blocat
-        if WinMentor.docImpServerRunning():
+        started_at = WinMentor.docImpServerStartedAt()
+
+        if started_at is not None:
+            # cat timp sta in bugetul rularii, DocImpServer face un import in curs, nu unul
+            # intepenit: ne retragem si il lasam sa termine, fara sa alarmam pe nimeni
+            now = datetime.datetime.now()
+            timeout = util.run_timeout()
+            running_for = (now - started_at).total_seconds()
+
+            if running_for <= timeout:
+                logger.info("DocImpServer ruleaza de {:.0f} s, sub pragul de {} s".format(running_for, timeout))
+
+                return settings.EXIT_OK
+
             logger.info(settings.DOC_IMP_SERVER_RUNNING)
 
-            # numele firmei intra in mesaj: toate serverele scriu pe acelasi canal ntfy
+            # numele firmei intra in subiect: toate serverele scriu pe acelasi canal ntfy,
+            # iar Gesto grupeaza problemele dupa el, deci trebuie sa ramana constant
             company = util.getCfgVal("winmentor", "companyName")
-            msg = f"{settings.DOC_IMP_SERVER_RUNNING} - {company}"
+            subject = f"{settings.DOC_IMP_SERVER_RUNNING} - {company}"
+            body = util.doc_imp_server_status(started_at, now)
 
-            if util.report_problem(msg, msg, hours=0.5):
-                util.send_push_notification(msg, msg, True)
+            # durata din corp se schimba la fiecare rulare: dedublat si pe corp, fiecare
+            # raportare ar parea noua si ar notifica
+            if util.report_problem(subject, body, hours=0.3, verify_text=False):
+                util.send_push_notification(subject, body, True)
 
-            return False
+            return settings.EXIT_DOC_IMP_SERVER_RUNNING
 
         # Connect to winmentor
         winmentor = WinMentor(firma = util.getCfgVal("winmentor", "firma"),
@@ -1705,7 +1727,7 @@ def main():
         winmentor.sendIncorrectWinMentorProductsMail()
         winmentor.sendComenziWithProblemsMail()
 
-        return True
+        return settings.EXIT_OK
 
     except Exception as e:
         print(repr(e))
@@ -1714,13 +1736,22 @@ def main():
         util.newException(e)
 
     finally:
+        # eliberarea referintei COM cat timp procesul e inca sanatos; la teardown-ul
+        # interpretorului ordinea nu mai e a noastra, iar serverul ramane in urma
+        if winmentor is not None:
+            winmentor.close()
+
         if logger is not None:
             logger.info("END")
             logger.info("<<< {}() - duration = {}".format(inspect.stack()[0][3], dt.now() - start))
 
-    return False
+    return settings.EXIT_ERROR
 
 
 if __name__ == "__main__":
-    if main():
+    exit_code = main()
+
+    if exit_code == settings.EXIT_OK:
         logger.info(settings.TASK_FINISHED)
+
+    sys.exit(exit_code)

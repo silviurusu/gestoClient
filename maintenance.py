@@ -3,6 +3,7 @@ import datetime
 import logging
 import settings
 import util
+import winmentor
 import decorators
 
 
@@ -120,7 +121,25 @@ def verify_last_run_finished(log_details=settings.MAINTENANCE_LOG_DETAILS):
             logging.info(f"Log file found, {last_run_log} created on {creation_datetime}")
 
     if not found:
-        company = util.getCfgVal("winmentor", "companyName")
-        txtMail = f"WinMentor blocat la - {company}"
+        # subiectul spune ca ceva e blocat; corpul spune de cat timp, ca sa se vada
+        # din notificare daca e o rulare in curs sau un import intepenit de ore
+        now = datetime.datetime.now()
+        started_at = winmentor.WinMentor.docImpServerStartedAt()
+        body = util.doc_imp_server_status(started_at, now)
+        logging.info(body)
 
-        util.send_push_notification(txtMail, txtMail, True)
+        # cat timp DocImpServer sta in bugetul rularii, lipsa unui run incheiat inseamna
+        # doar ca unul e in curs; alarma o dam abia cand trece de prag, ca si main.py
+        if started_at is not None:
+            timeout = util.run_timeout()
+            running_for = (now - started_at).total_seconds()
+
+            if running_for <= timeout:
+                logging.info("Sub pragul de {} s, e o rulare in curs".format(timeout))
+
+                return
+
+        company = util.getCfgVal("winmentor", "companyName")
+        subject = f"WinMentor blocat la - {company}"
+
+        util.send_push_notification(subject, body, True)
