@@ -1708,7 +1708,7 @@ class WinMentor(object):
         txtWMDoc += "\n"
         txtWMDoc += "[Items_{}]\n".format(1)
 
-        if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "CARMIC 2 S.R.L.", "SC Pan Partener Spedition Arg SRL"]:
+        if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "CARMIC 2 S.R.L.", "SC La Nadiniere SRL", "SC Pan Partener Spedition Arg SRL"]:
             price_field = "listPrice"
         else:
             price_field = "PretVanzareFaraTVA"
@@ -1787,7 +1787,7 @@ class WinMentor(object):
         txtWMDoc += "\n"
         txtWMDoc += "[Items_{}]\n".format(1)
 
-        if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "CARMIC 2 S.R.L.", "SC Pan Partener Spedition Arg SRL"]:
+        if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "CARMIC 2 S.R.L.", "SC La Nadiniere SRL", "SC Pan Partener Spedition Arg SRL"]:
             price_field = "listPrice"
         else:
             price_field = "PretVanzareFaraTVA"
@@ -2266,7 +2266,7 @@ class WinMentor(object):
 
         # Transfer
         txtWMDoc += "[Monetar_{}]\n".format(1)
-        if self.companyName in ["CARMIC IMPEX SRL", "CARMIC 2 S.R.L.",]:
+        if self.companyName in ["CARMIC IMPEX SRL", "CARMIC 2 S.R.L.", "SC La Nadiniere SRL",]:
             operat = "N"
         else:
             operat = "D"
@@ -2307,7 +2307,7 @@ class WinMentor(object):
                 "simbGest",
                 )
 
-        if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "CARMIC 2 S.R.L.", "SC Pan Partener Spedition Arg SRL", "S.C. Kattana Black SRL"]:
+        if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "CARMIC 2 S.R.L.", "SC La Nadiniere SRL", "SC Pan Partener Spedition Arg SRL", "S.C. Kattana Black SRL"]:
             for idx, item in enumerate(items, start=1):
                 txtProd = self._dictToColonList(keys, item)
 
@@ -2386,7 +2386,7 @@ class WinMentor(object):
         ret = True
 
         for item in gestoData["items"]:
-            if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "CARMIC 2 S.R.L.", "SC Pan Partener Spedition Arg SRL", 'S.C. Kattana Black SRL']:
+            if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "CARMIC 2 S.R.L.", "SC La Nadiniere SRL", "SC Pan Partener Spedition Arg SRL", 'S.C. Kattana Black SRL']:
                 codExternArticol = item["winMentorCode"]
             else:
                 if item["winMentorCode"].startswith("G_MARF"):
@@ -2411,7 +2411,7 @@ class WinMentor(object):
                 wmArticol = self.getProduct(codExternArticol)
                 # self.logger.info("wmArticol: {}".format(wmArticol))
 
-                if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "CARMIC 2 S.R.L.", "SC Pan Partener Spedition Arg SRL", \
+                if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "CARMIC 2 S.R.L.", "SC La Nadiniere SRL", "SC Pan Partener Spedition Arg SRL", \
                                         "S.C. Kattana Black SRL"]:
                     item.update({
                         "codExternArticol": codExternArticol,
@@ -2450,7 +2450,7 @@ class WinMentor(object):
         if ret == True:
             # Creaza transferul doar daca am coduri pentru toate produsele
 
-            if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "CARMIC 2 S.R.L.", "SC Pan Partener Spedition Arg SRL", \
+            if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "CARMIC 2 S.R.L.", "SC La Nadiniere SRL", "SC Pan Partener Spedition Arg SRL", \
                                         "S.C. Kattana Black SRL"]:
                 articoleWMDoc = gestoData["items"]
             else:
@@ -2467,7 +2467,7 @@ class WinMentor(object):
                                 }
                             )
 
-            if self.companyName in ["CARMIC IMPEX SRL", "CARMIC 2 S.R.L.",]:
+            if self.companyName in ["CARMIC IMPEX SRL", "CARMIC 2 S.R.L.", "SC La Nadiniere SRL",]:
                 try:
                     nrDoc = gestoData["cash_register_report"]["last_documentNoFiscal"]
                 except KeyError:
@@ -2707,7 +2707,7 @@ class WinMentor(object):
                     self.productsMissingWMCodes.append(items[5])
 
             if items[6] != "":
-                if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "CARMIC 2 S.R.L.", "SC Pan Partener Spedition Arg SRL"]:
+                if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "CARMIC 2 S.R.L.", "SC La Nadiniere SRL", "SC Pan Partener Spedition Arg SRL"]:
                     opPrice = Decimal(items[8].replace(",", "."))
                 else:
                     opPrice = Decimal(items[7].replace(",", "."))
@@ -2769,7 +2769,7 @@ class WinMentor(object):
         articoleWMDoc = []
         for item in gestoData["items"]:
             # Adauga produs la lista produse
-            if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "CARMIC 2 S.R.L.", "SC Pan Partener Spedition Arg SRL"]:
+            if self.companyName in ["Andalusia", "CARMIC IMPEX SRL", "CARMIC 2 S.R.L.", "SC La Nadiniere SRL", "SC Pan Partener Spedition Arg SRL"]:
                 simbGest = "DEP_CENTRAL"
                 pret = item["opVal"] / item["qty"]
             else:
