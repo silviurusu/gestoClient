@@ -782,13 +782,24 @@ def main():
         started_at = WinMentor.docImpServerStartedAt()
 
         if started_at is not None:
+            # cat timp sta in bugetul rularii, DocImpServer face un import in curs, nu unul
+            # intepenit: ne retragem si il lasam sa termine, fara sa alarmam pe nimeni
+            now = datetime.datetime.now()
+            timeout = util.run_timeout()
+            running_for = (now - started_at).total_seconds()
+
+            if running_for <= timeout:
+                logger.info("DocImpServer ruleaza de {:.0f} s, sub pragul de {} s".format(running_for, timeout))
+
+                return settings.EXIT_OK
+
             logger.info(settings.DOC_IMP_SERVER_RUNNING)
 
             # numele firmei intra in subiect: toate serverele scriu pe acelasi canal ntfy,
             # iar Gesto grupeaza problemele dupa el, deci trebuie sa ramana constant
             company = util.get_companies()[0]["companyName"]
             subject = f"{settings.DOC_IMP_SERVER_RUNNING} - {company}"
-            body = util.doc_imp_server_status(started_at, datetime.datetime.now())
+            body = util.doc_imp_server_status(started_at, now)
 
             # durata din corp se schimba la fiecare rulare, iar exportul ruleaza din 5 in 5
             # minute: dedublat si pe corp, fiecare raportare ar parea noua si ar notifica

@@ -117,40 +117,37 @@ minute = */5
         {
             "name": "export",
             "args": ["--exportWinMentorData=1", "--markedForWinMentorExport=1"],
-            "timeout": util.SCHEDULER_JOB_TIMEOUT,
             "cron": {"hour": "6-21", "minute": "*/5"},
         },
     ]
 
 
-def test_parse_scheduler_jobs_reads_timeout_and_keeps_it_out_of_cron():
-    jobs = util.parse_scheduler_jobs(scheduler_cfg(r"""
+def test_parse_scheduler_jobs_sends_a_per_job_timeout_to_the_right_place():
+    """Timeout-ul e unul singur, pentru tot orarul; lasat in job ar trece drept camp cron."""
+    with pytest.raises(ValueError, match=r"\[scheduler\]"):
+        util.parse_scheduler_jobs(scheduler_cfg(r"""
 [scheduler:export]
 args = --exportWinMentorData=1
 timeout = 120
-minute = */5
 """))
 
-    assert jobs[0]["timeout"] == 120
-    assert jobs[0]["cron"] == {"minute": "*/5"}
+
+def test_scheduler_timeout_reads_the_schedule_wide_value():
+    assert util.scheduler_timeout(scheduler_cfg("[scheduler]\ntimeout = 120\n")) == 120
 
 
-def test_parse_scheduler_jobs_rejects_timeout_that_is_not_a_number():
+def test_scheduler_timeout_falls_back_when_not_set():
+    assert util.scheduler_timeout(scheduler_cfg("[scheduler]\npython = x\n")) == util.SCHEDULER_TIMEOUT
+
+
+def test_scheduler_timeout_rejects_a_value_that_is_not_a_number():
     with pytest.raises(ValueError, match="secunde"):
-        util.parse_scheduler_jobs(scheduler_cfg(r"""
-[scheduler:export]
-args = --exportWinMentorData=1
-timeout = zece minute
-"""))
+        util.scheduler_timeout(scheduler_cfg("[scheduler]\ntimeout = zece minute\n"))
 
 
-def test_parse_scheduler_jobs_rejects_timeout_that_is_not_positive():
+def test_scheduler_timeout_rejects_a_value_that_is_not_positive():
     with pytest.raises(ValueError, match="pozitiv"):
-        util.parse_scheduler_jobs(scheduler_cfg(r"""
-[scheduler:export]
-args = --exportWinMentorData=1
-timeout = 0
-"""))
+        util.scheduler_timeout(scheduler_cfg("[scheduler]\ntimeout = 0\n"))
 
 
 def test_parse_scheduler_jobs_rejects_unknown_cron_key():
@@ -438,3 +435,46 @@ def test_durata_drops_a_zero_remainder(minutes, expected):
 
 def test_doc_imp_server_status_says_when_it_is_not_running():
     assert util.doc_imp_server_status(None, datetime.datetime(2026, 8, 27, 14, 30)) == "DocImpServer nu ruleaza."
+
+
+ORAR = """
+[scheduler]
+timeout = 120
+
+[scheduler:export]
+args = --exportWinMentorData=1
+minute = */5
+"""
+
+
+def deploy_cu_orar(tmp_path, orar, config="[scheduler]\nschedule_file = task_schedule/firma.ini\n"):
+    """Un folder de aplicatie ca pe server: config_local.ini arata spre orar, printr-o cale
+    relativa la folderul aplicatiei."""
+    (tmp_path / "config_local.ini").write_text(config)
+
+    if orar is not None:
+        (tmp_path / "task_schedule").mkdir()
+        (tmp_path / "task_schedule" / "firma.ini").write_text(orar)
+
+    return str(tmp_path)
+
+
+def test_run_timeout_reads_the_value_from_the_schedule(tmp_path):
+    """main.py si watchdog-ul se sprijina pe acelasi prag cu care scheduler-ul opreste rularea."""
+    assert util.run_timeout(deploy_cu_orar(tmp_path, ORAR)) == 120
+
+
+def test_run_timeout_falls_back_without_a_schedule(tmp_path):
+    """Deploy fara scheduler: main.py e pornit din Task Scheduler si n-are orar de citit."""
+    app_dir = deploy_cu_orar(tmp_path, None, config="[scheduler]\npython = x\n")
+
+    assert util.run_timeout(app_dir) == util.SCHEDULER_TIMEOUT
+
+
+def test_run_timeout_falls_back_when_the_schedule_is_broken(tmp_path):
+    """Un orar stricat nu trebuie sa opreasca rularea: pragul e o precautie, nu scopul ei."""
+    assert util.run_timeout(deploy_cu_orar(tmp_path, "[scheduler]\ntimeout = maine\n")) == util.SCHEDULER_TIMEOUT
+
+
+def test_run_timeout_falls_back_without_a_local_config(tmp_path):
+    assert util.run_timeout(str(tmp_path)) == util.SCHEDULER_TIMEOUT

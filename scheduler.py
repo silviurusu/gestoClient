@@ -124,23 +124,23 @@ def main():
     schedule = ConfigParser()
     schedule.read_file(open(schedule_path))
 
+    timeout = util.scheduler_timeout(schedule)
+    logging.info(f"timeout: {timeout} s")
+
     scheduler = BlockingScheduler(timezone=TIMEZONE)
 
     for job in util.parse_scheduler_jobs(schedule):
         scheduler.add_job(
             run_job,
             trigger=CronTrigger(timezone=TIMEZONE, **job["cron"]),
-            args=(job["name"], python, working_dir, job["args"], job["timeout"]),
+            args=(job["name"], python, working_dir, job["args"], timeout),
             name=job["name"],
             # echivalentele IgnoreNew, respectiv StartWhenAvailable din Task Scheduler
             max_instances=1,
             misfire_grace_time=60,
         )
 
-        logging.info(
-            f"{job['name']}: {job['cron']} -> main.py {' '.join(job['args'])}"
-            f" (timeout {job['timeout']} s)"
-        )
+        logging.info(f"{job['name']}: {job['cron']} -> main.py {' '.join(job['args'])}")
 
     logging.info("Scheduler pornit.")
 

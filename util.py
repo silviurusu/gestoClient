@@ -21,6 +21,11 @@ import os
 logger = logging.getLogger(__name__)
 
 
+# folderul aplicatiei e cel in care sta util.py: caile din config_local.ini sunt relative
+# la el, nu la directorul din care s-a pornit rularea
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
 # Reteaua de la client are pene scurte de DNS: un getaddrinfo poate expira o data
 # si reusi la reincercarea urmatoare. Reincercam doar esecurile de connect, care
 # se produc inainte ca requestul sa plece de pe masina, deci raman idempotente
@@ -246,7 +251,7 @@ CRON_KEYS = ("minute", "hour", "day", "month", "day_of_week")
 
 # cat asteapta scheduler-ul o rulare main.py inainte s-o considere intepenita;
 # fiecare job isi poate pune alta valoare, in secunde
-SCHEDULER_JOB_TIMEOUT = 600
+SCHEDULER_TIMEOUT = 600
 
 
 def scheduler_schedule_path(cfg, app_dir):
@@ -274,15 +279,8 @@ def parse_scheduler_jobs(cfg):
         if not args:
             raise ValueError(f"[{section}]: lipseste 'args', argumentele date lui main.py")
 
-        raw_timeout = options.pop("timeout", SCHEDULER_JOB_TIMEOUT)
-
-        try:
-            timeout = int(raw_timeout)
-        except ValueError:
-            raise ValueError(f"[{section}]: 'timeout' se da in secunde, nu {raw_timeout!r}") from None
-
-        if timeout <= 0:
-            raise ValueError(f"[{section}]: 'timeout' trebuie sa fie pozitiv, nu {timeout}")
+        if "timeout" in options:
+            raise ValueError(f"[{section}]: 'timeout' e o valoare pentru tot orarul; muta-l in [scheduler]")
 
         for key in options:
             if key not in CRON_KEYS:
@@ -291,7 +289,6 @@ def parse_scheduler_jobs(cfg):
         jobs.append({
             "name": section[len(SCHEDULER_JOB_PREFIX):],
             "args": args,
-            "timeout": timeout,
             "cron": options,
         })
 
@@ -299,6 +296,45 @@ def parse_scheduler_jobs(cfg):
         raise ValueError(f"config-ul nu contine niciun job [{SCHEDULER_JOB_PREFIX}<nume>]")
 
     return jobs
+
+
+def scheduler_timeout(schedule):
+    """Cat asteapta scheduler-ul o rulare inainte s-o considere intepenita, in secunde.
+
+    E o singura valoare pentru tot orarul, si o folosesc amandoua capetele: scheduler-ul
+    omoara rularea dupa ea, iar main.py se sprijina pe acelasi prag ca sa stie daca un
+    DocImpServer.exe mai poate apartine unei rulari vii - peste prag, rularea care l-a
+    pornit a fost deja omorata, deci serverul a ramas in urma."""
+    raw = schedule.get("scheduler", "timeout", fallback=SCHEDULER_TIMEOUT)
+
+    try:
+        timeout = int(raw)
+    except ValueError:
+        raise ValueError(f"[scheduler]: 'timeout' se da in secunde, nu {raw!r}") from None
+
+    if timeout <= 0:
+        raise ValueError(f"[scheduler]: 'timeout' trebuie sa fie pozitiv, nu {timeout}")
+
+    return timeout
+
+
+def run_timeout(app_dir=APP_DIR):
+    """Pragul din orar: acelasi cu care scheduler-ul opreste rularea.
+
+    Un deploy fara orar - main.py pornit manual sau dintr-un task ramas in Task Scheduler -
+    nu are de unde sa-l ia, deci primeste valoarea implicita."""
+    try:
+        cfg = ConfigParser()
+        cfg.read_file(open(os.path.join(app_dir, "config_local.ini")))
+
+        schedule = ConfigParser()
+        schedule.read_file(open(scheduler_schedule_path(cfg, app_dir)))
+
+        return scheduler_timeout(schedule)
+    except (OSError, ValueError) as e:
+        logger.info(f"orarul nu se poate citi, folosesc timeout-ul implicit: {e}")
+
+        return SCHEDULER_TIMEOUT
 
 
 BR_TAG = re.compile(r"<br\s*/?>", re.IGNORECASE)
