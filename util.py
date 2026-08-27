@@ -300,14 +300,15 @@ INDENT = "    "
 def as_email_html(msg):
     """Corpul pregatit pentru mail.
 
-    Un template cu FORMAT_PROPRIU isi cere singur ruperile de rand; aici raman de rezolvat
-    doar liniile goale lasate de tag-uri si indentarea, pe care HTML-ul le-ar colapsa.
+    Un template cu FORMAT_PROPRIU isi cere singur ruperile de rand, deci newline-urile lui
+    nu se ating: sunt asezare in fisier, iar in HTML sunt spatiu alb. Ramane de rezolvat
+    doar indentarea, pe care HTML-ul ar colapsa-o.
+
     Restul mesajelor sunt text construit in Python, unde newline-ul chiar inseamna rand nou."""
     if FORMAT_PROPRIU in msg:
-        msg = LAYOUT_LINES.sub("\n", msg.replace(FORMAT_PROPRIU, "")).strip()
+        return msg.replace(FORMAT_PROPRIU, "").replace(INDENT, "&nbsp;" * 4)
 
-        return msg.replace(INDENT, "&nbsp;" * 4)
-
+    # exception.html isi tine randurile in <pre>; pana primeste si el marcajul, il recunoastem asa
     if "<html" in msg:
         return msg
 
@@ -318,16 +319,22 @@ def as_plain_text(rendered):
     """Corpul randat din template, curatat de taguri pentru log si pentru notificarile push.
     Mailul si Gesto primesc in continuare HTML-ul.
 
-    Un <br> la capat de rand nu adauga nimic - ruperea e deja acolo - deci consuma si
+    Cand textul poarta <br>, structura randurilor vine de acolo, iar newline-urile sunt
+    doar asezare: blocurile {%if%} false si corpul fiecarui {% for %}, care include
+    newline-ul de dupa tag, lasa altfel un rand gol intre elemente. Fara niciun <br>
+    textul e construit in Python, unde randurile goale sunt puse intentionat.
+
+    Un <br> la capat de rand nu adauga nimic, ruperea e deja acolo, deci consuma si
     newline-ul urmator; unul singur pe rand ramane rand gol.
 
-    Intai tagurile, apoi entitatile: invers, un &lt;b&gt; scris ca text in template
-    ar deveni tag si ar fi sters. La final se strang sirurile de linii goale lasate
-    in urma de blocurile {%if%} false din template."""
-    text = BR_TAG.sub("\n", BR_AT_EOL.sub("\n", rendered))
+    Tagurile inaintea entitatilor: invers, un &lt;b&gt; scris ca text in template
+    ar deveni tag si ar fi sters."""
+    text = LAYOUT_LINES.sub("\n", rendered) if BR_TAG.search(rendered) else rendered
+    text = BR_TAG.sub("\n", BR_AT_EOL.sub("\n", text))
     text = html.unescape(strip_tags(text))
 
-    return BLANK_LINES.sub("\n\n", text).strip()
+    # doar newline-urile: strip() ar manca si indentarea primului element
+    return BLANK_LINES.sub("\n\n", text).strip("\n")
 
 
 # print_args=False: decoratorul ar loga corpul brut, cu tagurile din template; functia

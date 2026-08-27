@@ -282,11 +282,19 @@ def test_as_plain_text_drops_leading_and_trailing_blank_lines():
     assert util.as_plain_text("\n\n\n\nUrmatoarele 4 coduri\n\n\n") == "Urmatoarele 4 coduri"
 
 
-def test_as_email_html_keeps_the_breaks_a_self_formatting_template_wrote():
-    """Randurile cu tag-uri lasa in urma linii goale; ruperile adevarate sunt cele scrise <br>."""
+def test_as_email_html_does_not_touch_newlines_of_a_self_formatting_template():
+    """Template-ul isi cere singur ruperile cu <br>; newline-urile lui sunt asezare in
+    fisier, iar in HTML sunt spatiu alb - nu au ce strica."""
     msg = util.FORMAT_PROPRIU + "\nprima<br>\n\n\n    a doua<br>\n"
 
-    assert util.as_email_html(msg) == "prima<br>\n" + "&nbsp;" * 4 + "a doua<br>"
+    assert util.as_email_html(msg) == "\nprima<br>\n\n\n" + "&nbsp;" * 4 + "a doua<br>\n"
+
+
+def test_as_email_html_turns_indentation_into_nbsp():
+    """HTML colapseaza spatiile; fara &nbsp; alinierea listelor s-ar pierde."""
+    msg = util.FORMAT_PROPRIU + "\n    APA MINERALA, 33017<br>\n"
+
+    assert util.as_email_html(msg) == "\n" + "&nbsp;" * 4 + "APA MINERALA, 33017<br>\n"
 
 
 def test_as_email_html_turns_newlines_into_breaks_for_plain_text():
@@ -294,6 +302,8 @@ def test_as_email_html_turns_newlines_into_breaks_for_plain_text():
 
 
 def test_as_email_html_leaves_a_full_html_document_alone():
+    """exception.html isi tine randurile in <pre>; pana primeste si el marcajul,
+    documentul complet e recunoscut dupa <html."""
     msg = "<html><body><pre>prima\na doua</pre></body></html>"
 
     assert util.as_email_html(msg) == msg
@@ -327,6 +337,18 @@ def test_self_formatting_template_ends_every_visible_line_with_a_break(path):
     ]
 
     assert unmarked == []
+
+
+def test_as_plain_text_drops_the_blank_lines_left_by_loop_tags():
+    """Corpul unui {% for %} include newline-ul de dupa tag, deci fiecare iteratie emite
+    un rand gol inaintea elementului. Randurile goale adevarate sunt cele scrise <br>."""
+    rendered = "\n    A, 33017<br>\n\n    B, 33016<br>\n<br>\nUrmatoarea sectiune<br>\n"
+
+    assert util.as_plain_text(rendered) == "    A, 33017\n    B, 33016\n\nUrmatoarea sectiune"
+
+
+def test_as_plain_text_keeps_the_indentation_of_the_first_line():
+    assert util.as_plain_text("\n    APA MINERALA, 33017<br>\n") == "    APA MINERALA, 33017"
 
 
 def test_as_plain_text_does_not_double_a_break_at_end_of_line():
