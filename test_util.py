@@ -272,6 +272,15 @@ def test_as_plain_text_keeps_escaped_markup_as_text():
     assert util.as_plain_text("&lt;b&gt; nu e un tag") == "<b> nu e un tag"
 
 
+def test_as_plain_text_collapses_runs_of_blank_lines():
+    """Blocurile {%if%} false din template lasa in urma siruri de linii goale."""
+    assert util.as_plain_text("prima\n\n\n\n\n\n\na doua") == "prima\n\na doua"
+
+
+def test_as_plain_text_drops_leading_and_trailing_blank_lines():
+    assert util.as_plain_text("\n\n\n\nUrmatoarele 4 coduri\n\n\n") == "Urmatoarele 4 coduri"
+
+
 def test_as_plain_text_on_a_rendered_template_fragment():
     rendered = "Urmatoarele 1 coduri nu apar in WinMentor:<br />\n    <b>2091</b> --- TORT, 2091"
 

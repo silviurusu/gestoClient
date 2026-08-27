@@ -287,6 +287,7 @@ def parse_scheduler_jobs(cfg):
 
 
 BR_TAG = re.compile(r"<br\s*/?>", re.IGNORECASE)
+BLANK_LINES = re.compile(r"\n{3,}")
 
 
 def as_plain_text(rendered):
@@ -294,8 +295,11 @@ def as_plain_text(rendered):
     Mailul si Gesto primesc in continuare HTML-ul.
 
     Intai tagurile, apoi entitatile: invers, un &lt;b&gt; scris ca text in template
-    ar deveni tag si ar fi sters."""
-    return html.unescape(strip_tags(BR_TAG.sub("\n", rendered)))
+    ar deveni tag si ar fi sters. La final se strang sirurile de linii goale lasate
+    in urma de blocurile {%if%} false din template."""
+    text = html.unescape(strip_tags(BR_TAG.sub("\n", rendered)))
+
+    return BLANK_LINES.sub("\n\n", text).strip()
 
 
 # print_args=False: decoratorul ar loga corpul brut, cu tagurile din template; functia
@@ -339,7 +343,8 @@ def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGes
         "from_email": settings.DEFAULT_FROM_EMAIL,
     }
 
-    logger.info({**email_body, "body": as_plain_text(msg)})
+    # corpul e deja logat mai sus, lizibil; un repr de dict ar escapa newline-urile
+    logger.info({k: v for k, v in email_body.items() if k != "body"})
 
     baseURL = getCfgVal("gesto", "url")
     token = getCfgVal("winmentor", "companyToken")
@@ -360,7 +365,9 @@ def report_problem(subject, body, hours, emails=None):
     if emails is not None:
         ngp_body["emails"] = emails
 
-    logger.info({**ngp_body, "body": as_plain_text(body)})
+    # corpul separat, ca text: intr-un repr de dict newline-urile raman escapate
+    logger.info({k: v for k, v in ngp_body.items() if k != "body"})
+    logger.info(as_plain_text(body))
 
     baseURL = getCfgVal("gesto", "url")
     r = SESSION.post(baseURL + "/api/gestoProblems/", json=ngp_body)
