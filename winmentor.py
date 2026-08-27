@@ -56,13 +56,21 @@ class WinMentor(object):
 
 
     @staticmethod
-    def docImpServerRunning():
-        """DocImpServer.exe activ inseamna un import WinMentor inca in curs (sau blocat) dintr-un run anterior."""
-        for proc in win32com.client.GetObject('winmgmts:').InstancesOf('win32_process'):
-            if proc.Name == "DocImpServer.exe":
-                return True
+    def docImpServerStartedAt():
+        """Cand a pornit cel mai vechi DocImpServer.exe, sau None daca nu ruleaza niciunul.
 
-        return False
+        Momentul spune cat de vechi e importul blocat, ceea ce e singura informatie utila
+        in notificare: cateva secunde inseamna o rulare normala in curs, ore inseamna blocaj.
+
+        Instantele blocate se aduna - bucla per firma porneste cate una pe firma - iar cea
+        mai veche masoara blocajul cel mai lung, deci pe ea o raportam."""
+        started = [
+            util.wmi_creation_datetime(proc.CreationDate)
+            for proc in win32com.client.GetObject('winmgmts:').InstancesOf('win32_process')
+            if proc.Name == "DocImpServer.exe"
+        ]
+
+        return min(started) if started else None
 
 
     def __init__(self, **kwargs):

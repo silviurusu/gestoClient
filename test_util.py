@@ -1,4 +1,5 @@
 import ast
+import datetime
 import pathlib
 import re
 from configparser import ConfigParser
@@ -360,3 +361,49 @@ def test_as_plain_text_on_a_rendered_template_fragment():
     rendered = "Urmatoarele 1 coduri nu apar in WinMentor:<br>\n    <b>2091</b> --- TORT, 2091<br>\n"
 
     assert util.as_plain_text(rendered) == "Urmatoarele 1 coduri nu apar in WinMentor:\n    2091 --- TORT, 2091"
+
+
+def test_wmi_creation_datetime_reads_the_local_time():
+    """CreationDate din WMI e deja in ora masinii; sufixul e doar decalajul ei fata de UTC."""
+    assert util.wmi_creation_datetime("20260827143005.123456+180") == datetime.datetime(2026, 8, 27, 14, 30, 5)
+
+
+def test_wmi_creation_datetime_handles_a_negative_offset():
+    assert util.wmi_creation_datetime("20260101000000.000000-300") == datetime.datetime(2026, 1, 1, 0, 0, 0)
+
+
+STARTED = datetime.datetime(2026, 8, 24, 9, 12, 0)
+
+
+@pytest.mark.parametrize("now, expected", [
+    (datetime.datetime(2026, 8, 24, 9, 15, 30), "de 3 minute"),
+    (datetime.datetime(2026, 8, 24, 9, 52, 0), "de 40 de minute"),
+    (datetime.datetime(2026, 8, 24, 11, 42, 0), "de 2 ore si 30 de minute"),
+    (datetime.datetime(2026, 8, 27, 14, 31, 0), "de 3 zile si 5 ore"),
+])
+def test_doc_imp_server_status_scales_the_unit(now, expected):
+    """Minute pentru o rulare in curs, zile pentru un import intepenit - la fel de citibil."""
+    assert util.doc_imp_server_status(STARTED, now) == f"DocImpServer ruleaza {expected}, din 24.08 09:12."
+
+
+@pytest.mark.parametrize("minutes, expected", [
+    (0, "sub un minut"),
+    (1, "1 minut"),
+    (61, "1 ora si 1 minut"),
+    (25 * 60, "1 zi si 1 ora"),
+])
+def test_durata_uses_the_singular(minutes, expected):
+    assert util.durata(minutes) == expected
+
+
+@pytest.mark.parametrize("minutes, expected", [
+    (120, "2 ore"),
+    (48 * 60, "2 zile"),
+])
+def test_durata_drops_a_zero_remainder(minutes, expected):
+    """Un rest zero nu adauga nimic: "2 ore", nu "2 ore si 0 de minute"."""
+    assert util.durata(minutes) == expected
+
+
+def test_doc_imp_server_status_says_when_it_is_not_running():
+    assert util.doc_imp_server_status(None, datetime.datetime(2026, 8, 27, 14, 30)) == "DocImpServer nu ruleaza."

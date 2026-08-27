@@ -775,15 +775,19 @@ def main():
 
         # o singura verificare per run, inainte de orice Dispatch(): in bucla per firma,
         # instanta WinMentor a firmei anterioare tine DocImpServer.exe in viata
-        if WinMentor.docImpServerRunning():
+        started_at = WinMentor.docImpServerStartedAt()
+
+        if started_at is not None:
             logger.info(settings.DOC_IMP_SERVER_RUNNING)
 
-            # numele firmei intra in mesaj: toate serverele scriu pe acelasi canal ntfy
+            # numele firmei intra in subiect: toate serverele scriu pe acelasi canal ntfy,
+            # iar Gesto grupeaza problemele dupa el, deci trebuie sa ramana constant
             company = util.get_companies()[0]["companyName"]
-            msg = f"{settings.DOC_IMP_SERVER_RUNNING} - {company}"
+            subject = f"{settings.DOC_IMP_SERVER_RUNNING} - {company}"
+            body = util.doc_imp_server_status(started_at, datetime.datetime.now())
 
-            if util.report_problem(msg, msg, hours=0.5):
-                util.send_push_notification(msg, msg, True)
+            if util.report_problem(subject, body, hours=0.5):
+                util.send_push_notification(subject, body, True)
 
             return False
 

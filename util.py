@@ -413,6 +413,65 @@ def report_problem(subject, body, hours, emails=None):
     return r.json()["ngp"]
 
 
+def wmi_creation_datetime(raw):
+    """CreationDate din WMI: YYYYMMDDHHMMSS.ffffff urmat de decalajul fata de UTC, in minute.
+
+    Ora e deja cea a masinii, deci decalajul nu ne trebuie: il comparam cu datetime.now(),
+    tot local."""
+    return datetime.datetime.strptime(raw[:14], "%Y%m%d%H%M%S")
+
+
+UNITATI = {
+    "zi": ("zi", "zile"),
+    "ora": ("ora", "ore"),
+    "minut": ("minut", "minute"),
+}
+
+
+def numeral(count, unit):
+    """In romana numeralul cere "de" cand ultimele doua cifre sunt cel putin 20:
+    "3 minute", dar "40 de minute"."""
+    singular, plural = UNITATI[unit]
+
+    if count == 1:
+        return f"1 {singular}"
+
+    if count % 100 >= 20 or count % 100 == 0:
+        return f"{count} de {plural}"
+
+    return f"{count} {plural}"
+
+
+def durata(minutes):
+    """Unitatea creste cu durata, ca notificarea sa se citeasca dintr-o privire:
+    4639 de minute nu spun nimic, trei zile spun tot."""
+    if minutes == 0:
+        return "sub un minut"
+
+    if minutes >= 24 * 60:
+        intreg, rest, unitate = minutes // (24 * 60), minutes % (24 * 60) // 60, ("zi", "ora")
+    elif minutes >= 60:
+        intreg, rest, unitate = minutes // 60, minutes % 60, ("ora", "minut")
+    else:
+        return numeral(minutes, "minut")
+
+    if rest == 0:
+        return numeral(intreg, unitate[0])
+
+    return "{} si {}".format(numeral(intreg, unitate[0]), numeral(rest, unitate[1]))
+
+
+def doc_imp_server_status(started_at, now):
+    """Explicatia din corpul notificarii: cateva minute inseamna o rulare in curs,
+    zile inseamna import intepenit."""
+    if started_at is None:
+        return "DocImpServer nu ruleaza."
+
+    minutes = int((now - started_at).total_seconds() // 60)
+
+    return f"DocImpServer ruleaza de {durata(minutes)}, din {started_at:%d.%m %H:%M}."
+
+
 def defaultJSON(obj):
     if isinstance(obj, Decimal):
         return float(obj)
