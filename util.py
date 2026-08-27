@@ -402,8 +402,14 @@ def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGes
 
 # print_args=False: vezi send_email
 @decorators.time_log(print_args=False)
-def report_problem(subject, body, hours, emails=None):
-    """Inregistreaza problema in Gesto (/api/gestoProblems/); True daca e noua in ultimele `hours` ore, deci merita un mail."""
+def report_problem(subject, body, hours, emails=None, verify_text=True):
+    """Inregistreaza problema in Gesto (/api/gestoProblems/); True daca e noua in ultimele `hours` ore, deci merita un mail.
+
+    Sub o ora, zecimalele sunt chiar minutele: 0.3 inseamna 30 de minute, 0.15 inseamna 15.
+
+    Gesto dedubleaza pe subiect *si* pe corp. Cu verify_text=False dedubleaza doar pe subiect:
+    pentru problemele al caror corp poarta un detaliu care se schimba la fiecare rulare - o
+    durata, un contor - altfel fiecare raportare ar parea noua si ar trimite o notificare."""
     # Gesto trimite mailul cu replaceWithBR, deci face el conversia: \n devine <br/> si
     # cele patru spatii &nbsp;. Ii dam text simplu, ca sa o faca o singura data - corpul
     # randat, cu <br>-urile lui si cu newline-urile de asezare, ar iesi cu randurile dublate.
@@ -413,6 +419,7 @@ def report_problem(subject, body, hours, emails=None):
         "subject": subject,
         "body": body,
         "hours": hours,
+        "verify_text": verify_text,
     }
     if emails is not None:
         ngp_body["emails"] = emails

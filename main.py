@@ -790,7 +790,9 @@ def main():
             subject = f"{settings.DOC_IMP_SERVER_RUNNING} - {company}"
             body = util.doc_imp_server_status(started_at, datetime.datetime.now())
 
-            if util.report_problem(subject, body, hours=0.5):
+            # durata din corp se schimba la fiecare rulare, iar exportul ruleaza din 5 in 5
+            # minute: dedublat si pe corp, fiecare raportare ar parea noua si ar notifica
+            if util.report_problem(subject, body, hours=0.3, verify_text=False):
                 util.send_push_notification(subject, body, True)
 
             return settings.EXIT_DOC_IMP_SERVER_RUNNING
