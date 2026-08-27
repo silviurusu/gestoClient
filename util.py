@@ -317,7 +317,8 @@ def as_email_html(msg):
 
 def as_plain_text(rendered):
     """Corpul randat din template, curatat de taguri pentru log si pentru notificarile push.
-    Mailul si Gesto primesc in continuare HTML-ul.
+    Mailul trimis de aici primeste in continuare HTML-ul; Gesto isi face singur conversia,
+    deci lui ii dam tot textul.
 
     Cand textul poarta <br>, structura randurilor vine de acolo, iar newline-urile sunt
     doar asezare: blocurile {%if%} false si corpul fiecarui {% for %}, care include
@@ -388,6 +389,11 @@ def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGes
 @decorators.time_log(print_args=False)
 def report_problem(subject, body, hours, emails=None):
     """Inregistreaza problema in Gesto (/api/gestoProblems/); True daca e noua in ultimele `hours` ore, deci merita un mail."""
+    # Gesto trimite mailul cu replaceWithBR, deci face el conversia: \n devine <br/> si
+    # cele patru spatii &nbsp;. Ii dam text simplu, ca sa o faca o singura data - corpul
+    # randat, cu <br>-urile lui si cu newline-urile de asezare, ar iesi cu randurile dublate.
+    body = as_plain_text(body)
+
     ngp_body = {
         "subject": subject,
         "body": body,
@@ -396,9 +402,9 @@ def report_problem(subject, body, hours, emails=None):
     if emails is not None:
         ngp_body["emails"] = emails
 
-    # corpul sub metadate, ca text: intr-un repr de dict newline-urile raman escapate
+    # corpul sub metadate: intr-un repr de dict newline-urile raman escapate
     meta = {k: v for k, v in ngp_body.items() if k != "body"}
-    logger.info("{}\n{}".format(meta, as_plain_text(body)))
+    logger.info("{}\n{}".format(meta, body))
 
     baseURL = getCfgVal("gesto", "url")
     r = SESSION.post(baseURL + "/api/gestoProblems/", json=ngp_body)
