@@ -87,7 +87,7 @@ class WinMentor(object):
             return
 
         # seteaza firma de lucru
-        company_cfg = kwargs.get("company")        
+        company_cfg = kwargs.get("company")
         self.setFirmaLucru(company_cfg["firma"])
 
         self.companyName = company_cfg["companyName"]
@@ -151,12 +151,12 @@ class WinMentor(object):
         self.firma = firma
         if self._stat is None:
             return
-        
+
         rc = self._stat.SetNumeFirma(self.firma)
         self.logger.info(f"SetNumeFirma rc = {rc}")
         if rc != 1:
             self.logger.error(repr(self.getListaErori()))
-            1/0            
+            1/0
 
 
 
@@ -2467,7 +2467,7 @@ class WinMentor(object):
                                 }
                             )
 
-            if self.companyName in ["CARMIC IMPEX SRL", "CARMIC 2 S.R.L.", "SC La Nadiniere SRL",]:
+            if self.companyName in ["CARMIC IMPEX SRL", "CARMIC 2 S.R.L."]:
                 try:
                     nrDoc = gestoData["cash_register_report"]["last_documentNoFiscal"]
                 except KeyError:
