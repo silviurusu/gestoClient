@@ -287,17 +287,45 @@ def parse_scheduler_jobs(cfg):
 
 
 BR_TAG = re.compile(r"<br\s*/?>", re.IGNORECASE)
+BR_AT_EOL = re.compile(r"<br\s*/?>[ \t]*\n", re.IGNORECASE)
 BLANK_LINES = re.compile(r"\n{3,}")
+LAYOUT_LINES = re.compile(r"\n\s*\n+")
+
+# marcaj pe prima linie a template-ului: randurile lui sunt marcate cu <br>, deci
+# newline-urile lasate in urma de tag-uri sunt doar asezare in fisier, nu rand nou
+FORMAT_PROPRIU = "<!-- formatare proprie -->"
+INDENT = "    "
+
+
+def as_email_html(msg):
+    """Corpul pregatit pentru mail.
+
+    Un template cu FORMAT_PROPRIU isi cere singur ruperile de rand; aici raman de rezolvat
+    doar liniile goale lasate de tag-uri si indentarea, pe care HTML-ul le-ar colapsa.
+    Restul mesajelor sunt text construit in Python, unde newline-ul chiar inseamna rand nou."""
+    if FORMAT_PROPRIU in msg:
+        msg = LAYOUT_LINES.sub("\n", msg.replace(FORMAT_PROPRIU, "")).strip()
+
+        return msg.replace(INDENT, "&nbsp;" * 4)
+
+    if "<html" in msg:
+        return msg
+
+    return msg.replace("\n", "<br/>")
 
 
 def as_plain_text(rendered):
     """Corpul randat din template, curatat de taguri pentru log si pentru notificarile push.
     Mailul si Gesto primesc in continuare HTML-ul.
 
+    Un <br> la capat de rand nu adauga nimic - ruperea e deja acolo - deci consuma si
+    newline-ul urmator; unul singur pe rand ramane rand gol.
+
     Intai tagurile, apoi entitatile: invers, un &lt;b&gt; scris ca text in template
     ar deveni tag si ar fi sters. La final se strang sirurile de linii goale lasate
     in urma de blocurile {%if%} false din template."""
-    text = html.unescape(strip_tags(BR_TAG.sub("\n", rendered)))
+    text = BR_TAG.sub("\n", BR_AT_EOL.sub("\n", rendered))
+    text = html.unescape(strip_tags(text))
 
     return BLANK_LINES.sub("\n\n", text).strip()
 
@@ -318,11 +346,7 @@ def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGes
         msg = "{}\n\n{}:{}".format(msg, frameinfo.filename, frameinfo.lineno)
     logger.info("msg: {}".format(as_plain_text(msg)))
 
-    if msg.find("<html") == -1:
-        # msg = msg.replace("<", "&lt;")
-        # msg = msg.replace(">", "&gt;")
-        # this one goes last
-        msg = msg.replace("\n", "<br/>")
+    msg = as_email_html(msg)
 
     if toEmails is None or bccEmails is None:
         # create new list, if I ever append to it the value for settings.BCC_EMAILS will change and I will

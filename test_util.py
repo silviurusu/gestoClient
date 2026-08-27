@@ -1,5 +1,6 @@
 import ast
 import pathlib
+import re
 from configparser import ConfigParser
 
 import pytest
@@ -281,7 +282,59 @@ def test_as_plain_text_drops_leading_and_trailing_blank_lines():
     assert util.as_plain_text("\n\n\n\nUrmatoarele 4 coduri\n\n\n") == "Urmatoarele 4 coduri"
 
 
-def test_as_plain_text_on_a_rendered_template_fragment():
-    rendered = "Urmatoarele 1 coduri nu apar in WinMentor:<br />\n    <b>2091</b> --- TORT, 2091"
+def test_as_email_html_keeps_the_breaks_a_self_formatting_template_wrote():
+    """Randurile cu tag-uri lasa in urma linii goale; ruperile adevarate sunt cele scrise <br>."""
+    msg = util.FORMAT_PROPRIU + "\nprima<br>\n\n\n    a doua<br>\n"
 
-    assert util.as_plain_text(rendered) == "Urmatoarele 1 coduri nu apar in WinMentor:\n\n    2091 --- TORT, 2091"
+    assert util.as_email_html(msg) == "prima<br>\n" + "&nbsp;" * 4 + "a doua<br>"
+
+
+def test_as_email_html_turns_newlines_into_breaks_for_plain_text():
+    assert util.as_email_html("prima\na doua") == "prima<br/>a doua"
+
+
+def test_as_email_html_leaves_a_full_html_document_alone():
+    msg = "<html><body><pre>prima\na doua</pre></body></html>"
+
+    assert util.as_email_html(msg) == msg
+
+
+def self_formatting_templates():
+    folder = pathlib.Path(__file__).parent / "templates" / "mail" / "admin"
+
+    return sorted(p for p in folder.glob("*.html") if util.FORMAT_PROPRIU in p.read_text(encoding="utf-8"))
+
+
+TAG_ONLY = re.compile(r"^\s*\{%.*%\}\s*$")
+COMMENT_ONLY = re.compile(r"^\s*<!--.*-->\s*$")
+
+
+def test_there_are_self_formatting_templates_to_check():
+    """Daca lista e goala, testul de mai jos ar trece degeaba."""
+    assert self_formatting_templates()
+
+
+@pytest.mark.parametrize("path", self_formatting_templates())
+def test_self_formatting_template_ends_every_visible_line_with_a_break(path):
+    """Randurile cu tag-uri emit doar spatiu alb; fiecare rand care chiar apare in mail
+    trebuie sa-si ceara singur ruperea, altfel HTML-ul il lipeste de urmatorul."""
+    unmarked = [
+        line for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+        and not TAG_ONLY.match(line)
+        and not COMMENT_ONLY.match(line)
+        and not line.rstrip().endswith("<br>")
+    ]
+
+    assert unmarked == []
+
+
+def test_as_plain_text_does_not_double_a_break_at_end_of_line():
+    """<br> la capat de rand nu adauga nimic: ruperea e deja acolo. Singur pe rand, ramane rand gol."""
+    assert util.as_plain_text("A<br>\nB<br>\n<br>\nC<br>\n") == "A\nB\n\nC"
+
+
+def test_as_plain_text_on_a_rendered_template_fragment():
+    rendered = "Urmatoarele 1 coduri nu apar in WinMentor:<br>\n    <b>2091</b> --- TORT, 2091<br>\n"
+
+    assert util.as_plain_text(rendered) == "Urmatoarele 1 coduri nu apar in WinMentor:\n    2091 --- TORT, 2091"

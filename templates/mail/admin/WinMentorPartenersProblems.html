@@ -1,16 +1,16 @@
+<!-- formatare proprie -->
 {%if missingPartners|length != 0%}
-Urmatorii {{missingPartners|length}} parteneri nu exista in WinMentor:<br/>
-{% for key,p in missingPartners.items  %}
-    {{p.name}}, {{p.code}}
+Urmatorii {{missingPartners|length}} parteneri nu exista in WinMentor:<br>
+{% for key,p in missingPartners.items %}
+    {{p.name}}, {{p.code}}<br>
 {% endfor %}
+<br>
 {%endif%}
-
 {%if multiplePartenerIDsForEmail|length != 0%}
-Urmatoarele {{multiplePartenerIDsForEmail|length}} coduri fiscale apar de mai multe ori la parteneri in WinMentor:<br/>
-{% for p in multiplePartenerIDsForEmail  %}
-    {{p}}
+Urmatoarele {{multiplePartenerIDsForEmail|length}} coduri fiscale apar de mai multe ori la parteneri in WinMentor:<br>
+{% for p in multiplePartenerIDsForEmail %}
+    {{p}}<br>
 {% endfor %}
+<br>
 {%endif%}
-
-
-Nu dati reply la acest mail va rog, nu urmareste nimeni aceasta adresa de mail.
+Nu dati reply la acest mail va rog, nu urmareste nimeni aceasta adresa de mail.<br>
