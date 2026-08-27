@@ -244,6 +244,10 @@ SCHEDULER_JOB_PREFIX = "scheduler:"
 # iar jobul cade pe orarul implicit in loc sa dea eroare
 CRON_KEYS = ("minute", "hour", "day", "month", "day_of_week")
 
+# cat asteapta scheduler-ul o rulare main.py inainte s-o considere intepenita;
+# fiecare job isi poate pune alta valoare, in secunde
+SCHEDULER_JOB_TIMEOUT = 600
+
 
 def scheduler_schedule_path(cfg, app_dir):
     """Orarul sta intr-un fisier versionat, per firma (task_schedule/<firma>/scheduler.ini),
@@ -270,6 +274,16 @@ def parse_scheduler_jobs(cfg):
         if not args:
             raise ValueError(f"[{section}]: lipseste 'args', argumentele date lui main.py")
 
+        raw_timeout = options.pop("timeout", SCHEDULER_JOB_TIMEOUT)
+
+        try:
+            timeout = int(raw_timeout)
+        except ValueError:
+            raise ValueError(f"[{section}]: 'timeout' se da in secunde, nu {raw_timeout!r}") from None
+
+        if timeout <= 0:
+            raise ValueError(f"[{section}]: 'timeout' trebuie sa fie pozitiv, nu {timeout}")
+
         for key in options:
             if key not in CRON_KEYS:
                 raise ValueError(f"[{section}]: '{key}' nu este un camp cron valid; acceptate: {', '.join(CRON_KEYS)}")
@@ -277,6 +291,7 @@ def parse_scheduler_jobs(cfg):
         jobs.append({
             "name": section[len(SCHEDULER_JOB_PREFIX):],
             "args": args,
+            "timeout": timeout,
             "cron": options,
         })
 

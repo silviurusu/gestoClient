@@ -17,6 +17,12 @@ DOC_IMP_SERVER_RUNNING="DocImpServer ruleaza, nu fa nimic"
 TASK_FINISHED="Taskul s-a terminat cu succes"
 MAINTENANCE_LOG_DETAILS="maintenance"
 
+# codurile cu care iese main.py; scheduler.log le noteaza ca "cod N", ca o rulare
+# oprita de garda sau de o exceptie sa nu mai arate la fel cu una reusita
+EXIT_OK = 0
+EXIT_ERROR = 1
+EXIT_DOC_IMP_SERVER_RUNNING = 2
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',

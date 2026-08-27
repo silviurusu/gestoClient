@@ -117,9 +117,40 @@ minute = */5
         {
             "name": "export",
             "args": ["--exportWinMentorData=1", "--markedForWinMentorExport=1"],
+            "timeout": util.SCHEDULER_JOB_TIMEOUT,
             "cron": {"hour": "6-21", "minute": "*/5"},
         },
     ]
+
+
+def test_parse_scheduler_jobs_reads_timeout_and_keeps_it_out_of_cron():
+    jobs = util.parse_scheduler_jobs(scheduler_cfg(r"""
+[scheduler:export]
+args = --exportWinMentorData=1
+timeout = 120
+minute = */5
+"""))
+
+    assert jobs[0]["timeout"] == 120
+    assert jobs[0]["cron"] == {"minute": "*/5"}
+
+
+def test_parse_scheduler_jobs_rejects_timeout_that_is_not_a_number():
+    with pytest.raises(ValueError, match="secunde"):
+        util.parse_scheduler_jobs(scheduler_cfg(r"""
+[scheduler:export]
+args = --exportWinMentorData=1
+timeout = zece minute
+"""))
+
+
+def test_parse_scheduler_jobs_rejects_timeout_that_is_not_positive():
+    with pytest.raises(ValueError, match="pozitiv"):
+        util.parse_scheduler_jobs(scheduler_cfg(r"""
+[scheduler:export]
+args = --exportWinMentorData=1
+timeout = 0
+"""))
 
 
 def test_parse_scheduler_jobs_rejects_unknown_cron_key():

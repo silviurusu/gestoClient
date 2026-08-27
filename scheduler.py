@@ -35,6 +35,9 @@ LOG_FILE_NAME = os.path.join(APP_DIR, "scheduler.log")
 LOG_MAX_BYTES = 10 * 1024 * 1024
 LOG_BACKUP_COUNT = 3
 
+# cat ii mai dam unei rulari sa se stinga dupa taskkill, inainte sa renuntam la ea
+KILL_GRACE = 30
+
 
 def setup_logging():
     logging.basicConfig(
@@ -52,17 +55,53 @@ def setup_logging():
     )
 
 
-def run_job(name, python, working_dir, args):
+def kill_job_tree(name, pid):
+    """Opreste rularea cu tot cu procesele pornite de ea: /T coboara in tot arborele.
+
+    DocImpServer.exe nu e printre ele - fiind server COM, il porneste svchost, nu main.py -
+    dar de orfanii lui se ocupa killOrphanDocImpServers la rularea urmatoare."""
+    killed = subprocess.run(
+        ["taskkill", "/PID", str(pid), "/T", "/F"],
+        capture_output=True,
+        text=True,
+    )
+
+    # taskkill scrie cate un rand per proces oprit, iar jurnalul se citeste pe linii
+    output = " ".join((killed.stdout.strip() or killed.stderr.strip()).split())
+    logging.info(f"{name}: taskkill {pid} -> cod {killed.returncode} | {output}")
+
+
+def run_job(name, python, working_dir, args, timeout):
     logging.info(f"{name}: pornit, main.py {' '.join(args)}")
 
     try:
-        result = subprocess.run(
+        job = subprocess.Popen(
             [python, "main.py"] + args,
             cwd=working_dir,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
         )
-        logging.info(f"{name}: cod {result.returncode} | {result.stdout.strip()}")
+
+        try:
+            stdout, _ = job.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            # fara asta o rulare intepenita opreste jobul definitiv: cu max_instances=1
+            # urmatoarele nici nu mai pornesc, deci exportul tace pana observa cineva
+            logging.warning(f"{name}: n-a terminat in {timeout} s, il opresc")
+            kill_job_tree(name, job.pid)
+
+            try:
+                stdout, _ = job.communicate(timeout=KILL_GRACE)
+            except subprocess.TimeoutExpired:
+                logging.error(f"{name}: nu s-a inchis nici dupa taskkill")
+                return
+
+            logging.warning(f"{name}: oprit dupa {timeout} s | {stdout.strip()}")
+
+            return
+
+        logging.info(f"{name}: cod {job.returncode} | {stdout.strip()}")
     except Exception:
         logging.exception(f"{name}: rularea a esuat")
 
@@ -91,14 +130,17 @@ def main():
         scheduler.add_job(
             run_job,
             trigger=CronTrigger(timezone=TIMEZONE, **job["cron"]),
-            args=(job["name"], python, working_dir, job["args"]),
+            args=(job["name"], python, working_dir, job["args"], job["timeout"]),
             name=job["name"],
             # echivalentele IgnoreNew, respectiv StartWhenAvailable din Task Scheduler
             max_instances=1,
             misfire_grace_time=60,
         )
 
-        logging.info(f"{job['name']}: {job['cron']} -> main.py {' '.join(job['args'])}")
+        logging.info(
+            f"{job['name']}: {job['cron']} -> main.py {' '.join(job['args'])}"
+            f" (timeout {job['timeout']} s)"
+        )
 
     logging.info("Scheduler pornit.")
 

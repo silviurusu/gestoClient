@@ -694,7 +694,7 @@ def main():
 
         except getopt.GetoptError:
             print(usage)
-            sys.exit(2)
+            sys.exit(settings.EXIT_ERROR)
 
         for opt, arg in opts:
             if opt == '-h':
@@ -738,11 +738,11 @@ def main():
 
         if do_delete_old_trace_files:
             maintenance.delete_old_trace_files(days_ago)
-            return True
+            return settings.EXIT_OK
 
         if do_verify_last_run_finished:
             maintenance.verify_last_run_finished()
-            return True
+            return settings.EXIT_OK
 
         start = datetime.datetime.now()
 
@@ -773,6 +773,10 @@ def main():
         endDate = workdate.replace(hour=23, minute=59, second=59)
         logger.info("Using end date: {}".format(endDate))
 
+        # serverele ramase dintr-un run incheiat ar tine verificarea de mai jos aprinsa
+        # la infinit, deci mai intai scapam de ele
+        WinMentor.killOrphanDocImpServers()
+
         # o singura verificare per run, inainte de orice Dispatch(): in bucla per firma,
         # instanta WinMentor a firmei anterioare tine DocImpServer.exe in viata
         started_at = WinMentor.docImpServerStartedAt()
@@ -789,7 +793,7 @@ def main():
             if util.report_problem(subject, body, hours=0.5):
                 util.send_push_notification(subject, body, True)
 
-            return False
+            return settings.EXIT_DOC_IMP_SERVER_RUNNING
 
         companies = util.expand_branches(util.get_companies(), tokens.keys())
 
@@ -798,6 +802,11 @@ def main():
 
             if cli_branches is not None:
                 company["branches"] = cli_branches
+
+            # serverul COM al firmei anterioare nu trebuie sa apuce si firma asta: doua
+            # DocImpServer.exe deodata inseamna doua sanse de scurgere in loc de una
+            if winmentor is not None:
+                winmentor.close()
 
             winmentor = WinMentor(company=company, an=start.year, luna=start.month)
             if not winmentor:
@@ -881,7 +890,7 @@ def main():
             winmentor.sendPartnersMail()
             winmentor.sendIncorrectWinMentorProductsMail()
 
-        return True
+        return settings.EXIT_OK
 
     except com_error as e:
         exp_repr = repr(e)
@@ -908,9 +917,19 @@ def main():
 
         util.newException(e)
 
-    return False
+    finally:
+        # ultima firma nu mai are cine s-o inchida in bucla, iar pe drumul cu exceptie
+        # nici celelalte n-au apucat
+        if winmentor is not None:
+            winmentor.close()
+
+    return settings.EXIT_ERROR
 
 
 if __name__ == "__main__":
-    if main():
+    exit_code = main()
+
+    if exit_code == settings.EXIT_OK:
         logger.info(settings.TASK_FINISHED)
+
+    sys.exit(exit_code)
