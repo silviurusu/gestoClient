@@ -674,7 +674,11 @@ def main():
 
         do_verify_last_run_finished = False
         do_delete_old_trace_files = False
-        days_ago = 100
+
+        # --days-ago inseamna acelasi lucru pe ambele cai pe care e citit - cu cate zile in
+        # urma se merge - dar fiecare isi pune alt implicit cand orarul nu-l da: mentenanta
+        # sterge trace-urile mai vechi de 100 de zile, importul ia doar ziua ceruta
+        days_ago = None
 
         usage = '{} --exportReceptions=<> --generateWorkOrders=<> --generateMonetare=<> --importAvize=<> --branches=<> --workDate=<YYYY-MM-DD> --verify-last-run-finished=<> --delete-old-trace-files=<> --days-ago=<>'.format(sys.argv[0])
 
@@ -737,7 +741,7 @@ def main():
         logger.info(args)
 
         if do_delete_old_trace_files:
-            maintenance.delete_old_trace_files(days_ago)
+            maintenance.delete_old_trace_files(100 if days_ago is None else days_ago)
             return settings.EXIT_OK
 
         if do_verify_last_run_finished:
@@ -841,13 +845,13 @@ def main():
                     getExportWinMentorData(branches = branches)
 
                 if doImportAvize:
-                    max_day = 1
-                    if datetime.datetime.now().minute == 15:
-                        max_day = 6
+                    # cate zile in urma merge importul; orarul cere mai multe o data pe ora,
+                    # ca sa prinda ce a scapat cat timp WinMentor sau Gesto n-au raspuns
+                    avize_days = 1 if days_ago is None else days_ago
 
-                    logger.info(f'{max_day=}')
+                    logger.info(f'{avize_days=}')
 
-                    for i in range(0, max_day):
+                    for i in range(0, avize_days):
                         w_date = endDate - timedelta(days = i)
 
                         logger.info(f'{w_date=}')

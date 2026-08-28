@@ -567,3 +567,68 @@ timeout = 120
     now = datetime.datetime(2026, 8, 27, 2, 3)
 
     assert util.run_cutoff(now, app_dir) == now - util.RUN_MAX_AGE
+
+
+def orar_firma(firma):
+    """Chiar orarul care ajunge pe serverul firmei, indexat dupa numele jobului."""
+    cale = pathlib.Path(util.APP_DIR) / "task_schedule" / firma / "scheduler.ini"
+
+    cfg = ConfigParser()
+    cfg.read_string(cale.read_text(encoding="utf8"))
+
+    return {job["name"]: job for job in util.parse_scheduler_jobs(cfg)}
+
+
+def minute_declansate(cron, ora=9):
+    """Minutele in care jobul chiar porneste, intr-o ora data.
+
+    Le cerem trigger-ului, nu expresiei: "*/2" pare sa spuna "din doua in doua", dar
+    inseamna minutele pare, deci fara 15 - exact capcana pe care o pazesc testele astea."""
+    from apscheduler.triggers.cron import CronTrigger
+
+    trigger = CronTrigger(timezone=util.TIMEZONE, **cron)
+    inceput = datetime.datetime(2026, 8, 27, ora, 0)
+
+    minute = []
+    fire = trigger.get_next_fire_time(None, inceput)
+
+    while fire is not None and fire.hour == ora:
+        minute.append(fire.minute)
+        fire = trigger.get_next_fire_time(fire, fire)
+
+    return minute
+
+
+def test_orarul_pan_partener_recupereaza_avizele_pe_minutul_15():
+    """importAvize ia ziua curenta; o data pe ora ia mai multe, ca sa prinda ce a scapat.
+    Cate zile si la ce minut spune orarul, nu minutul la care s-a nimerit sa porneasca."""
+    recuperare = orar_firma("Pan Partener")["export_avize_6_zile"]
+
+    assert "--days-ago=6" in recuperare["args"]
+    assert minute_declansate(recuperare["cron"]) == [15]
+
+
+def test_orarul_pan_partener_nu_porneste_doua_rulari_pe_acelasi_minut():
+    """Pe minutul 15 ruleaza doar recuperarea: a doua rulare pornita in aceeasi clipa ar
+    gasi DocImpServer ocupat si s-ar retrage fara sa exporte nimic."""
+    assert 15 not in minute_declansate(orar_firma("Pan Partener")["export"]["cron"])
+
+
+def test_orarul_pan_partener_pastreaza_cadenta_de_doua_minute():
+    """Aceeasi cadenta ca in task-ul pe care il inlocuieste: din doua in doua minute,
+    pornind de la minut impar."""
+    minute = minute_declansate(orar_firma("Pan Partener")["export"]["cron"])
+
+    assert minute[0] == 1
+    assert all(m % 2 for m in minute)
+
+
+def test_orarul_pan_partener_nu_ia_avize_seara():
+    """Task-ul de seara pe care il inlocuieste rula fara --importAvize; avizele le ia doar
+    fereastra de zi, iar recuperarea pe 6 zile cade tot in ea."""
+    joburi = orar_firma("Pan Partener")
+
+    assert "--importAvize=1" not in joburi["export_seara"]["args"]
+    assert minute_declansate(joburi["export_seara"]["cron"], ora=17) == []
+    assert minute_declansate(joburi["export"]["cron"], ora=20) == []
+    assert minute_declansate(joburi["export_avize_6_zile"]["cron"], ora=20) == []
