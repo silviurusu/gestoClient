@@ -531,7 +531,7 @@ class WinMentor(object):
                 self.logger.error(repr(self.getListaErori()))
 
             for item in transferuri:
-                self.logger.info(item)
+                # self.logger.info(item)
                 items = item.split(";")
                 if items[2] not in self.transfers[workDate]:
                     self.transfers[workDate].append(items[2])

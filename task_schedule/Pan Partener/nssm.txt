@@ -1,0 +1,81 @@
+Serviciul GestoScheduler pe serverul Pan Partener (winserver-PC).
+
+Inlocuieste task-urile de export si pe cel de curatare a trace-urilor din Task Scheduler.
+WinMentor_verify_running ramane acolo: un watchdog pornit de acelasi proces pe care il
+supravegheaza nu mai raporteaza nimic cand procesul cade.
+
+
+INAINTE DE ORICE: locatiile din config
+
+Deploy-ul aduce si codul nou, iar de la af3f70e exportul filtreaza request-urile Gesto pe
+branch-urile firmei. Versiunea de acum trimitea cererile nefiltrate, asa ca in configul lor
+apare o singura locatie desi datele acopera 18. O traducere 1:1 ar taia tacut exportul din
+celelalte 17 - fara eroare, fara mail, doar "totalRecords: 0".
+
+    1. verifica in Gesto ce intoarce /poses/?active=1 pentru tokenul firmei
+    2. daca toate locatiile au POS activ, pune branches gol si lasa expand_branches sa le
+       umple de acolo:
+
+           [winmentor]
+           companies = [{"firma": "PPSAG", "companyName": "SC Pan Partener Spedition Arg SRL", "branches": []}]
+
+    3. daca vreo locatie n-are POS activ, enumera-le explicit in branches - altfel raman
+       pe dinafara
+
+Fara pasul asta, serviciul va rula impecabil un export care nu mai vede nimic.
+
+
+INSTALARE
+
+Din cmd ridicat, in d:\Vectron\gestoClient:
+
+    <python.exe> -m pip install apscheduler
+
+    nssm install GestoScheduler "c:\Users\Administrator\AppData\Local\Programs\Python\Python312\python.exe" "d:\Vectron\gestoClient\scheduler.py"
+    nssm set GestoScheduler AppDirectory "d:\Vectron\gestoClient"
+    nssm set GestoScheduler ObjectName "winserver-PC\administrator" "<parola>"
+    nssm set GestoScheduler AppExit Default Restart
+    nssm set GestoScheduler AppStopMethodConsole 120000
+    nssm start GestoScheduler
+
+ObjectName e acelasi cont ca task-urile din folderul asta; fara el serviciul porneste ca
+LocalSystem, care are alta hiva HKCU decat cea in care e inregistrat COM-ul WinMentor si
+sub care e instalat Python-ul.
+
+AppStopMethodConsole la 120000 ms: la oprire, Python asteapta firele non-daemon din thread
+pool-ul APScheduler, deci un main.py in curs tine procesul in viata mult peste cele 1500 ms
+implicite. Fara valoarea asta, nssm restart raspunde "Unexpected status SERVICE_STOP_PENDING".
+
+
+CONFIG
+
+In config_local.ini, sectiunea care ii spune scheduler-ului ce orar sa citeasca:
+
+    [scheduler]
+    # gol = interpretorul si folderul scheduler-ului, adica exact cele date lui nssm
+    python =
+    working_dir =
+    schedule_file = task_schedule/Pan Partener/scheduler.ini
+
+Orarul il citeste si watchdog-ul, ca sa stie cat de veche poate fi ultima rulare incheiata
+inainte sa sune. Fara schedule_file cade pe fereastra implicita si suna in pauza de seara.
+
+
+TASK-URI DE OPRIT
+
+Dupa ce serviciul porneste, dezactiveaza in Task Scheduler task-urile pe care le inlocuieste,
+altfel exportul ruleaza de doua ori:
+
+    - cele doua task-uri de export (aceleasi argumente, ferestre suprapuse)
+    - WinMentor_remove_old_trace_files
+
+Ramane pornit doar WinMentor_verify_running.
+
+
+VERIFICARE
+
+    nssm status GestoScheduler
+    - scheduler.log, in folderul aplicatiei: la pornire scrie fiecare job cu orarul lui,
+      apoi cate o linie la fiecare rulare, cu codul de iesire
+    - debug\: dupa cateva minute trebuie sa apara loguri noi, la minute impare
+    - la minutul 15 al orei, logul trebuie sa arate avize_days=6
