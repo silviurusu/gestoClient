@@ -62,15 +62,19 @@ def read_last_line(filepath, block_size=1024):
 @decorators.time_log
 def verify_last_run_finished(log_details=settings.MAINTENANCE_LOG_DETAILS):
     now = datetime.datetime.now()
-    cutoff_date = now - datetime.timedelta(minutes=10)
-    logging.info(f"{cutoff_date=}")
 
-    # watchdog-ul e pornit de Task Scheduler non-stop, orarul insa nu tine toata ziua:
-    # in afara lui lipsa unei rulari incheiate e programul, nu un blocaj
-    if not util.run_expected(cutoff_date, now):
-        logging.info("Orarul nu astepta nicio rulare in intervalul verificat")
+    # fereastra o da orarul, nu un numar scris aici: trebuie sa treaca peste pasul dintre
+    # doua porniri, fiindca pana se termina rularea de acum cea mai recenta incheiata e
+    # cea dinaintea ei. Watchdog-ul e pornit de Task Scheduler non-stop, orarul insa nu
+    # tine toata ziua, iar in afara lui lipsa unei rulari incheiate e programul, nu blocaj
+    cutoff_date = util.run_cutoff(now)
+
+    if cutoff_date is None:
+        logging.info("Orarul nu astepta nicio rulare incheiata acum")
 
         return
+
+    logging.info(f"{cutoff_date=}")
 
     trace_folders = [util.getCfgVal("gesto", "trace_folder")]
 

@@ -479,7 +479,6 @@ def test_run_timeout_falls_back_when_the_schedule_is_broken(tmp_path):
 def test_run_timeout_falls_back_without_a_local_config(tmp_path):
     assert util.run_timeout(str(tmp_path)) == util.SCHEDULER_TIMEOUT
 
-
 ORAR_CU_FEREASTRA = """
 [scheduler:export]
 args = --exportWinMentorData=1
@@ -488,75 +487,83 @@ minute = */5
 """
 
 
-def fereastra(moment, minute=10):
-    """Fereastra pe care o intreaba watchdog-ul: ultimele cateva minute, pana acum."""
-    return moment - datetime.timedelta(minutes=minute), moment
-
-
-def test_run_expected_says_yes_inside_the_schedule_window(tmp_path):
+def test_run_cutoff_cere_o_rulare_incheiata_de_un_pas_de_orar(tmp_path):
+    """Pasul e de 5 minute, plus marja pentru durata rularii: fereastra iese de 10."""
     app_dir = deploy_cu_orar(tmp_path, ORAR_CU_FEREASTRA)
-    since, now = fereastra(datetime.datetime(2026, 8, 27, 10, 3))
+    now = datetime.datetime(2026, 8, 27, 10, 3)
 
-    assert util.run_expected(since, now, app_dir)
-
-
-def test_run_expected_says_no_outside_the_schedule_window(tmp_path):
-    """Noaptea nu ruleaza nimic: lipsa unei rulari incheiate e programul, nu un blocaj."""
-    app_dir = deploy_cu_orar(tmp_path, ORAR_CU_FEREASTRA)
-    since, now = fereastra(datetime.datetime(2026, 8, 27, 2, 3))
-
-    assert not util.run_expected(since, now, app_dir)
+    assert util.run_cutoff(now, app_dir) == datetime.datetime(2026, 8, 27, 9, 53)
 
 
-def test_run_expected_says_no_once_the_last_run_of_the_day_left_the_window(tmp_path):
-    """La 23:07, ultima rulare a fost la 22:55 si a iesit din fereastra: de aici incolo
-    watchdog-ul n-ar mai gasi niciun log proaspat, si ar suna pana dimineata."""
-    app_dir = deploy_cu_orar(tmp_path, ORAR_CU_FEREASTRA)
-    since, now = fereastra(datetime.datetime(2026, 8, 27, 23, 7))
-
-    assert not util.run_expected(since, now, app_dir)
-
-
-def test_run_expected_looks_at_every_job_in_the_schedule(tmp_path):
-    """Curatarea fisierelor de trace e tot o rulare main.py, si lasa si ea un log in urma."""
+def test_run_cutoff_creste_fereastra_pentru_un_orar_mai_rar(tmp_path):
+    """Un orar la 15 minute are nevoie de o fereastra mai larga, altfel cea mai recenta
+    rulare incheiata iese din ea cat timp ruleaza urmatoarea."""
     app_dir = deploy_cu_orar(tmp_path, r"""
+[scheduler:export]
+args = --exportWinMentorData=1
+hour = 6-21
+minute = 0,15,30,45
+""")
+    now = datetime.datetime(2026, 8, 27, 12, 3)
+
+    assert util.run_cutoff(now, app_dir) == datetime.datetime(2026, 8, 27, 11, 43)
+
+
+def test_run_cutoff_tace_noaptea(tmp_path):
+    """Orarul nu tine toata ziua: lipsa unei rulari incheiate e programul, nu un blocaj."""
+    app_dir = deploy_cu_orar(tmp_path, ORAR_CU_FEREASTRA)
+
+    assert util.run_cutoff(datetime.datetime(2026, 8, 27, 2, 3), app_dir) is None
+
+
+def test_run_cutoff_tace_dupa_ultima_rulare_a_zilei(tmp_path):
+    """La 23:07 ultima pornire a fost la 22:55: de aici incolo watchdog-ul n-ar mai gasi
+    niciun log proaspat, si ar suna pana dimineata."""
+    app_dir = deploy_cu_orar(tmp_path, ORAR_CU_FEREASTRA)
+
+    assert util.run_cutoff(datetime.datetime(2026, 8, 27, 23, 7), app_dir) is None
+
+
+def test_run_cutoff_ignora_pornirea_din_minutul_curent(tmp_path):
+    """La 06:00 prima rulare a zilei abia porneste, iar inaintea ei nu e niciuna incheiata:
+    numarata ca pornire, ar da o alarma falsa in fiecare dimineata."""
+    app_dir = deploy_cu_orar(tmp_path, ORAR_CU_FEREASTRA)
+
+    assert util.run_cutoff(datetime.datetime(2026, 8, 27, 6, 0, 30), app_dir) is None
+
+
+def test_run_cutoff_nu_stramteaza_fereastra_pentru_doua_joburi_apropiate(tmp_path):
+    """Curatarea fisierelor de trace e tot o rulare main.py, si cade la 3 minute dupa export.
+    Pasul dintre ele nu trebuie sa string fereastra: rularea de la 08:40 poate fi inca in
+    curs la 08:43, iar cea de dinaintea ei trebuie sa incapa in fereastra."""
+    app_dir = deploy_cu_orar(tmp_path, ORAR_CU_FEREASTRA + r"""
 [scheduler:trace_files]
 args = --delete-old-trace-files=1 --days-ago=20
 hour = 8
 minute = 43
 """)
-    since, now = fereastra(datetime.datetime(2026, 8, 27, 8, 45))
+    now = datetime.datetime(2026, 8, 27, 8, 45)
 
-    assert util.run_expected(since, now, app_dir)
-
-
-def test_run_expected_says_yes_without_a_schedule(tmp_path):
-    """Fara orar - rularile pornite din Task Scheduler - watchdog-ul nu are de unde sti:
-    o alarma in plus e mai buna decat una pierduta."""
-    app_dir = deploy_cu_orar(tmp_path, None, config="[scheduler]\npython = x\n")
-    since, now = fereastra(datetime.datetime(2026, 8, 27, 2, 3))
-
-    assert util.run_expected(since, now, app_dir)
+    assert util.run_cutoff(now, app_dir) == datetime.datetime(2026, 8, 27, 8, 35)
 
 
-def test_run_expected_says_yes_when_the_schedule_has_no_jobs(tmp_path):
-    app_dir = deploy_cu_orar(tmp_path, "[scheduler]\ntimeout = 120\n")
-    since, now = fereastra(datetime.datetime(2026, 8, 27, 2, 3))
+def test_run_cutoff_cade_pe_fereastra_implicita_fara_orar(tmp_path):
+    """Fara orar - rularile pornite din Task Scheduler - watchdog-ul nu are de unde sti
+    pasul: o alarma in plus e mai buna decat una pierduta."""
+    app_dir = deploy_cu_orar(tmp_path, None, config="""
+[scheduler]
+python = x
+""")
+    now = datetime.datetime(2026, 8, 27, 2, 3)
 
-    assert util.run_expected(since, now, app_dir)
-
-
-def test_run_expected_ignores_a_run_started_in_the_current_minute(tmp_path):
-    """La 06:00 prima rulare a zilei abia porneste, iar inaintea ei nu e niciuna incheiata:
-    numarata ca asteptata, ar da o alarma falsa in fiecare dimineata."""
-    app_dir = deploy_cu_orar(tmp_path, ORAR_CU_FEREASTRA)
-    since, now = fereastra(datetime.datetime(2026, 8, 27, 6, 0, 30))
-
-    assert not util.run_expected(since, now, app_dir)
+    assert util.run_cutoff(now, app_dir) == now - util.RUN_MAX_AGE
 
 
-def test_run_expected_says_yes_once_that_run_had_time_to_finish(tmp_path):
-    app_dir = deploy_cu_orar(tmp_path, ORAR_CU_FEREASTRA)
-    since, now = fereastra(datetime.datetime(2026, 8, 27, 6, 3))
+def test_run_cutoff_cade_pe_fereastra_implicita_cand_orarul_n_are_joburi(tmp_path):
+    app_dir = deploy_cu_orar(tmp_path, """
+[scheduler]
+timeout = 120
+""")
+    now = datetime.datetime(2026, 8, 27, 2, 3)
 
-    assert util.run_expected(since, now, app_dir)
+    assert util.run_cutoff(now, app_dir) == now - util.RUN_MAX_AGE

@@ -257,6 +257,17 @@ SCHEDULER_TIMEOUT = 600
 # scheduler.py, fiindca si watchdog-ul intreaba acelasi orar si trebuie sa citeasca la fel
 TIMEZONE = "Europe/Bucharest"
 
+# cat ii lasam rularii sa dureze, peste pasul orarului
+RUN_MARGIN = datetime.timedelta(minutes=5)
+
+# fereastra de cand orarul nu se poate citi: rularile vin atunci din Task Scheduler,
+# unde pasul nu se vede de aici
+RUN_MAX_AGE = datetime.timedelta(minutes=10)
+
+# de cat timp in urma cautam porniri cand masuram pasul orarului; a doua incercare e
+# pentru orarele mai rare decat zilnice, unde intr-o zi n-am gasi doua
+FIRE_LOOKBACKS = (datetime.timedelta(days=1), datetime.timedelta(days=8))
+
 
 def scheduler_schedule_path(cfg, app_dir):
     """Orarul sta intr-un fisier versionat, per firma (task_schedule/<firma>/scheduler.ini),
@@ -346,42 +357,76 @@ def run_timeout(app_dir=APP_DIR):
         return SCHEDULER_TIMEOUT
 
 
-def run_expected(since, now, app_dir=APP_DIR):
-    """Astepta orarul o rulare main.py care sa se fi si terminat intre `since` si `now`?
+def previous_fires(moment, jobs, lookback):
+    """Ultimele trei porniri din orar dinainte de `moment`, in ordine cronologica.
 
-    Watchdog-ul e pornit de Task Scheduler la cateva minute, non-stop, dar orarul nu tine
-    toata ziua: intre ultima rulare de seara si prima de dimineata lipsa unui log proaspat
-    e programul, nu un blocaj, iar fara intrebarea asta suna toata noaptea.
+    CronTrigger stie doar sa mearga inainte, deci pornim dintr-un punct din trecut si
+    inaintam pana il ajungem."""
+    # apscheduler se instaleaza odata cu serviciul; pe un deploy fara el importul
+    # la nivel de modul ar pica main.py cu totul, pentru o intrebare secundara
+    from apscheduler.triggers.cron import CronTrigger
 
-    Raspunsul il da acelasi CronTrigger care porneste rularile, ca watchdog-ul sa nu ajunga
-    sa aiba alta parere decat scheduler-ul despre cand trebuia sa ruleze ceva.
-
-    Cand orarul nu se poate citi - deploy fara scheduler, unde rularile vin din Task
-    Scheduler - raspundem ca da: o alarma in plus e mai buna decat una pierduta."""
-    try:
-        # apscheduler se instaleaza odata cu serviciul; pe un deploy fara el importul
-        # la nivel de modul ar pica main.py cu totul, pentru o intrebare secundara
-        from apscheduler.triggers.cron import CronTrigger
-
-        jobs = parse_scheduler_jobs(read_schedule(app_dir))
-    except (ImportError, OSError, ValueError) as e:
-        logger.info(f"orarul nu se poate citi, presupun ca era asteptata o rulare: {e}")
-
-        return True
-
-    # rularea pornita in minutul curent n-are cum sa fi terminat; scanarea logurilor sare
-    # peste ea din acelasi motiv, iar cele doua reguli trebuie sa spuna acelasi lucru -
-    # altfel prima rulare a zilei, care n-are inaintea ei una incheiata, ar da alarma falsa
-    until = now.replace(second=0, microsecond=0).astimezone()
+    fires = []
 
     for job in jobs:
         trigger = CronTrigger(timezone=TIMEZONE, **job["cron"])
-        fire = trigger.get_next_fire_time(None, since.astimezone())
+        fire = trigger.get_next_fire_time(None, moment - lookback)
 
-        if fire is not None and fire < until:
-            return True
+        while fire is not None and fire < moment:
+            fires.append(fire)
+            fire = trigger.get_next_fire_time(fire, fire)
 
-    return False
+    return sorted(fires)[-3:]
+
+
+def run_cutoff(now, app_dir=APP_DIR):
+    """De cand incoace trebuie sa existe o rulare main.py incheiata, sau None daca orarul
+    n-astepta niciuna acum.
+
+    Watchdog-ul e pornit de Task Scheduler la cateva minute, non-stop, si suna cand nu
+    gaseste nicio rulare incheiata mai noua de atat.
+
+    Fereastra trebuie sa treaca peste pasul orarului: cat timp rularea de acum e in curs,
+    cea mai recenta incheiata e cea dinaintea ei. Pasul il masuram intre ultimele porniri,
+    in loc sa-l scriem de mana, ca sa nu se strice in tacere cand se schimba orarul - iar
+    peste noapte, unde pasul dintre ultima rulare de seara si prima de dimineata e de
+    cateva ore, iese din aceeasi socoteala ca nu se astepta nimic.
+
+    Luam pasul cel mai mare dintre ultimele trei porniri: doua joburi care cad aproape unul
+    de altul scurteaza pasul pentru cateva minute, si cu el fereastra, tocmai cand rularea
+    dinainte inca nu s-a terminat.
+
+    Pornirile le dau aceleasi CronTrigger-e care pornesc rularile, ca watchdog-ul sa nu
+    ajunga sa aiba alta parere decat scheduler-ul despre cand trebuia sa ruleze ceva.
+
+    Pornirea din minutul curent nu intra la socoteala: rularea ei n-are cum sa fi terminat,
+    iar scanarea logurilor sare peste fisierele din minutul curent din acelasi motiv.
+
+    Cand orarul nu se poate citi - deploy fara scheduler, unde rularile vin din Task
+    Scheduler - ramanem pe fereastra implicita: o alarma in plus e mai buna decat una
+    pierduta."""
+    try:
+        jobs = parse_scheduler_jobs(read_schedule(app_dir))
+        moment = now.replace(second=0, microsecond=0).astimezone()
+
+        for lookback in FIRE_LOOKBACKS:
+            fires = previous_fires(moment, jobs, lookback)
+
+            if len(fires) == 3:
+                break
+        else:
+            raise ValueError("orarul n-are trei porniri nici intr-o saptamana")
+    except (ImportError, OSError, ValueError) as e:
+        logger.info(f"orarul nu se poate citi, folosesc fereastra implicita: {e}")
+
+        return now - RUN_MAX_AGE
+
+    window = max(b - a for a, b in zip(fires, fires[1:])) + RUN_MARGIN
+
+    if fires[-1] < moment - window:
+        return None
+
+    return now - window
 
 
 BR_TAG = re.compile(r"<br\s*/?>", re.IGNORECASE)
