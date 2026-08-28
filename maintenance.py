@@ -90,37 +90,46 @@ def verify_last_run_finished(log_details=settings.MAINTENANCE_LOG_DETAILS):
 
         files_sorted = sorted(files, reverse=True)
 
+        # cel mai recent log al unui run incheiat cu succes; log-urile de maintenance,
+        # cel in curs de scriere si cele in care DocImpServer rula nu sunt run-uri valide
+        last_run_log = None
+
         for file in files_sorted:
             if log_details in file:
                 continue
-            else:
-                if file.startswith(current_prefix):
+
+            if file.startswith(current_prefix):
+                continue
+
+            file_path = os.path.join(folder_path, file)
+
+            with open(file_path, 'r', encoding='utf-8') as f:
+                if settings.DOC_IMP_SERVER_RUNNING in f.read():
+                    logging.info(f"{settings.DOC_IMP_SERVER_RUNNING}, mesajul e in log")
                     continue
 
-                with open(f"{folder_path}\\{file}", 'r') as f:
-                    content = f.read()
-                    if settings.DOC_IMP_SERVER_RUNNING in content:
-                        logging.info(f"{settings.DOC_IMP_SERVER_RUNNING}, mesajul e in log")
-                        continue
+            last_line = read_last_line(file_path)
+            logging.info(last_line)
 
-                last_line = read_last_line(f"{folder_path}\\{file}")
-                logging.info(last_line)
+            if last_line is None or settings.TASK_FINISHED not in last_line:
+                logging.info("Taskul NU s-a terminat cu succes")
+                continue
 
-                if settings.TASK_FINISHED not in last_line:
-                    logging.info("Taskul NU s-a terminat cu succes")
-                    continue
+            last_run_log = file_path
+            break
 
-                break
+        if last_run_log is None:
+            logging.info("Niciun log de run incheiat cu succes in folder")
+            continue
 
-        logging.info(file)
+        logging.info(last_run_log)
 
-        file_path = os.path.join(folder_path, file)
-        creation_time = os.path.getmtime(file_path)
+        creation_time = os.path.getmtime(last_run_log)
         creation_datetime = datetime.datetime.fromtimestamp(creation_time)
         if creation_datetime > cutoff_date:
             found = True
 
-            logging.info(f"Log file found, {file_path} created on {creation_datetime}")
+            logging.info(f"Log file found, {last_run_log} created on {creation_datetime}")
 
     if not found:
         # subiectul spune ca ceva e blocat; corpul spune de cat timp, ca sa se vada
