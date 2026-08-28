@@ -422,6 +422,8 @@ def send_email(subject, msg, toEmails=None, bccEmails=None, location=True, isGes
         logger.exception("{}, {}".format(e, e.message))
 
 
+# print_args=False: vezi send_email
+@decorators.time_log(print_args=False)
 def report_problem(subject, body, hours, emails=None, verify_text=True):
     """Inregistreaza problema in Gesto (/api/gestoProblems/); True daca e noua in ultimele `hours` ore, deci merita un mail.
 
@@ -514,6 +516,7 @@ def doc_imp_server_status(started_at, now):
     return f"DocImpServer ruleaza de {durata(minutes)}, din {started_at:%d.%m %H:%M}."
 
 
+@decorators.time_log
 def send_push_notification(title, message, email=False, channel="gesto-push-general"):
     # tags can be all from here: https://docs.ntfy.sh/emojis/
     headers = {

@@ -7,9 +7,10 @@ import winmentor
 import decorators
 
 
-# scheduler.py porneste main.py la fiecare 15 minute, deci un run sanatos poate fi vechi
-# de pana la 15 minute in momentul verificarii; 20 lasa marja pentru durata run-ului.
-RUN_MAX_AGE_MINUTES = 20
+# cat de veche poate fi cea mai recenta rulare incheiata. Nu mai trebuie sa acopere pauza
+# dintre rulari: run_expected deschide folderul doar cand orarul chiar astepta o rulare
+# terminata, deci ramane de acoperit doar cat dureaza rularea insasi.
+RUN_MAX_AGE_MINUTES = 10
 
 
 @decorators.time_log
