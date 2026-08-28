@@ -249,9 +249,13 @@ SCHEDULER_JOB_PREFIX = "scheduler:"
 # iar jobul cade pe orarul implicit in loc sa dea eroare
 CRON_KEYS = ("minute", "hour", "day", "month", "day_of_week")
 
-# cat asteapta scheduler-ul o rulare main.py inainte s-o considere intepenita;
-# fiecare job isi poate pune alta valoare, in secunde
+# cat asteapta scheduler-ul o rulare main.py inainte s-o considere intepenita, in secunde;
+# orarul poate pune alta valoare, in [scheduler] timeout
 SCHEDULER_TIMEOUT = 600
+
+# orele din orar sunt ore de Romania, oricum ar fi setat ceasul masinii; sta aici, nu in
+# scheduler.py, fiindca si watchdog-ul intreaba acelasi orar si trebuie sa citeasca la fel
+TIMEZONE = "Europe/Bucharest"
 
 
 def scheduler_schedule_path(cfg, app_dir):
@@ -318,23 +322,66 @@ def scheduler_timeout(schedule):
     return timeout
 
 
+def read_schedule(app_dir=APP_DIR):
+    """Orarul firmei, gasit prin [scheduler] schedule_file din config_local.ini."""
+    cfg = ConfigParser()
+    cfg.read_file(open(os.path.join(app_dir, "config_local.ini")))
+
+    schedule = ConfigParser()
+    schedule.read_file(open(scheduler_schedule_path(cfg, app_dir)))
+
+    return schedule
+
+
 def run_timeout(app_dir=APP_DIR):
     """Pragul din orar: acelasi cu care scheduler-ul opreste rularea.
 
     Un deploy fara orar - main.py pornit manual sau dintr-un task ramas in Task Scheduler -
     nu are de unde sa-l ia, deci primeste valoarea implicita."""
     try:
-        cfg = ConfigParser()
-        cfg.read_file(open(os.path.join(app_dir, "config_local.ini")))
-
-        schedule = ConfigParser()
-        schedule.read_file(open(scheduler_schedule_path(cfg, app_dir)))
-
-        return scheduler_timeout(schedule)
+        return scheduler_timeout(read_schedule(app_dir))
     except (OSError, ValueError) as e:
         logger.info(f"orarul nu se poate citi, folosesc timeout-ul implicit: {e}")
 
         return SCHEDULER_TIMEOUT
+
+
+def run_expected(since, now, app_dir=APP_DIR):
+    """Astepta orarul o rulare main.py care sa se fi si terminat intre `since` si `now`?
+
+    Watchdog-ul e pornit de Task Scheduler la cateva minute, non-stop, dar orarul nu tine
+    toata ziua: intre ultima rulare de seara si prima de dimineata lipsa unui log proaspat
+    e programul, nu un blocaj, iar fara intrebarea asta suna toata noaptea.
+
+    Raspunsul il da acelasi CronTrigger care porneste rularile, ca watchdog-ul sa nu ajunga
+    sa aiba alta parere decat scheduler-ul despre cand trebuia sa ruleze ceva.
+
+    Cand orarul nu se poate citi - deploy fara scheduler, unde rularile vin din Task
+    Scheduler - raspundem ca da: o alarma in plus e mai buna decat una pierduta."""
+    try:
+        # apscheduler se instaleaza odata cu serviciul; pe un deploy fara el importul
+        # la nivel de modul ar pica main.py cu totul, pentru o intrebare secundara
+        from apscheduler.triggers.cron import CronTrigger
+
+        jobs = parse_scheduler_jobs(read_schedule(app_dir))
+    except (ImportError, OSError, ValueError) as e:
+        logger.info(f"orarul nu se poate citi, presupun ca era asteptata o rulare: {e}")
+
+        return True
+
+    # rularea pornita in minutul curent n-are cum sa fi terminat; scanarea logurilor sare
+    # peste ea din acelasi motiv, iar cele doua reguli trebuie sa spuna acelasi lucru -
+    # altfel prima rulare a zilei, care n-are inaintea ei una incheiata, ar da alarma falsa
+    until = now.replace(second=0, microsecond=0).astimezone()
+
+    for job in jobs:
+        trigger = CronTrigger(timezone=TIMEZONE, **job["cron"])
+        fire = trigger.get_next_fire_time(None, since.astimezone())
+
+        if fire is not None and fire < until:
+            return True
+
+    return False
 
 
 BR_TAG = re.compile(r"<br\s*/?>", re.IGNORECASE)

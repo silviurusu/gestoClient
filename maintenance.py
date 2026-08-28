@@ -61,8 +61,16 @@ def read_last_line(filepath, block_size=1024):
 
 @decorators.time_log
 def verify_last_run_finished(log_details=settings.MAINTENANCE_LOG_DETAILS):
-    cutoff_date = datetime.datetime.now() - datetime.timedelta(minutes=10)
+    now = datetime.datetime.now()
+    cutoff_date = now - datetime.timedelta(minutes=10)
     logging.info(f"{cutoff_date=}")
+
+    # watchdog-ul e pornit de Task Scheduler non-stop, orarul insa nu tine toata ziua:
+    # in afara lui lipsa unei rulari incheiate e programul, nu un blocaj
+    if not util.run_expected(cutoff_date, now):
+        logging.info("Orarul nu astepta nicio rulare in intervalul verificat")
+
+        return
 
     trace_folders = [util.getCfgVal("gesto", "trace_folder")]
 
@@ -73,7 +81,7 @@ def verify_last_run_finished(log_details=settings.MAINTENANCE_LOG_DETAILS):
         tot = len(files)
         logging.info(f"{tot} files in folder")
 
-        current_prefix = datetime.datetime.now().strftime('%Y_%m_%d__%H_%M')
+        current_prefix = now.strftime('%Y_%m_%d__%H_%M')
         logging.info(f"{current_prefix=}")
 
         files_sorted = sorted(files, reverse=True)
@@ -113,7 +121,6 @@ def verify_last_run_finished(log_details=settings.MAINTENANCE_LOG_DETAILS):
     if not found:
         # subiectul spune ca ceva e blocat; corpul spune de cat timp, ca sa se vada
         # din notificare daca e o rulare in curs sau un import intepenit de ore
-        now = datetime.datetime.now()
         started_at = winmentor.WinMentor.docImpServerStartedAt()
         body = util.doc_imp_server_status(started_at, now)
         logging.info(body)

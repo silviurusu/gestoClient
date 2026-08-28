@@ -27,7 +27,6 @@ import util
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 
 CFG_FILE_NAME = os.path.join(APP_DIR, "config_local.ini")
-TIMEZONE = "Europe/Bucharest"
 
 # jurnalul serviciului sta in afara folderului de trace, unde verify_last_run_finished
 # citeste fiecare fisier ca pe o rulare main.py
@@ -127,12 +126,12 @@ def main():
     timeout = util.scheduler_timeout(schedule)
     logging.info(f"timeout: {timeout} s")
 
-    scheduler = BlockingScheduler(timezone=TIMEZONE)
+    scheduler = BlockingScheduler(timezone=util.TIMEZONE)
 
     for job in util.parse_scheduler_jobs(schedule):
         scheduler.add_job(
             run_job,
-            trigger=CronTrigger(timezone=TIMEZONE, **job["cron"]),
+            trigger=CronTrigger(timezone=util.TIMEZONE, **job["cron"]),
             args=(job["name"], python, working_dir, job["args"], timeout),
             name=job["name"],
             # echivalentele IgnoreNew, respectiv StartWhenAvailable din Task Scheduler
