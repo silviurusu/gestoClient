@@ -178,9 +178,11 @@ class WinMentor(object):
         self.luna = kwargs.get("luna")
         self.logger.info("luna: {}".format(self.luna))
 
+        # fiecare document isi seteaza singur luna, deci firma poate merge mai departe:
+        # documentele din lunile deschise intra, celelalte raman de transmis prin LunaInchisa
         if self.an and self.luna:
             if not self.setLunaLucru(self.an, self.luna):
-                1/0
+                self.anuntaLunaCurentaNedeschisa()
 
         # TODO check this values ...
         self._stat.SetIDPartField('CodFiscal')
@@ -271,6 +273,14 @@ class WinMentor(object):
             return False
 
         return True
+
+
+    def anuntaLunaCurentaNedeschisa(self):
+        """Noi aflam o data pe zi; de obicei e inceput de luna si luna noua n-a fost inca deschisa."""
+        subject = f"Luna {self.luna:02}.{self.an} nu se poate seta in WinMentor la {self.companyName}"
+        msg = "Documentele din luna asta raman de transmis pana se deschide luna; cele din alte luni merg mai departe."
+        if util.report_problem(subject, msg, hours=24):
+            send_email(subject, msg, location=False)
 
 
     def setLunaLucruPentruExport(self, opDate, document):
