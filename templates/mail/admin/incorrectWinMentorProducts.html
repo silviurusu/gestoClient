@@ -7,9 +7,16 @@ Urmatoarele {{missingCodes|length}} produse nu au setate coduri WinMentor (in Ge
 <br>
 {%endif%}
 {%if missingDefaultGest|length != 0%}
-Urmatoarele {{missingDefaultGest|length}} produse nu au gestiuni default in WinMentor:<br>
+Urmatoarele {{missingDefaultGest|length}} produse nu au gestiune implicita in WinMentor. Documentele care le contin nu au fost importate; setati gestiunea implicita in nomenclatorul de articole din WinMentor:<br>
 {% for key,p in missingDefaultGest.items %}
-    {{p.item.name}}, {{p.item.winMentorCode}} --- {{p.details}}<br>
+    <b>{{p.item.name}}</b> (cod Gesto {{p.item.code}}, cod WinMentor {{p.item.winMentorCode}}) --- {{p.details}}<br>
+{% endfor %}
+<br>
+{%endif%}
+{%if missingTipContabil|length != 0%}
+Urmatoarele {{missingTipContabil|length}} produse nu au tip contabil la livrare in WinMentor. Documentele care le contin nu au fost importate; setati tipul contabil in nomenclatorul de articole sau in configurarea gestiunii din WinMentor:<br>
+{% for key,p in missingTipContabil.items %}
+    <b>{{p.item.name}}</b> (cod Gesto {{p.item.code}}, cod WinMentor {{p.item.winMentorCode}}) --- {{p.details}}<br>
 {% endfor %}
 <br>
 {%endif%}
@@ -28,9 +35,9 @@ Urmatoarele {{missingWMPrice|length}} produse nu au preturi in WinMentor:<br>
 <br>
 {%endif%}
 {%if missingWMCodes|length != 0%}
-Urmatoarele {{missingWMCodes|length}} coduri nu apar in WinMentor:<br>
+Urmatoarele {{missingWMCodes|length}} coduri nu apar in WinMentor. Documentele care le contin nu au fost importate; creati articolul in WinMentor sau corectati codul WinMentor in Gesto:<br>
 {% for key,p in missingWMCodes.items  %}
-    <b>{{key}}</b> --- {{p.item.name}}, {{p.item.winMentorCode}} --- {{p.details}}<br>
+    <b>{{p.item.name}}</b> (cod Gesto {{p.item.code}}, cod WinMentor cautat {{key}}) --- {{p.details}}<br>
 {% endfor %}
 <br>
 {%endif%}

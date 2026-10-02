@@ -44,6 +44,7 @@ class WinMentor(object):
 
     missingCodes = {}
     missingDefaultGest = {}
+    missingTipContabil = {}
     productsMissingWMCodes =[]
     missingWMCodes = {}
     missingWMPrice = {}
@@ -1224,12 +1225,14 @@ class WinMentor(object):
     def sendIncorrectWinMentorProductsMail(self):
         if len(self.missingCodes) \
         or len(self.missingDefaultGest) \
+        or len(self.missingTipContabil) \
         or len(self.missingWMCodes) \
         or len(self.missingWMPrice) \
         or len(self.productsMissingWMCodes):
             template = loader.get_template("mail/admin/incorrectWinMentorProducts.html")
             subject = "{} produse cu probleme in WinMentor".format(len(self.missingCodes)
                                                                      + len(self.missingDefaultGest)
+                                                                     + len(self.missingTipContabil)
                                                                      + len(self.productsMissingWMCodes)
                                                                      + len(self.missingWMCodes)
                                                                      + len(self.missingWMPrice)
@@ -1238,6 +1241,7 @@ class WinMentor(object):
                 "subject": subject,
                 "missingCodes": self.missingCodes,
                 "missingDefaultGest": self.missingDefaultGest,
+                "missingTipContabil": self.missingTipContabil,
                 "productsMissingWMCodes": self.productsMissingWMCodes,
                 "missingWMCodes": self.missingWMCodes,
                 "missingWMPrice": self.missingWMPrice,
@@ -2208,6 +2212,40 @@ class WinMentor(object):
         return (rc == 1)
 
 
+    def collectMonetarProductErrors(self, errors, newItems, details):
+        """Muta erorile WinMentor pe articol (309 fara gestiune, 007 fara tip contabil) in mailul cu produse
+        cu probleme; intoarce erorile ramase.
+
+        Erorile arata ca "309;Gestiune de livrare neprecizata Monetar_1;Item_3", iar Item_N e al N-lea
+        articol trimis de importaMonetare. La Panemar numerotarea e alta, deci erorile raman toate.
+        """
+        problemsByErrorCode = {
+            "309": self.missingDefaultGest,
+            "007": self.missingTipContabil,
+        }
+        gestoItems = [newItem["item"] for newItem in newItems.values()]
+
+        otherErrors = []
+        for error in errors:
+            match = re.match(r"(\d+);.*;Item_(\d+)$", error)
+
+            if self.companyName == "Panemar morarit si panificatie SRL" \
+            or match is None \
+            or match.group(1) not in problemsByErrorCode \
+            or not 1 <= int(match.group(2)) <= len(gestoItems):
+                otherErrors.append(error)
+                continue
+
+            item = gestoItems[int(match.group(2)) - 1]
+            # only add a code once
+            problemsByErrorCode[match.group(1)].setdefault(item["code"], {
+                    "item": item,
+                    "details": details,
+                })
+
+        return otherErrors
+
+
     @decorators.time_log
     def addMonetare(self, gestoData, sales_details=None):
         if sales_details is None \
@@ -2236,6 +2274,10 @@ class WinMentor(object):
 
         newItems = {}
         ret = True
+        # pos_name ("Sacalaz:POS1") include gestiunea; lipseste cand monetarul e pe toata gestiunea
+        monetarDetails = "monetar {} - {}".format(gestoData["dateBeginHuman"],
+                                                  gestoData.get("pos_name", gestoData["branch"]),
+                                                  )
 
         for item in gestoData["items"]:
             if self.companyName == "Panemar morarit si panificatie SRL":
@@ -2262,9 +2304,7 @@ class WinMentor(object):
                     # only add a code once
                     self.missingWMCodes[codExternArticol] = {
                             "item": item,
-                            "details": "{} - {}".format(gestoData["dateBeginHuman"],
-                                                             gestoData["branch"],
-                                                             )
+                            "details": monetarDetails,
                         }
             else:
                 # Adauga produs la lista produse transfer
@@ -2284,7 +2324,8 @@ class WinMentor(object):
                                 "um": wmArticol["DenUM"],
                                 "cant": 1,
                                 "pret": 0,
-                                "simbGest": simbGest
+                                "simbGest": simbGest,
+                                "item": item,
                             }
 
                 newItems[codExternArticol]["pret"] += item["opVal"]
@@ -2360,16 +2401,21 @@ class WinMentor(object):
 
                 self.logger.error(errors)
 
-                msg = errors[0]
+                # erorile pe articol ajung in mailul cu produse cu probleme; restul pleaca aici
+                otherErrors = self.collectMonetarProductErrors(errors, newItems, monetarDetails)
 
-                util.send_email(
-                        subject = "WinMentor - Eroare la adaugare monetar la {}, {}".format(gestoData["branch"], opDate),
-                        msg = msg,
-                        toEmails=["silviu@vectron.ro"],
-                        location=False)
+                if len(otherErrors):
+                    msg = "WinMentor a refuzat {}. Monetarul nu a fost importat.<br><br>Erori WinMentor:<br>{}".format(
+                            monetarDetails, "<br>".join(otherErrors))
+
+                    util.send_email(
+                            subject = "WinMentor - Eroare la adaugare monetar la {}, {}".format(gestoData["branch"], opDate),
+                            msg = msg,
+                            toEmails=util.getCfgVal("client", "notificationEmails"),
+                            location=False)
                 ret = False
 
-        return True
+        return ret
 
     @decorators.time_log
     def addIncasari(self, gestoData=None):
