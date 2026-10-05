@@ -2322,12 +2322,13 @@ class WinMentor(object):
                     newItems[codExternArticol] = {
                                 "codExternArticol": codExternArticol_val,
                                 "um": wmArticol["DenUM"],
-                                "cant": 1,
+                                "qty": 0,
                                 "pret": 0,
                                 "simbGest": simbGest,
                                 "item": item,
                             }
 
+                newItems[codExternArticol]["qty"] += item["qty"]
                 newItems[codExternArticol]["pret"] += item["opVal"]
 
         self.logger.info("newItems")
@@ -2338,12 +2339,21 @@ class WinMentor(object):
 
             articoleWMDoc = []
             for (key, item) in newItems.items():
+                if self.companyName == "Andalusia":
+                    # articole reale: cantitatea vanduta si pretul unitar; cantitatea 0 pleaca asa, cu valoarea
+                    cant = item["qty"]
+                    pret = item["pret"] / item["qty"] if item["qty"] else item["pret"]
+                else:
+                    # Panemar: articole agregate (G_PROD_9_xx etc.), cantitate 1 la valoarea totala
+                    cant = 1
+                    pret = item["pret"]
+
                 articoleWMDoc.append(
                         {
                             "codExternArticol": item["codExternArticol"],
                             "um": item["um"],
-                            "cant": item["cant"],
-                            "pret": item["pret"],
+                            "cant": cant,
+                            "pret": pret,
                             "simbGest": item["simbGest"]
                             }
                         )
