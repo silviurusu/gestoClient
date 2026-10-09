@@ -2730,7 +2730,8 @@ class WinMentor(object):
             else:
                 source = destination
 
-            if destination not in destinations:
+            # fara destinatii in config, productia livreaza la toate magazinele
+            if destinations != [""] and destination not in destinations:
                 continue
             if date != dnDate:
                 continue

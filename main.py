@@ -233,7 +233,7 @@ def importAvize(baseURL, date):
                 if company in ["SC Pan Partener Spedition Arg SRL"]:
                     dest_name = destination
                 else:
-                    dest_name = winmentor.getGestiuneName(destination),
+                    dest_name = winmentor.getGestiuneName(destination)
 
                 opStr["destination"] = {
                             "name": dest_name,
@@ -322,8 +322,13 @@ def importAvize(baseURL, date):
                     r = util.SESSION.post(baseURL+"/importOperation/", data = opStrText)
                     logger.info("Gesto response: %d, %s", r.status_code, r.text)
                     if r.status_code != 200:
+                        # de obicei un magazin fara corespondent in Gesto; celelalte transferuri merg
+                        # mai departe, iar acesta se reincearca la fiecare rulare
                         logger.error("Gesto request failed: %d, %s", r.status_code, r.text)
-                        1/0
+                        subject = f"Transferul {documentNo} catre {destination} nu intra in Gesto la {company}"
+                        msg = f"Gesto a raspuns {r.status_code}: {r.text}"
+                        if util.report_problem(subject, msg, hours=24):
+                            send_email(subject, msg, location=False)
 
                     # 1/0
                 opStr.pop('destination', None)
