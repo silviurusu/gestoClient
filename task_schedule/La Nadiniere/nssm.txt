@@ -1,0 +1,58 @@
+Serviciul GestoScheduler pe serverul La Nadiniere (mentorserver).
+
+Instalare, din cmd ridicat, in c:\Vectron\gestoClient:
+
+    C:\Users\mentor2\AppData\Local\Programs\Python\Python314\python.exe -m pip install apscheduler
+
+    nssm install GestoScheduler "C:\Users\mentor2\AppData\Local\Programs\Python\Python314\python.exe" "c:\Vectron\gestoClient\scheduler.py"
+    nssm set GestoScheduler AppDirectory "c:\Vectron\gestoClient"
+    nssm set GestoScheduler ObjectName "mentorserver\mentor2" "<parola>"
+    nssm set GestoScheduler AppExit Default Restart
+    nssm set GestoScheduler AppStopMethodConsole 120000
+    nssm start GestoScheduler
+
+Python-ul se da cu calea completa: pe server, "python" din PATH poate cadea pe
+C:\Users\mentor2\AppData\Local\Microsoft\WindowsApps\python.exe, alias-ul Microsoft Store.
+
+ObjectName e acelasi cont ca task-ul WinMentor_verify_running; fara el serviciul porneste ca
+LocalSystem, care are alta hiva HKCU decat cea in care e inregistrat COM-ul WinMentor si
+sub care e instalat Python-ul.
+
+AppStopMethodConsole la 120000 ms: la oprire, Python asteapta firele non-daemon din thread
+pool-ul APScheduler, deci un main.py in curs tine procesul in viata mult peste cele 1500 ms
+implicite. Fara valoarea asta, nssm restart raspunde "Unexpected status SERVICE_STOP_PENDING".
+
+AppKillProcessTree se lasa pe 0: un main.py orfan care isi termina importul e mai putin rau
+decat un import retezat, care lasa DocImpServer.exe agatat si blocheaza rularile urmatoare.
+
+Configul se citeste o singura data, la pornire: dupa orice schimbare in scheduler.ini sau in
+config_local.ini e nevoie de nssm restart GestoScheduler.
+
+In config_local.ini de pe server, doar caile si orarul folosit:
+
+    [scheduler]
+    python = C:\Users\mentor2\AppData\Local\Programs\Python\Python314\python.exe
+    working_dir = c:\Vectron\gestoClient
+    schedule_file = task_schedule\La Nadiniere\scheduler.ini
+
+Orarul il citeste si watchdog-ul, ca sa stie cat de veche poate fi ultima rulare incheiata
+inainte sa sune. Fara schedule_file cade pe fereastra implicita si suna in afara orarului.
+
+
+WATCHDOG
+
+WinMentor_verify_running.xml se importa in Task Scheduler (Import Task..., cu parola contului
+mentor2): main.py --verify-last-run-finished=1 la 5 minute, 07:00-21:00. Ramane in afara
+serviciului: un watchdog pornit de acelasi proces pe care il supravegheaza nu mai raporteaza
+nimic cand procesul cade.
+
+Daca exista deja task-uri de export WinMentor in Task Scheduler, se dezactiveaza dupa ce
+porneste serviciul, altfel exportul ruleaza de doua ori.
+
+
+VERIFICARE
+
+    nssm status GestoScheduler
+    - scheduler.log, in folderul aplicatiei: la pornire scrie fiecare job cu orarul lui,
+      apoi cate o linie la fiecare rulare, cu codul de iesire
+    - debug\: intre 07:00 si 20:55 trebuie sa apara cate un log nou la fiecare 5 minute

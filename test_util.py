@@ -632,3 +632,18 @@ def test_orarul_pan_partener_nu_ia_avize_seara():
     assert minute_declansate(joburi["export_seara"]["cron"], ora=17) == []
     assert minute_declansate(joburi["export"]["cron"], ora=20) == []
     assert minute_declansate(joburi["export_avize_6_zile"]["cron"], ora=20) == []
+
+
+def test_orarul_la_nadiniere_exporta_din_cinci_in_cinci_minute_intre_7_si_21():
+    export = orar_firma("La Nadiniere")["export"]
+
+    assert minute_declansate(export["cron"], ora=7) == list(range(0, 60, 5))
+    assert minute_declansate(export["cron"], ora=20) == list(range(0, 60, 5))
+    assert minute_declansate(export["cron"], ora=6) == []
+    assert minute_declansate(export["cron"], ora=21) == []
+
+
+def test_orarul_la_nadiniere_preia_documentele_marcate_manual():
+    """Avizele La Nadiniere nu se marcheaza automat la procesare: pleaca spre WinMentor
+    doar cele marcate din Gesto, pe care le aduce --markedForWinMentorExport."""
+    assert "--markedForWinMentorExport=1" in orar_firma("La Nadiniere")["export"]["args"]
