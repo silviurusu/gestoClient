@@ -579,9 +579,10 @@ def getExportWinMentorData(branches):
             if retJSON["report_id"] is not None:
                 try:
                     if isinstance(retJSON["report_data"], list):
-                        # doar monetarele pot veni ca lista
-                        for rd in retJSON["report_data"]:
-                            ret = winmentor.addMonetare(rd)
+                        # doar monetarele pot veni ca lista, cate unul pe POS;
+                        # le adaug pe toate si raportul e reusit doar daca toate au reusit
+                        results = [winmentor.addMonetare(rd) for rd in retJSON["report_data"]]
+                        ret = all(results)
                     elif retJSON["report_data"]["data"] == "monetare":
                         ret = winmentor.addMonetare(retJSON["report_data"])
                     elif retJSON["report_data"]["data"] == "intrari_din_productie":
